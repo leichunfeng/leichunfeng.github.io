@@ -3,9 +3,9 @@
 # ----------------------- #
 
 url: http://leichunfeng.github.io
-title: My Octopress Blog
-subtitle: A blogging framework for hackers.
-author: Your Name
+title: 雷纯锋的技术博客
+subtitle: 记录下学习的点滴，方便以后细细回味
+author: 雷纯锋
 simple_search: https://www.google.com/search
 description:
 
@@ -70,8 +70,8 @@ github_show_profile_link: true
 github_skip_forks: true
 
 # Twitter
-twitter_user:
-twitter_tweet_button: true
+# twitter_user:
+# twitter_tweet_button: true
 
 # Google +1
 google_plus_one: false
