@@ -4,7 +4,7 @@
   <title><![CDATA[雷纯锋的技术博客]]></title>
   <link href="http://leichunfeng.github.io/atom.xml" rel="self"/>
   <link href="http://leichunfeng.github.io/"/>
-  <updated>2014-11-10T13:13:14+08:00</updated>
+  <updated>2014-11-10T13:19:59+08:00</updated>
   <id>http://leichunfeng.github.io/</id>
   <author>
     <name><![CDATA[雷纯锋]]></name>
@@ -12,26 +12,5 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
-  
-  <entry>
-    <title type="html"><![CDATA[使用Octopress+GitHub Pages搭建个人博客]]></title>
-    <link href="http://leichunfeng.github.io/blog/2014/11/09/octopress-plus-github-pages/"/>
-    <updated>2014-11-09T22:50:19+08:00</updated>
-    <id>http://leichunfeng.github.io/blog/2014/11/09/octopress-plus-github-pages</id>
-    <content type="html"><![CDATA[<h2>Octopress设置</h2>
-
-<p>Octopress是一个基于Jekyll的博客框架，是对Jekyll的封装。</p>
-
-<h3>开始之前</h3>
-
-<h3>设置Octopress</h3>
-
-<h2>配置Octopress</h2>
-
-<h3>Blog配置</h3>
-
-<h4>主配置</h4>
-]]></content>
-  </entry>
   
 </feed>
