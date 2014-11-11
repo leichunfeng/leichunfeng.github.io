@@ -11,8 +11,8 @@ single: true
       {% include post/author.html %}
       {% include post/date.html %}{{ time }}{% if updated %} {{ updated }}{% endif %}
       {% include post/categories.html %}
+      {% include post/original_link.html %}
     </p>
-    {% include post/original_link.html %}
     {% unless page.sharing == false %}
       {% include post/sharing.html %}
     {% endunless %}
