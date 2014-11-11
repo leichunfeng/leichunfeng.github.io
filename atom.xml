@@ -4,7 +4,7 @@
   <title><![CDATA[雷纯锋的技术博客]]></title>
   <link href="http://leichunfeng.github.io/atom.xml" rel="self"/>
   <link href="http://leichunfeng.github.io/"/>
-  <updated>2014-11-10T23:06:12+08:00</updated>
+  <updated>2014-11-11T21:39:49+08:00</updated>
   <id>http://leichunfeng.github.io/</id>
   <author>
     <name><![CDATA[雷纯锋]]></name>
@@ -12,5 +12,28 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[序言]]></title>
+    <link href="http://leichunfeng.github.io/blog/2014/11/11/preface/"/>
+    <updated>2014-11-11T18:49:07+08:00</updated>
+    <id>http://leichunfeng.github.io/blog/2014/11/11/preface</id>
+    <content type="html"><![CDATA[<p>周末折腾了两天时间，终于用 <a href="http://octopress.org/">Octopress</a> 成功搭建起了自己专属的技术博客。不过在正式开始写第一篇技术博客之前，我还是想先写一篇序言，聊一聊自己此时此刻的想法，就当作是为博客开个头吧。</p>
+
+<p>其实，我非常羡慕那些文笔好的人，可以自由自在地用文字抒发自己的想法和情感，挥洒自如。其中，我的一个大学室友的文笔就非常不错，他在大学期间就写了一本比较受欢迎的小说 — <a href="http://www.qidian.com/Book/2279600.aspx">《魔兽法师的荣耀》</a>，让我顿时对他刮目相看，没有想到平时懒散惯了的屌丝也会有如此文艺的一面。因此，作为一直被世人所调侃的程序员中的一份子，我也一直想让自己变得文艺一点，力争摆脱屌丝的高大形象，希望能改变一点人们对程序员的世俗眼光。其中，写作应该算是一种比较优雅的方式，可以让我在自由自在表达自己情感的同时，让自己稍稍带上些文雅的气息。</p>
+
+<p>从毕业到现在已经有近两年半的时间了，光阴稍纵即逝。期间经历了太多的事情，让我深知人生不易，且行且珍惜的道理。我是一个怀旧的人，我现在仍然时常会想起大学时美好的时光，回忆那大学生活的点滴，因为那是一种无忧远虑、不问世事的田园生活，因为那时我也有一个完整的家，因为那是我人生中的一笔非常宝贵的财富。</p>
+
+<p>因此，我希望从现在开始能够将自己学习的点滴都用文字记录下来，因为这将是我人生中的另一笔非常宝贵的财富。虽然接下来我所要写的很多技术文章别人可能都已经写过了，但是在我看来这些都是我所亲身经历过的，每个人的理解和感悟也并不会完全一样。虽然我的文笔并不好，但是我确信我能够做到言之有物、言之有理。</p>
+
+<p>我觉得我是幸运的，因为我在短短两年半的时间内就有机会接触到比较多的开发语言和编程知识，比如<a href="https://developer.apple.com/devcenter/ios/index.action">iOS</a>、<a href="http://developer.android.com/index.html">Android</a>、<a href="http://www.java.com/zh_CN/">Java</a>、<a href="http://www.html5.com/">HTML5</a>、<a href="http://www.appcan.cn/">AppCan</a>、<a href="http://phonegap.com/">PhoneGap</a>等。我是一个懒惰的码农，却一直在为不成为码农而不懈努力，并希望成为一名优秀的程序员。我的惰性是一直存在的，但在加入程序员队伍后变得愈发强烈，并且与日俱增。</p>
+
+<p>因为懒得在手机上用拼音输入而学习双拼输入法，因为懒得在电脑上用全拼输入而学习五笔输入法，因为懒得写重复的代码而学习《重构 改善既有代码的设计》和《大话设计模式》，因为懒得用鼠标点击而记忆各种快捷键&hellip;但是往往后者需要花费比前者更多的时间和精力，这是多么矛盾啊。</p>
+
+<p>虽说是技术博客，但是我想本博客所涉及到的范围应该不仅仅只是局限于程序层面，只要是我觉得有意思的东西我都会考虑写上来，比如接下来我可能会考虑写一篇《一分钟学会双拼输入法》的文章，因为已经有好些人加我QQ希望学习双拼输入法了。</p>
+
+<p>最后，我是一个乐于分享的人，希望本博客能够作为我与读者分享和交流的一扇窗户，透过这扇窗我能够结交更多志同道合的朋友。</p>
+]]></content>
+  </entry>
   
 </feed>
