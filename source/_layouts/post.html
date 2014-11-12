@@ -11,7 +11,7 @@ single: true
       {% include post/author.html %}
       {% include post/date.html %}{{ time }}{% if updated %} {{ updated }}{% endif %}
       {% include post/categories.html %}
-      {% include post/original_link.html %}
+      {% include post/original_link.html %} <!-- 添加原文链接需要增加这一行代码 -->
     </p>
     {% unless page.sharing == false %}
       {% include post/sharing.html %}
