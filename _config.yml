@@ -7,7 +7,7 @@ title: 雷纯锋的技术博客
 subtitle: 记录自己学习的点滴，收获分享知识的乐趣
 author: 雷纯锋
 simple_search: https://www.google.com/search
-description:
+description: 
 
 # Default date format is "ordinal" (resulting in "July 22nd 2007")
 # You can customize the format as defined in
@@ -68,10 +68,6 @@ github_user:
 github_repo_count: 0
 github_show_profile_link: true
 github_skip_forks: true
-
-# Twitter
-# twitter_user:
-# twitter_tweet_button: true
 
 # Google +1
 google_plus_one: false

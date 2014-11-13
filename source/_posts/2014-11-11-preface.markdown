@@ -4,6 +4,7 @@ title: "序言"
 date: 2014-11-11 18:49:07 +0800
 comments: true
 categories: 
+keywords: 序言
 ---
 
 周末折腾了两天时间，终于用 [Octopress](http://octopress.org/) 成功搭建起了自己专属的技术博客。不过在正式开始写第一篇技术博客之前，我还是想先写一篇序言，聊一聊自己此时此刻的想法，就当作是为博客开个头吧。
