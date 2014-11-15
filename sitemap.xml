@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>http://leichunfeng.github.io/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/</loc>
+    <lastmod>2014-11-15T13:38:20+08:00</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>http://leichunfeng.github.io/blog/2014/11/11/use-octopress-plus-github-pages-to-setup-a-personal-blog/</loc>
     <lastmod>2014-11-11T21:47:07+08:00</lastmod>
     <priority>0.8</priority>
@@ -12,13 +17,13 @@
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/archives/</loc>
-    <lastmod>2014-11-13T21:11:22+08:00</lastmod>
+    <lastmod>2014-11-15T22:34:18+08:00</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/</loc>
-    <lastmod>2014-11-13T21:11:22+08:00</lastmod>
+    <lastmod>2014-11-15T22:34:18+08:00</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
