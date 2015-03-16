@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>http://leichunfeng.github.io/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal/</loc>
+    <lastmod>2015-03-16T13:32:51+08:00</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>http://leichunfeng.github.io/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/</loc>
     <lastmod>2014-11-15T13:38:20+08:00</lastmod>
     <priority>0.8</priority>
@@ -17,13 +22,13 @@
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/archives/</loc>
-    <lastmod>2014-11-18T23:57:34+08:00</lastmod>
+    <lastmod>2015-03-16T16:43:53+08:00</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/</loc>
-    <lastmod>2014-11-18T23:57:34+08:00</lastmod>
+    <lastmod>2015-03-16T16:43:53+08:00</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>

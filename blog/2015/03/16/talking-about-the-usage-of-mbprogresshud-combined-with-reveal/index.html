@@ -1,0 +1,265 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>结合 Reveal 谈谈 MBProgressHUD 的用法 - 雷纯锋的技术博客</title>
+  <meta name="author" content="雷纯锋">
+
+  
+  <meta name="description" content="我的博客已经好几个月没有更新了，想想还真是有些难过。究其原因主要是工作占用了我绝大部分的时间，包含工作日的晚上和大部分周末。剩余的很小部分空余时间，我都用来开发个人 iOS 应用 iGitHub 了。 iGitHub 是一个 GitHub 的 iOS 客户端，使用 MVVM 模式和 RAC &hellip;">
+  
+    <meta name="keywords" content="Reveal, MBProgressHUD, self.view.window, self.navigationController.view, self.navigationController.navigationBar, self.view">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://leichunfeng.github.io/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="雷纯锋的技术博客" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="http://cdn.staticfile.org/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">雷纯锋的技术博客</a></h1>
+  
+    <h2>记录自己学习的点滴，收获分享知识的乐趣</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:leichunfeng.github.io" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">结合 Reveal 谈谈 MBProgressHUD 的用法</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-03-16T13:32:51+08:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>1:32 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>我的博客已经好几个月没有更新了，想想还真是有些难过。究其原因主要是工作占用了我绝大部分的时间，包含工作日的晚上和大部分周末。剩余的很小部分空余时间，我都用来开发个人 iOS 应用 iGitHub 了。</p>
+
+<p>iGitHub 是一个 GitHub 的 iOS 客户端，使用 <a href="http://en.wikipedia.org/wiki/Model_View_ViewModel">MVVM</a> 模式和 <a href="https://github.com/ReactiveCocoa/ReactiveCocoa">RAC</a> 框架进行开发。目前 iGitHub 的项目代码 <a href="https://github.com/leichunfeng/MVVMReactiveCocoa">MVVMReactiveCocoa</a> 已经在 GitHub 上开源了出来。开发这个应用的主要目的是希望提供一个使用 MVVM 模式和 RAC 框架开发的完整应用，能够对学习 MVVM 模式和 RAC 框架的 iOS 开发者有所帮助。昨天，我已经向 App Store 提交了 iGitHub v1.0 版本，相信很快大家就可以下载使用了。</p>
+
+<p>言归正传，接下来我们结合 <a href="http://revealapp.com/">Reveal</a> 来谈谈 <a href="https://github.com/jdg/MBProgressHUD">MBProgressHUD</a> 的用法。这里主要讨论的是什么情况下导航栏上的按钮可用，什么情况下不可用，及其原因。</p>
+
+<p><strong>注</strong>：本博文的程序代码可以在 <a href="https://github.com/leichunfeng/MBProgressHUD">leichunfeng/MBProgressHUD</a> 上找到，读者可以克隆下来亲自运行下看看效果。</p>
+
+<h2>关于 self.navigationController.view</h2>
+
+<p>相信看过 MBProgressHUD 官方例子 <code>HudDemo</code> 代码的同学应该看到过下述代码：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">HUD</span> <span class="o">=</span> <span class="p">[[</span><span class="n">MBProgressHUD</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithView</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">navigationController</span><span class="p">.</span><span class="n">view</span><span class="p">];</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>当时，你可能会对 <code>self.navigationController.view</code> 有些疑惑，这是什么玩意？其实，如果我们查看下 <code>UINavigationController.h</code> 文件就会发现，<code>UINavigationController</code> 其实是继承自 <code>UIViewController</code> 的，那么它拥有 <code>view</code> 属性也就不奇怪了。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">NS_CLASS_AVAILABLE_IOS</span><span class="p">(</span><span class="mi">2</span><span class="n">_0</span><span class="p">)</span> <span class="k">@interface</span> <span class="bp">UINavigationController</span> : <span class="bp">UIViewController</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>下面，我们会结合 Reveal 清楚地看到 <code>self.navigationController.view</code> 到底是什么东西，稍安勿躁。</p>
+
+<h2>显示 MBProgressHUD</h2>
+
+<p>初始化 MBProgressHUD 时需要我们传入一个 <code>UIView</code> 类型的参数 <code>view</code>，而显示 MBProgressHUD 的原理其实就是用 <code>addSubview</code> 方法将 MBProgressHUD 添加为这个 <code>view</code> 的子视图。</p>
+
+<p>我们先来看看未显示 MBProgressHUD 时，应用的视图层次结构。其中 1 为 <code>UIWindow</code> ，即 <code>self.view.window</code>，2 是 <code>UINavigationController</code> 的 <code>view</code> ，即我们前面提到的 <code>self.navigationController.view</code> ，3 为 <code>self.view</code> ，4 为导航栏 <code>UINavigationBar</code> ，即 <code>self.navigationController.navigationBar</code> 。</p>
+
+<p><img src="/images/show-mbprogresshud.jpg" title="应用的视图层次结构" alt="应用的视图层次结构"></p>
+
+<p>通过这张图，我们清楚地看到了 <code>self.view.window</code> 、<code>self.navigationController.view</code> 、<code>self.view</code> 和 <code>self.navigationController.navigationBar</code> 在应用的视图层次中所处的位置，以及它们之间的层次关系。</p>
+
+<p>下面，我们就对比一下 MBProgressHUD 分别在 <code>self.view.window</code> 、<code>self.navigationController.view</code> 和 <code>self.view</code> 上显示时应用的视图层次结构，以及导航栏上按钮的可用情况。</p>
+
+<h3>方式 1 - On self.view.window</h3>
+
+<p>使用这种方式时，MBProgressHUD 被添加到了 <code>self.view.window</code> 上，它与 <code>self.navigationController.view</code> 在视图层次上是平级的，同为 <code>self.view.window</code> 的子视图。但是由于 MBProgressHUD 是后添加的，所以它处于 <code>self.navigationController.view</code> 的上方，因此导航栏上的按钮均不可点击。</p>
+
+<p><img src="/images/on-self.view.window.jpg" title="应用的视图层次结构" alt="应用的视图层次结构"></p>
+
+<h3>方式 2 - On self.navigationController.view</h3>
+
+<p>使用这种方式时，MBProgressHUD 被添加到了 <code>self.navigationController.view</code> 上，它与 <code>self.navigationController.navigationBar</code> 在视图层次上是平级的，同为 <code>self.navigationController.view</code> 的子视图。但是由于 MBProgressHUD 是后添加的，所以它处于 <code>self.navigationController.navigationBar</code> 的上方，因此导航栏上的按钮也均不可点击。</p>
+
+<p><img src="/images/on-self.navigationController.view.jpg" title="应用的视图层次结构" alt="应用的视图层次结构"></p>
+
+<h3>方式 3 - On self.view</h3>
+
+<p>使用这种方式时，MBProgressHUD 被添加到了 <code>self.view</code> 上，不管 <code>self.view</code> 或 MBProgressHUD 是否占满整个屏幕，<code>self.navigationController.navigationBar</code> 永远处于 MBProgressHUD 的上方。因此，导航栏上的按钮一直是可点击的。</p>
+
+<p><img src="/images/on-self.view.jpg" title="应用的视图层次结构" alt="应用的视图层次结构"></p>
+
+<h2>总结</h2>
+
+<p>当你需要让导航栏上的按钮不可点击的时候，可以选择使用 <code>方式 1</code> 或 <code>方式 2</code> 显示 MBProgressHUD 。反之，可以选择 <code>方式 3</code> 。</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">雷纯锋</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2015-03-16T13:32:51+08:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>1:32 pm</span></time>
+      
+
+
+      <br>原文链接：<a href="http://blog.leichunfeng.com/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal/">http://blog.leichunfeng.com/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal/</a> <!-- 添加原文链接需要增加这一行代码 -->
+    </p>
+    
+      <div class="sharing">
+  
+  
+  
+  
+	<!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+	<span class="jiathis_txt">分享到：</span>
+	<a class="jiathis_button_tools_1"></a>
+	<a class="jiathis_button_tools_2"></a>
+	<a class="jiathis_button_tools_3"></a>
+	<a class="jiathis_button_tools_4"></a>
+	<a href="http://www.jiathis.com/share?uid=1983651" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank">更多</a>
+	<a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript">
+var jiathis_config = {data_track_clickback:'true'};
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js?uid=1401863435807252" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+<!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" src="http://v2.uyan.cc/code/uyan.js?uid=1983651"></script>
+<!-- UY END -->
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/" title="Previous Post: 将 Octopress 博客从 GitHub 迁移到 GitCafe">&laquo; 将 Octopress 博客从 GitHub 迁移到 GitCafe</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal/">结合 Reveal 谈谈 MBProgressHUD 的用法</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/">将 Octopress 博客从 GitHub 迁移到 GitCafe</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/11/11/use-octopress-plus-github-pages-to-setup-a-personal-blog/">使用 Octopress+GitHub Pages 搭建个人博客</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/11/11/preface/">序言</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  <!-- 腾讯分析 -->
+  <script type="text/javascript" src="http://tajs.qq.com/stats?sId=38580234" charset="UTF-8"></script>
+  <!-- 腾讯分析 -->
+  Copyright &copy; 2015 - 雷纯锋 -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+  <span class="credit"> - 感谢 <a href="http://gitcafe.com/signup?invited_by=leichunfeng" target="_blank">GitCafe</a> 为本站提供存储空间</span>
+</p>
+
+</footer>
+  
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
