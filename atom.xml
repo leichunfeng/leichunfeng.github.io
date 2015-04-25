@@ -4,7 +4,7 @@
   <title><![CDATA[雷纯锋的技术博客]]></title>
   <link href="http://leichunfeng.github.io/atom.xml" rel="self"/>
   <link href="http://leichunfeng.github.io/"/>
-  <updated>2015-04-25T00:21:39+08:00</updated>
+  <updated>2015-04-25T23:31:12+08:00</updated>
   <id>http://leichunfeng.github.io/</id>
   <author>
     <name><![CDATA[雷纯锋]]></name>
@@ -12,6 +12,69 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Objective-C 对象模型]]></title>
+    <link href="http://leichunfeng.github.io/blog/2015/04/25/objective-c-object-model/"/>
+    <updated>2015-04-25T19:38:02+08:00</updated>
+    <id>http://leichunfeng.github.io/blog/2015/04/25/objective-c-object-model</id>
+    <content type="html"><![CDATA[<p>Objective-C 是一门面向对象的程序设计语言，它的对象模型是基于类来建立的。我们可以在苹果开源的 <a href="http://opensource.apple.com/tarballs/objc4/">runtime</a>（我下载的是当前的最新版本 <code>objc4-646.tar.gz</code> ）中发现 Objective-C 对象模型的实现细节。</p>
+
+<h2>对象</h2>
+
+<p>在 Objective-C 中，每一个对象都是某个类的实例，且这个对象的 <code>isa</code>（在 64 位 CPU 下，<code>isa</code> 已经不再是一个简单的指针，在本文中我们暂且把它当作普通指针来理解，后面我会单独写一篇博文来详细介绍 <code>Non-pointer isa</code> ）指针指向它所属的类。</p>
+
+<p>打开刚下载的 runtime 工程，在文件 <code>objc-private.h</code> 的第 127-232 行我们可以找到 Objective-C 中的对象的定义 <code>struct objc_object</code> 。是的，Objective-C 中的对象本质上是结构体对象，其中 <code>isa</code> 是它唯一的私有成员变量。</p>
+
+<p><img src="http://leichunfeng.github.io/images/objc_object.jpg" title="Objective-C 对象的定义" alt="Objective-C 对象的定义"></p>
+
+<p>在同一个文件的第 51-52 行我们可以找到 <code>Class</code> 和 <code>id</code> 类型的定义，它们分别是 <code>struct objc_class</code> 和 <code>struct objc_object</code> 类型的指针。这也是为什么 <code>id</code> 类型可以指向任意对象的原因。其中 <code>struct objc_class</code> 就是 Objective-C 中的类的定义，在下一节将会详细介绍。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">typedef</span> <span class="k">struct</span> <span class="n">objc_class</span> <span class="o">*</span><span class="kt">Class</span><span class="p">;</span>
+</span><span class='line'><span class="k">typedef</span> <span class="k">struct</span> <span class="n">objc_object</span> <span class="o">*</span><span class="kt">id</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h2>类</h2>
+
+<p>对象的类不仅描述了对象的数据：对象占用的内存大小、成员变量的类型和布局等，而且也描述了对象的行为：对象能够响应的消息、实现的实例方法等。因此，当我们调用实例方法 <code>[receiver message]</code> 给一个对象发送消息时，这个对象能否响应这个消息就需要通过 <code>isa</code> 找到它所属的类（当然还有 superclass，本文主要内容不是这个，所以不展开）才能知道。</p>
+
+<p>打开文件 <code>objc-runtime-new.h</code> ，在第 687-902 行我们可以找到 Objective-C 中的类的定义 <code>struct objc_class</code> 。同样的，Objective-C 中类也是一个结构体对象，并且继承了 <code>struct objc_object</code> 。</p>
+
+<p><img src="http://leichunfeng.github.io/images/objc_class.jpg" title="Objective-C 类的定义" alt="Objective-C 类的定义"></p>
+
+<p>所以，Objective-C 中的类本质上也是对象，我们称之为类对象。按照我们前面所说的所有的对象都是某个类的实例，那么类对象又是什么类的实例呢？答案就是我们将在下一节介绍的元类。</p>
+
+<p>在 Objective-C 中有一个非常特殊的类 <code>NSObject</code> ，绝大部分的类都继承自它。它是 Objective-C 中的两个根类（rootclass）之一，另外一个是 NSProxy（本文不讨论）。同样的，我们打开文件 <code>NSObject.h</code> ，可以看到 <code>NSObject</code> 类其实就只有一个成员变量 <code>isa</code> ，所有继承自 <code>NSObject</code> 的类也都会有这个成员变量。</p>
+
+<p><img src="http://leichunfeng.github.io/images/nsobject.jpg" title="NSObject 类" alt="NSObject 类"></p>
+
+<h2>元类</h2>
+
+<p>我们上面提到，本质上 Objective-C 中的类也是对象，它也是某个类的实例，这个类我们称之为元类（metaclass）。</p>
+
+<p>因此，我们也可以通过调用类方法，比如 <code>[NSObject new]</code>，给类对象发送消息。同样的，类对象能否响应这个消息也要通过 <code>isa</code> 找到类对象所属的类（元类）才能知道。也就是说，实例方法是保存在类中的，而类方法是保存在元类中的。</p>
+
+<p>那元类也是对象吗？是的话那它又是什么类的实例呢？是的，没错，元类也是对象（元类对象），元类也是某个类的实例，这个类我们称之为根元类（root metaclass）。不过，有一点比较特殊，那就是所有的元类所属的类都是同一个根元类（当然根元类也是元类，所以它所属的类也是根元类，即它本身）。根元类指的就是根类的元类，具体来说就是根类 <code>NSObject</code> 对应的元类。</p>
+
+<p>因此，理论上我们也可以给元类发送消息，但是 Objective-C 倾向于隐藏元类，不想让大家知道元类的存在。元类是为了保持 Objective-C 对象模型在设计上的完整性而引入的，比如用来保存类方法等，它主要是用来给编译器使用的。</p>
+
+<p>说了这么多，大家可能已经有点绕迷糊了，下面我们看一张图，一切自会明了。</p>
+
+<p><img src="http://leichunfeng.github.io/images/object_model.png" title="Objective-C 对象模型" alt="Objective-C 对象模型"></p>
+
+<h2>参考链接</h2>
+
+<ul>
+<li><a href="http://www.devtang.com/blog/2013/10/15/objective-c-object-model/">http://www.devtang.com/blog/2013/10/15/objective-c-object-model/</a></li>
+<li><a href="http://husbandman.diandian.com/post/2012-08-17/40036035008">http://husbandman.diandian.com/post/2012-08-17/40036035008</a></li>
+<li><a href="http://www.sealiesoftware.com/blog/archive/2009/04/14/objc_explain_Classes_and_metaclasses.html">http://www.sealiesoftware.com/blog/archive/2009/04/14/objc_explain_Classes_and_metaclasses.html</a></li>
+</ul>
+
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[结合 Reveal 谈谈 MBProgressHUD 的用法]]></title>
@@ -161,7 +224,7 @@
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 </pre></td><td class='code'><pre><code class='html'><span class='line'><span class="nt">&lt;p&gt;</span>
-</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2015-04-25 00:21:39 +0800 - 雷纯锋 -
+</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2015-04-25 23:31:12 +0800 - 雷纯锋 -
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span>Powered by <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://octopress.org&quot;</span><span class="nt">&gt;</span>Octopress<span class="nt">&lt;/a&gt;&lt;/span&gt;</span>
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span> - 感谢 <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://gitcafe.com/signup?invited_by=leichunfeng&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;</span>GitCafe<span class="nt">&lt;/a&gt;</span> 为本站提供存储空间<span class="nt">&lt;/span&gt;</span>
 </span><span class='line'><span class="nt">&lt;/p&gt;</span>
