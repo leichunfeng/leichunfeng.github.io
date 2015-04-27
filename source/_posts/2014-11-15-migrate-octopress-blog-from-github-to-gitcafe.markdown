@@ -53,13 +53,13 @@ rake deploy
 
 ## 自定义域名
 
-GitCafe 的自定义域名设置要比 GitHub 友好得多，它不仅提供了图形界面，而且支持一个项目设置多个域名。进入`项目管理`界面，然后在`自定义域名`栏目中添加你自己的域名。
+GitCafe 的自定义域名设置要比 GitHub 的友好得多，它不仅提供了图形界面，而且支持给一个项目设置多个域名。进入`项目设置`界面，然后在` Pages 服务`栏目中添加你自己的域名。
 
-{% img /images/gitcafe-custom-domains.jpg 'GitCafe 自定义域名' 'GitCafe 自定义域名' %}
+{% img /images/gitcafe-custom-domains-new.jpg 'GitCafe 自定义域名' 'GitCafe 自定义域名' %}
 
-同样，你需要登陆你的域名注册商的管理平台，在你的域名下新增一条解析记录。与 GitHub 的自定义域名不同，GitCafe 的自定义域名只支持 `A` 类型的解析记录，记录值为 GitCafe 服务器的 IP 地址 `117.79.146.98` 。
+同样的，你需要登陆你的域名注册商的管理平台，在你的域名下新增相应的 `A` 或 `CNAME` 解析记录。如果你需要将域名指向一个 `IPv4` 地址（例如：`leichunfeng.com` -> `207.226.141.135` ），则需要增加 `A` 记录；而如果你需要将域名指向另一个域名（例如：`blog.leichunfeng.com` -> `leichunfeng.gitcafe.io` ），实现与被指向域名相同的访问效果，则需要增加 `CNAME` 记录。
 
-{% img /images/net-resolve-record.jpg '万网解析记录' '万网解析记录' %}
+{% img /images/net-resolve-record-new.jpg '万网解析记录' '万网解析记录' %}
 
 ## 添加对 GitCafe 的感谢
 

@@ -147,4 +147,4 @@ echo '<br>原文链接：<a href="http://blog.leichunfeng.com{#{page.url}#}">htt
 
 **注意**，请记得将第一步中的 `blog.leichunfeng.com` 替换成你自己的博客域名，将上述两步中的 `#` 号去掉。
 
-到这里，本文就已经接近尾声了，不过我们对博客访问速度的追求仍然没有结束。因为 GitHub 毕竟是国外的（你懂的）代码托管网站，所以我们博客的访问速度始终还是比较慢的。在下一篇博文中我将向大家介绍如何《将 Octopress 博客从 GitHub 迁移到 GitCafe》，到时你的博客的访问速度也会跟我的一样，飞一般的感觉。
+到这里，本文就已经接近尾声了，不过我们对博客访问速度的追求仍然没有结束。因为 GitHub 毕竟是国外的（你懂的）代码托管网站，所以我们博客的访问速度始终还是比较慢的。在下一篇博文中我将向大家介绍如何[《将 Octopress 博客从 GitHub 迁移到 GitCafe》](http://blog.leichunfeng.com/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/)，到时你的博客的访问速度也会跟我的一样，飞一般的感觉。
