@@ -4,7 +4,7 @@
   <title><![CDATA[雷纯锋的技术博客]]></title>
   <link href="http://leichunfeng.github.io/atom.xml" rel="self"/>
   <link href="http://leichunfeng.github.io/"/>
-  <updated>2015-04-26T00:12:29+08:00</updated>
+  <updated>2015-04-27T20:58:46+08:00</updated>
   <id>http://leichunfeng.github.io/</id>
   <author>
     <name><![CDATA[雷纯锋]]></name>
@@ -206,13 +206,13 @@
 
 <h2>自定义域名</h2>
 
-<p>GitCafe 的自定义域名设置要比 GitHub 友好得多，它不仅提供了图形界面，而且支持一个项目设置多个域名。进入<code>项目管理</code>界面，然后在<code>自定义域名</code>栏目中添加你自己的域名。</p>
+<p>GitCafe 的自定义域名设置要比 GitHub 的友好得多，它不仅提供了图形界面，而且支持给一个项目设置多个域名。进入<code>项目设置</code>界面，然后在<code>Pages 服务</code>栏目中添加你自己的域名。</p>
 
-<p><img src="http://leichunfeng.github.io/images/gitcafe-custom-domains.jpg" title="GitCafe 自定义域名" alt="GitCafe 自定义域名"></p>
+<p><img src="http://leichunfeng.github.io/images/gitcafe-custom-domains-new.jpg" title="GitCafe 自定义域名" alt="GitCafe 自定义域名"></p>
 
-<p>同样，你需要登陆你的域名注册商的管理平台，在你的域名下新增一条解析记录。与 GitHub 的自定义域名不同，GitCafe 的自定义域名只支持 <code>A</code> 类型的解析记录，记录值为 GitCafe 服务器的 IP 地址 <code>117.79.146.98</code> 。</p>
+<p>同样的，你需要登陆你的域名注册商的管理平台，在你的域名下新增相应的 <code>A</code> 或 <code>CNAME</code> 解析记录。如果你需要将域名指向一个 <code>IPv4</code> 地址（例如：<code>leichunfeng.com</code> -> <code>207.226.141.135</code> ），则需要增加 <code>A</code> 记录；而如果你需要将域名指向另一个域名（例如：<code>blog.leichunfeng.com</code> -> <code>leichunfeng.gitcafe.io</code> ），实现与被指向域名相同的访问效果，则需要增加 <code>CNAME</code> 记录。</p>
 
-<p><img src="http://leichunfeng.github.io/images/net-resolve-record.jpg" title="万网解析记录" alt="万网解析记录"></p>
+<p><img src="http://leichunfeng.github.io/images/net-resolve-record-new.jpg" title="万网解析记录" alt="万网解析记录"></p>
 
 <h2>添加对 GitCafe 的感谢</h2>
 
@@ -224,7 +224,7 @@
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 </pre></td><td class='code'><pre><code class='html'><span class='line'><span class="nt">&lt;p&gt;</span>
-</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2015-04-26 00:12:29 +0800 - 雷纯锋 -
+</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2015-04-27 20:58:46 +0800 - 雷纯锋 -
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span>Powered by <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://octopress.org&quot;</span><span class="nt">&gt;</span>Octopress<span class="nt">&lt;/a&gt;&lt;/span&gt;</span>
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span> - 感谢 <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://gitcafe.com/signup?invited_by=leichunfeng&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;</span>GitCafe<span class="nt">&lt;/a&gt;</span> 为本站提供存储空间<span class="nt">&lt;/span&gt;</span>
 </span><span class='line'><span class="nt">&lt;/p&gt;</span>
@@ -426,7 +426,7 @@
 
 <p><strong>注意</strong>，请记得将第一步中的 <code>blog.leichunfeng.com</code> 替换成你自己的博客域名，将上述两步中的 <code>#</code> 号去掉。</p>
 
-<p>到这里，本文就已经接近尾声了，不过我们对博客访问速度的追求仍然没有结束。因为 GitHub 毕竟是国外的（你懂的）代码托管网站，所以我们博客的访问速度始终还是比较慢的。在下一篇博文中我将向大家介绍如何《将 Octopress 博客从 GitHub 迁移到 GitCafe》，到时你的博客的访问速度也会跟我的一样，飞一般的感觉。</p>
+<p>到这里，本文就已经接近尾声了，不过我们对博客访问速度的追求仍然没有结束。因为 GitHub 毕竟是国外的（你懂的）代码托管网站，所以我们博客的访问速度始终还是比较慢的。在下一篇博文中我将向大家介绍如何<a href="http://blog.leichunfeng.com/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/">《将 Octopress 博客从 GitHub 迁移到 GitCafe》</a>，到时你的博客的访问速度也会跟我的一样，飞一般的感觉。</p>
 ]]></content>
   </entry>
   
