@@ -1,0 +1,531 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Objective-C Category 的实现原理 - 雷纯锋的技术博客</title>
+  <meta name="author" content="雷纯锋">
+
+  
+  <meta name="description" content="对设计模式有一定了解的朋友应该听说过装饰模式，Objective-C 中的 Category 就是对装饰模式的一种具体实现。它的主要作用是在不改变原有类的前提下，动态地给这个类添加一些方法。在 Objective-C 中的具体体现为：实例（类）方法、属性和协议。是的，在 Objective-C &hellip;">
+  
+    <meta name="keywords" content="Objective-C, Category, runtime, +load, 实现原理, 原理, 设计模式, 装饰模式">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://leichunfeng.github.io/blog/2015/05/18/objective-c-category-implementation-principle">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="雷纯锋的技术博客" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="http://cdn.staticfile.org/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">雷纯锋的技术博客</a></h1>
+  
+    <h2>天道酬勤</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:leichunfeng.github.io" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Objective-C Category 的实现原理</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-05-18T10:26:57+08:00'><span class='date'><span class='date-month'>May</span> <span class='date-day'>18</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>10:26 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>对设计模式有一定了解的朋友应该听说过装饰模式，Objective-C 中的 Category 就是对装饰模式的一种具体实现。它的主要作用是在不改变原有类的前提下，动态地给这个类添加一些方法。在 Objective-C 中的具体体现为：实例（类）方法、属性和协议。是的，在 Objective-C 中可以用 Category 来实现协议。本文将结合 <a href="http://opensource.apple.com/tarballs/objc4/">runtime</a>（我下载的是当前的最新版本 <code>objc4-646.tar.gz</code>) 的源码来探究它实现的原理。</p>
+
+<h2>使用场景</h2>
+
+<p>根据苹果官方文档对 <a href="https://developer.apple.com/library/ios/documentation/General/Conceptual/DevPedia-CocoaCore/Category.html#//apple_ref/doc/uid/TP40008195-CH5-SW1">Category</a> 的描述，它的使用场景主要有三个：</p>
+
+<ol>
+<li>给现有的类添加方法；</li>
+<li>将一个类的实现拆分成多个独立的源文件；</li>
+<li>声明私有的方法。</li>
+</ol>
+
+
+<p>其中，第 <code>1</code> 个是最典型的使用场景，应用最广泛。</p>
+
+<p><strong>注</strong>：Category 有一个非常容易误用的场景，那就是用 Category 来覆写父类或主类的方法。虽然目前 Objective-C 是允许这么做的，但是这种使用场景是<strong>非常</strong>不推荐的。<a href="http://stackoverflow.com/questions/5272451/overriding-methods-using-categories-in-objective-c">使用 Category 来覆写方法</a>有很多缺点，比如不能覆写 Category 中的方法、无法调用主类中的原始实现等，且很容易造成无法预估的行为。</p>
+
+<h2>实现原理</h2>
+
+<p>我们知道，无论我们有没有主动引入 Category 的头文件，Category 中的方法都会被添加进主类中。我们可以通过 <code>- performSelector:</code> 等方式对 Category 中的相应方法进行调用，之所以需要在调用的地方引入 Category 的头文件，只是为了“照顾”编译器的感受。</p>
+
+<p>下面，我们将结合 runtime 的源码探究下 Category 的实现原理。打开 runtime 源码工程，在文件 <code>objc-runtime-new.mm</code> 中找到以下函数：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="kt">void</span> <span class="nf">_read_images</span><span class="p">(</span><span class="n">header_info</span> <span class="o">**</span><span class="n">hList</span><span class="p">,</span> <span class="kt">uint32_t</span> <span class="n">hCount</span><span class="p">)</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>    <span class="p">...</span>
+</span><span class='line'>        <span class="n">_free_internal</span><span class="p">(</span><span class="n">resolvedFutureClasses</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Discover categories. </span>
+</span><span class='line'>    <span class="k">for</span> <span class="p">(</span><span class="n">EACH_HEADER</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="kt">category_t</span> <span class="o">**</span><span class="n">catlist</span> <span class="o">=</span>
+</span><span class='line'>            <span class="n">_getObjc2CategoryList</span><span class="p">(</span><span class="n">hi</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">count</span><span class="p">);</span>
+</span><span class='line'>        <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">count</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="kt">category_t</span> <span class="o">*</span><span class="n">cat</span> <span class="o">=</span> <span class="n">catlist</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+</span><span class='line'>            <span class="kt">Class</span> <span class="n">cls</span> <span class="o">=</span> <span class="n">remapClass</span><span class="p">(</span><span class="n">cat</span><span class="o">-&gt;</span><span class="n">cls</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">cls</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>                <span class="c1">// Category&#39;s target class is missing (probably weak-linked).</span>
+</span><span class='line'>                <span class="c1">// Disavow any knowledge of this category.</span>
+</span><span class='line'>                <span class="n">catlist</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'>                <span class="k">if</span> <span class="p">(</span><span class="n">PrintConnecting</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>                    <span class="n">_objc_inform</span><span class="p">(</span><span class="s">&quot;CLASS: IGNORING category \?\?\?(%s) %p with &quot;</span>
+</span><span class='line'>                                 <span class="s">&quot;missing weak-linked target class&quot;</span><span class="p">,</span>
+</span><span class='line'>                                 <span class="n">cat</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">cat</span><span class="p">);</span>
+</span><span class='line'>                <span class="p">}</span>
+</span><span class='line'>                <span class="k">continue</span><span class="p">;</span>
+</span><span class='line'>            <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="c1">// Process this category. </span>
+</span><span class='line'>            <span class="c1">// First, register the category with its target class. </span>
+</span><span class='line'>            <span class="c1">// Then, rebuild the class&#39;s method lists (etc) if </span>
+</span><span class='line'>            <span class="c1">// the class is realized. </span>
+</span><span class='line'>            <span class="kt">BOOL</span> <span class="n">classExists</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="n">cat</span><span class="o">-&gt;</span><span class="n">instanceMethods</span> <span class="o">||</span>  <span class="n">cat</span><span class="o">-&gt;</span><span class="n">protocols</span>
+</span><span class='line'>                <span class="o">||</span>  <span class="n">cat</span><span class="o">-&gt;</span><span class="n">instanceProperties</span><span class="p">)</span>
+</span><span class='line'>            <span class="p">{</span>
+</span><span class='line'>                <span class="n">addUnattachedCategoryForClass</span><span class="p">(</span><span class="n">cat</span><span class="p">,</span> <span class="n">cls</span><span class="p">,</span> <span class="n">hi</span><span class="p">);</span>
+</span><span class='line'>                <span class="k">if</span> <span class="p">(</span><span class="n">cls</span><span class="o">-&gt;</span><span class="n">isRealized</span><span class="p">())</span> <span class="p">{</span>
+</span><span class='line'>                    <span class="n">remethodizeClass</span><span class="p">(</span><span class="n">cls</span><span class="p">);</span>
+</span><span class='line'>                    <span class="n">classExists</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+</span><span class='line'>                <span class="p">}</span>
+</span><span class='line'>                <span class="k">if</span> <span class="p">(</span><span class="n">PrintConnecting</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>                    <span class="n">_objc_inform</span><span class="p">(</span><span class="s">&quot;CLASS: found category -%s(%s) %s&quot;</span><span class="p">,</span>
+</span><span class='line'>                                 <span class="n">cls</span><span class="o">-&gt;</span><span class="n">nameForLogging</span><span class="p">(),</span> <span class="n">cat</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span>
+</span><span class='line'>                                 <span class="n">classExists</span> <span class="o">?</span> <span class="s">&quot;on existing class&quot;</span> <span class="o">:</span> <span class="s">&quot;&quot;</span><span class="p">);</span>
+</span><span class='line'>                <span class="p">}</span>
+</span><span class='line'>            <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="n">cat</span><span class="o">-&gt;</span><span class="n">classMethods</span>  <span class="o">||</span>  <span class="n">cat</span><span class="o">-&gt;</span><span class="n">protocols</span>
+</span><span class='line'>                <span class="cm">/* ||  cat-&gt;classProperties */</span><span class="p">)</span>
+</span><span class='line'>            <span class="p">{</span>
+</span><span class='line'>                <span class="n">addUnattachedCategoryForClass</span><span class="p">(</span><span class="n">cat</span><span class="p">,</span> <span class="n">cls</span><span class="o">-&gt;</span><span class="n">ISA</span><span class="p">(),</span> <span class="n">hi</span><span class="p">);</span>
+</span><span class='line'>                <span class="k">if</span> <span class="p">(</span><span class="n">cls</span><span class="o">-&gt;</span><span class="n">ISA</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">isRealized</span><span class="p">())</span> <span class="p">{</span>
+</span><span class='line'>                    <span class="n">remethodizeClass</span><span class="p">(</span><span class="n">cls</span><span class="o">-&gt;</span><span class="n">ISA</span><span class="p">());</span>
+</span><span class='line'>                <span class="p">}</span>
+</span><span class='line'>                <span class="k">if</span> <span class="p">(</span><span class="n">PrintConnecting</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>                    <span class="n">_objc_inform</span><span class="p">(</span><span class="s">&quot;CLASS: found category +%s(%s)&quot;</span><span class="p">,</span>
+</span><span class='line'>                                 <span class="n">cls</span><span class="o">-&gt;</span><span class="n">nameForLogging</span><span class="p">(),</span> <span class="n">cat</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">);</span>
+</span><span class='line'>                <span class="p">}</span>
+</span><span class='line'>            <span class="p">}</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Category discovery MUST BE LAST to avoid potential races </span>
+</span><span class='line'>    <span class="c1">// when other threads call the new category code before </span>
+</span><span class='line'>    <span class="c1">// this thread finishes its fixups.</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// +load handled by prepare_load_methods()</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">...</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>从第 27-58 行的关键代码，我们可以知道在这个函数中对 Category 做了如下处理：</p>
+
+<ol>
+<li>将 Category 和它的主类（或元类）注册到哈希表中；</li>
+<li>如果主类（或元类）已实现，那么重建它的方法列表。</li>
+</ol>
+
+
+<p>在这里分了两种情况进行处理：Category 中的实例方法和属性被整合到主类中；而类方法则被整合到元类中。另外，对协议的处理比较特殊，Category 中的协议被同时整合到了主类和元类中。</p>
+
+<p>我们注意到，不管是哪种情况，最终都是通过调用 <code>static void remethodizeClass(Class cls)</code> 函数来重新整理类的数据的。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">static</span> <span class="kt">void</span> <span class="nf">remethodizeClass</span><span class="p">(</span><span class="kt">Class</span> <span class="n">cls</span><span class="p">)</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>    <span class="p">...</span>
+</span><span class='line'>                         <span class="n">cls</span><span class="o">-&gt;</span><span class="n">nameForLogging</span><span class="p">(),</span> <span class="n">isMeta</span> <span class="o">?</span> <span class="s">&quot;(meta)&quot;</span> <span class="o">:</span> <span class="s">&quot;&quot;</span><span class="p">);</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c1">// Update methods, properties, protocols</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">attachCategoryMethods</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">cats</span><span class="p">,</span> <span class="nb">YES</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">newproperties</span> <span class="o">=</span> <span class="n">buildPropertyList</span><span class="p">(</span><span class="nb">nil</span><span class="p">,</span> <span class="n">cats</span><span class="p">,</span> <span class="n">isMeta</span><span class="p">);</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">newproperties</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="n">newproperties</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="n">cls</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">properties</span><span class="p">;</span>
+</span><span class='line'>            <span class="n">cls</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">properties</span> <span class="o">=</span> <span class="n">newproperties</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">newprotos</span> <span class="o">=</span> <span class="n">buildProtocolList</span><span class="p">(</span><span class="n">cats</span><span class="p">,</span> <span class="nb">nil</span><span class="p">,</span> <span class="n">cls</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">protocols</span><span class="p">);</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">cls</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">protocols</span>  <span class="o">&amp;&amp;</span>  <span class="n">cls</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">protocols</span> <span class="o">!=</span> <span class="n">newprotos</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="n">_free_internal</span><span class="p">(</span><span class="n">cls</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">protocols</span><span class="p">);</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>        <span class="n">cls</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">protocols</span> <span class="o">=</span> <span class="n">newprotos</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">_free_internal</span><span class="p">(</span><span class="n">cats</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>这个函数的主要作用是将 Category 中的方法、属性和协议整合到类（主类或元类）中，更新类的数据字段 <code>data()</code> 中 <code>method_lists（或 method_list）</code>、<code>properties</code> 和 <code>protocols</code> 的值。进一步，我们通过 <code>attachCategoryMethods</code> 函数的源码可以找到真正处理 Category 方法的 <code>attachMethodLists</code> 函数：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">static</span> <span class="kt">void</span>
+</span><span class='line'><span class="nf">attachMethodLists</span><span class="p">(</span><span class="kt">Class</span> <span class="n">cls</span><span class="p">,</span> <span class="kt">method_list_t</span> <span class="o">**</span><span class="n">addedLists</span><span class="p">,</span> <span class="kt">int</span> <span class="n">addedCount</span><span class="p">,</span>
+</span><span class='line'>                  <span class="kt">bool</span> <span class="n">baseMethods</span><span class="p">,</span> <span class="kt">bool</span> <span class="n">methodsFromBundle</span><span class="p">,</span>
+</span><span class='line'>                  <span class="kt">bool</span> <span class="n">flushCaches</span><span class="p">)</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>    <span class="p">...</span>
+</span><span class='line'>        <span class="n">newLists</span><span class="p">[</span><span class="n">newCount</span><span class="o">++</span><span class="p">]</span> <span class="o">=</span> <span class="n">mlist</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Copy old methods to the method list array</span>
+</span><span class='line'>    <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">oldCount</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">newLists</span><span class="p">[</span><span class="n">newCount</span><span class="o">++</span><span class="p">]</span> <span class="o">=</span> <span class="n">oldLists</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">oldLists</span>  <span class="o">&amp;&amp;</span>  <span class="n">oldLists</span> <span class="o">!=</span> <span class="n">oldBuf</span><span class="p">)</span> <span class="n">free</span><span class="p">(</span><span class="n">oldLists</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// nil-terminate</span>
+</span><span class='line'>    <span class="n">newLists</span><span class="p">[</span><span class="n">newCount</span><span class="p">]</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">newCount</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">assert</span><span class="p">(</span><span class="n">newLists</span> <span class="o">!=</span> <span class="n">newBuf</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">cls</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">method_lists</span> <span class="o">=</span> <span class="n">newLists</span><span class="p">;</span>
+</span><span class='line'>        <span class="n">cls</span><span class="o">-&gt;</span><span class="n">setInfo</span><span class="p">(</span><span class="n">RW_METHOD_ARRAY</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">assert</span><span class="p">(</span><span class="n">newLists</span> <span class="o">==</span> <span class="n">newBuf</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">cls</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">method_list</span> <span class="o">=</span> <span class="n">newLists</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+</span><span class='line'>        <span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">cls</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">RW_METHOD_ARRAY</span><span class="p">));</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>这个函数的代码量看上去比较多，但是我们并不难理解它的目的。它的主要作用就是将类中的旧有方法和 Category 中新添加的方法整合成一个新的方法列表，并赋值给 <code>method_lists</code> 或 <code>method_list</code> 。通过探究这个处理过程，我们也印证了一个结论，那就是主类中的方法和 Category 中的方法在 runtime 看来并没有区别，它们是被同等对待的，都保存在主类的方法列表中。</p>
+
+<p>不过，类的方法列表字段有一点特殊，它的结构是联合体，<code>method_lists</code> 和 <code>method_list</code> 共用同一块内存地址。当 <code>newCount</code> 的个数大于 1 时，使用 <code>method_lists</code> 来保存 <code>newLists</code> ，并将方法列表的<strong>标志位</strong>置为 <code>RW_METHOD_ARRAY</code> ，此时类的方法列表字段是 <code>method_list_t</code> 类型的指针数组；否则，使用 <code>method_list</code> 来保存 <code>newLists</code> ，并将方法列表的<strong>标志位</strong>置空，此时类的方法列表字段是 <code>method_list_t</code> 类型的指针。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="c1">// class&#39;s method list is an array of method lists</span>
+</span><span class='line'><span class="cp">#define RW_METHOD_ARRAY       (1&lt;&lt;20)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">union</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kt">method_list_t</span> <span class="o">**</span><span class="n">method_lists</span><span class="p">;</span>  <span class="c1">// RW_METHOD_ARRAY == 1</span>
+</span><span class='line'>    <span class="kt">method_list_t</span> <span class="o">*</span><span class="n">method_list</span><span class="p">;</span>    <span class="c1">// RW_METHOD_ARRAY == 0</span>
+</span><span class='line'><span class="p">};</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>看过我上一篇博文<a href="http://blog.leichunfeng.com/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/">《Objective-C +load vs +initialize》</a>的朋友可能已经有所察觉了。我们注意到 runtime 对 Category 中方法的处理过程并没有对 +load 方法进行什么特殊地处理。因此，严格意义上讲 Category 中的 +load 方法跟普通方法一样也会对主类中的 +load 方法造成覆盖，只不过 runtime 在自动调用主类和 Category 中的 +load 方法时是直接使用各自方法的指针进行调用的。所以才会使我们觉得主类和 Category 中的 +load 方法好像互不影响一样。因此，当我们手动给主类发送 +load 消息时，调用的一直会是分类中的 +load 方法。</p>
+
+<h2>总结</h2>
+
+<p>Category 是 Objective-C 中非常强大的技术之一，使用得当的话可以给我们的开发带来极大的便利。很多著名的开源库或多或少都会通过给系统类添加 Category 的方式提供强大功能，比如 <a href="https://github.com/AFNetworking/AFNetworking">AFNetworking</a> 、<a href="https://github.com/ReactiveCocoa/ReactiveCocoa">ReactiveCocoa</a> 、 <a href="https://github.com/rs/SDWebImage">SDWebImage</a> 等。但是凡事有利必有弊，正因为 Category 非常强大，所以一旦误用就很可能会造成非常严重的后果。比如覆写系统类的方法，这是 iOS 开发新手经常会犯的一个错误，不管在任何情况下，切记一定不要这么做，No zuo no die 。</p>
+
+<h2>参考链接</h2>
+
+<p><a href="https://developer.apple.com/library/ios/documentation/General/Conceptual/DevPedia-CocoaCore/Category.html#//apple_ref/doc/uid/TP40008195-CH5-SW1">https://developer.apple.com/library/ios/documentation/General/Conceptual/DevPedia-CocoaCore/Category.html#//apple_ref/doc/uid/TP40008195-CH5-SW1</a>
+<a href="http://stackoverflow.com/questions/5272451/overriding-methods-using-categories-in-objective-c">http://stackoverflow.com/questions/5272451/overriding-methods-using-categories-in-objective-c</a></p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">雷纯锋</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2015-05-18T10:26:57+08:00'><span class='date'><span class='date-month'>May</span> <span class='date-day'>18</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>10:26 am</span></time>
+      
+
+
+      <br>原文链接：<a href="http://blog.leichunfeng.com/blog/2015/05/18/objective-c-category-implementation-principle/">http://blog.leichunfeng.com/blog/2015/05/18/objective-c-category-implementation-principle/</a> <!-- 添加原文链接需要增加这一行代码 -->
+    </p>
+    
+      <div class="sharing">
+  
+  
+  
+  
+	<!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+	<span class="jiathis_txt">分享到：</span>
+	<a class="jiathis_button_tools_1"></a>
+	<a class="jiathis_button_tools_2"></a>
+	<a class="jiathis_button_tools_3"></a>
+	<a class="jiathis_button_tools_4"></a>
+	<a href="http://www.jiathis.com/share?uid=1983651" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank">更多</a>
+	<a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript">
+var jiathis_config = {data_track_clickback:'true'};
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js?uid=1401863435807252" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+<!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" src="http://v2.uyan.cc/code/uyan.js?uid=1983651"></script>
+<!-- UY END -->
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/" title="Previous Post: Objective-C +load VS +initialize">&laquo; Objective-C +load VS +initialize</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/05/18/objective-c-category-implementation-principle/">Objective-C Category 的实现原理</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/">Objective-C +load vs +initialize</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/04/25/objective-c-object-model/">Objective-C 对象模型</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal/">结合 Reveal 谈谈 MBProgressHUD 的用法</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/">将 Octopress 博客从 GitHub 迁移到 GitCafe</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  <!-- 腾讯分析 -->
+  <script type="text/javascript" src="http://tajs.qq.com/stats?sId=38580234" charset="UTF-8"></script>
+  <!-- 腾讯分析 -->
+  Copyright &copy; 2015 - 雷纯锋 -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+  <span class="credit"> - 感谢 <a href="http://gitcafe.com/signup?invited_by=leichunfeng" target="_blank">GitCafe</a> 为本站提供存储空间</span>
+</p>
+
+</footer>
+  
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
