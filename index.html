@@ -80,7 +80,7 @@
 
 
 
-<time class='entry-date' datetime='2015-05-18T10:26:57+08:00'><span class='date'><span class='date-month'>May</span> <span class='date-day'>18</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>10:26 am</span></time>
+<time class='entry-date' datetime='2015-05-18T00:20:57+08:00'><span class='date'><span class='date-month'>May</span> <span class='date-day'>18</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>12:20 am</span></time>
         
       </p>
     
@@ -106,7 +106,7 @@
 
 <h2>实现原理</h2>
 
-<p>我们知道，无论我们有没有主动引入 Category 的头文件，Category 中的方法都会被添加进主类中。我们可以通过 <code>- performSelector:</code> 等方式对 Category 中的相应方法进行调用，之所以需要在调用的地方引入 Category 的头文件，只是为了“照顾”编译器的感受。</p>
+<p>我们知道，无论我们有没有主动引入 Category 的头文件，Category 中的方法都会被添加进主类中。我们可以通过 <code>- performSelector:</code> 等方式对 Category 中的相应方法进行调用，之所以需要在调用的地方引入 Category 的头文件，只是为了“照顾”编译器同学的感受。</p>
 
 <p>下面，我们将结合 runtime 的源码探究下 Category 的实现原理。打开 runtime 源码工程，在文件 <code>objc-runtime-new.mm</code> 中找到以下函数：</p>
 
@@ -259,7 +259,7 @@
 </ol>
 
 
-<p>在这里分了两种情况进行处理：Category 中的实例方法和属性被整合到主类中；而类方法则被整合到元类中。另外，对协议的处理比较特殊，Category 中的协议被同时整合到了主类和元类中。</p>
+<p>在这里分了两种情况进行处理：Category 中的实例方法和属性被整合到主类中；而类方法则被整合到元类中（关于对象、类和元类的更多细节，可以参考我前面的博文<a href="http://blog.leichunfeng.com/blog/2015/04/25/objective-c-object-model/">《Objective-C 对象模型》</a>）。另外，对协议的处理比较特殊，Category 中的协议被同时整合到了主类和元类中。</p>
 
 <p>我们注意到，不管是哪种情况，最终都是通过调用 <code>static void remethodizeClass(Class cls)</code> 函数来重新整理类的数据的。</p>
 
@@ -398,7 +398,7 @@
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>看过我上一篇博文<a href="http://blog.leichunfeng.com/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/">《Objective-C +load vs +initialize》</a>的朋友可能已经有所察觉了。我们注意到 runtime 对 Category 中方法的处理过程并没有对 +load 方法进行什么特殊地处理。因此，严格意义上讲 Category 中的 +load 方法跟普通方法一样也会对主类中的 +load 方法造成覆盖，只不过 runtime 在自动调用主类和 Category 中的 +load 方法时是直接使用各自方法的指针进行调用的。所以才会使我们觉得主类和 Category 中的 +load 方法好像互不影响一样。因此，当我们手动给主类发送 +load 消息时，调用的一直会是分类中的 +load 方法。</p>
+<p>看过我上一篇博文<a href="http://blog.leichunfeng.com/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/">《Objective-C +load vs +initialize》</a>的朋友可能已经有所察觉了。我们注意到 runtime 对 Category 中方法的处理过程并没有对 +load 方法进行什么特殊地处理。因此，严格意义上讲 Category 中的 +load 方法跟普通方法一样也会对主类中的 +load 方法造成覆盖，只不过 runtime 在自动调用主类和 Category 中的 +load 方法时是直接使用各自方法的指针进行调用的。所以才会使我们觉得主类和 Category 中的 +load 方法好像互不影响一样。因此，当我们手动给主类发送 +load 消息时，调用的一直会是分类中的 +load 方法，you should give it a try yourself 。</p>
 
 <h2>总结</h2>
 
@@ -1148,7 +1148,7 @@
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 </pre></td><td class='code'><pre><code class='html'><span class='line'><span class="nt">&lt;p&gt;</span>
-</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2015-05-19 00:19:27 +0800 - 雷纯锋 -
+</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2015-05-19 09:22:49 +0800 - 雷纯锋 -
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span>Powered by <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://octopress.org&quot;</span><span class="nt">&gt;</span>Octopress<span class="nt">&lt;/a&gt;&lt;/span&gt;</span>
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span> - 感谢 <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://gitcafe.com/signup?invited_by=leichunfeng&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;</span>GitCafe<span class="nt">&lt;/a&gt;</span> 为本站提供存储空间<span class="nt">&lt;/span&gt;</span>
 </span><span class='line'><span class="nt">&lt;/p&gt;</span>
