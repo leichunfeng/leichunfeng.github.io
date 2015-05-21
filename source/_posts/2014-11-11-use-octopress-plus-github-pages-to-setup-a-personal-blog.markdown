@@ -127,8 +127,8 @@ rake deploy
 部分也被注释。
 3. 修改 `source/_includes/head.html` 文件中 `jquery.min.js` 的链接地址。
 ``` html
--  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
-+  <script src="http://cdn.staticfile.org/jquery/1.9.1/jquery.min.js"></script>
+将 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+替换成 <script src="http://cdn.staticfile.org/jquery/1.9.1/jquery.min.js"></script>
 ```
 
 ### 添加原文链接
