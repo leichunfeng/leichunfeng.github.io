@@ -64,8 +64,3 @@ NS_CLASS_AVAILABLE_IOS(2_0) @interface UINavigationController : UIViewController
 ## 总结
 
 当你需要让导航栏上的按钮不可点击的时候，可以选择使用 `方式 1` 或 `方式 2` 显示 MBProgressHUD 。反之，可以选择 `方式 3` 。
-
-
-
-
-
