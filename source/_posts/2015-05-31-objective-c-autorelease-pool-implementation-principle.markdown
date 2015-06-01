@@ -276,7 +276,7 @@ pop 函数的入参就是 push 函数的返回值，也就是 POOL_SENTINEL 的�
 
 {% img /images/AutoreleasePoolPage1.png 'AutoreleasePoolPage' 'AutoreleasePoolPage' %}
 
-此时，如果执行 `pop(token1)` 操作，那么该 autoreleasepool 堆栈的内存结构将会如下图所示：
+此时，如果执行 `pop(token1)` 操作，那么该 autoreleasepool 堆栈的内存结构将会变成如下图所示：
 
 {% img /images/AutoreleasePoolPage2.png 'AutoreleasePoolPage' 'AutoreleasePoolPage' %}
 
