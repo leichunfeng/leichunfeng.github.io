@@ -85,11 +85,11 @@ __weak NSString *string_weak_ = nil;
 
 我们先在第 35 行打一个断点，当程序运行到这个断点时，我们通过 `lldb` 命令 `watchpoint set v string_weak_` 设置观察点，观察 `string_weak_` 变量的值的变化。如下图所示，我们将在 console 中看到类似的输出，说明我们已经成功地设置了一个观察点：
 
-{% img /images/watchpoint1.jpg '设置观察点' '设置观察点' %}
+![设置观察点](http://blog.leichunfeng.com/images/watchpoint1.jpg "设置观察点")
 
 设置好观察点后，点击 `Continue program execution` 按钮，继续运行程序，我们将看到如下图所示的界面：
 
-{% img /images/watchpoint2.jpg '设置观察点' '设置观察点' %}
+![设置观察点](http://blog.leichunfeng.com/images/watchpoint2.jpg "设置观察点")
 
 我们先看 console 中的输出，注意到 `string_weak_` 变量的值由 `0x00007f9b886567d0` 变成了 `0x0000000000000000` ，也就是 `nil` 。说明此时它所指向的对象被释放了。另外，我们也可以注意到一个细节，那就是 console 中打印了两次对象的值，说明此时 `viewWillAppear` 也已经被调用了，而 `viewDidAppear` 还没有被调用。
 
@@ -119,7 +119,7 @@ __weak NSString *string_weak_ = nil;
 
 一个空的 AutoreleasePoolPage 的内存结构如下图所示：
 
-{% img /images/AutoreleasePoolPage.png 'AutoreleasePoolPage' 'AutoreleasePoolPage' %}
+![AutoreleasePoolPage](http://blog.leichunfeng.com/images/AutoreleasePoolPage.png "AutoreleasePoolPage")
 
 1. `magic` 用来校验 AutoreleasePoolPage 的结构是否完整；
 2. `next` 指向最新添加的 autoreleased 对象的下一个位置，初始化时指向 `begin()` ；
@@ -274,11 +274,11 @@ pop 函数的入参就是 push 函数的返回值，也就是 POOL_SENTINEL 的�
 
 下面是某个线程的 autoreleasepool 堆栈的内存结构图，在这个 autoreleasepool 堆栈中总共有两个 POOL_SENTINEL ，即有两个 autoreleasepool 。该堆栈由三个 AutoreleasePoolPage 结点组成，第一个 AutoreleasePoolPage 结点为 `coldPage()` ，最后一个 AutoreleasePoolPage 结点为 `hotPage()` 。其中，前两个结点已经满了，最后一个结点中保存了最新添加的 autoreleased 对象 `objr3` 的内存地址。
 
-{% img /images/AutoreleasePoolPage1.png 'AutoreleasePoolPage' 'AutoreleasePoolPage' %}
+![AutoreleasePoolPage1](http://blog.leichunfeng.com/images/AutoreleasePoolPage1.png "AutoreleasePoolPage1")
 
 此时，如果执行 `pop(token1)` 操作，那么该 autoreleasepool 堆栈的内存结构将会变成如下图所示：
 
-{% img /images/AutoreleasePoolPage2.png 'AutoreleasePoolPage' 'AutoreleasePoolPage' %}
+![AutoreleasePoolPage2](http://blog.leichunfeng.com/images/AutoreleasePoolPage2.png "AutoreleasePoolPage2")
 
 ## NSThread、NSRunLoop 和 NSAutoreleasePool
 
