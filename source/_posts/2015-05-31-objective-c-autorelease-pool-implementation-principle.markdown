@@ -311,3 +311,7 @@ pop 函数的入参就是 push 函数的返回值，也就是 POOL_SENTINEL 的�
 [http://blog.sunnyxx.com/2014/10/15/behind-autorelease/](http://blog.sunnyxx.com/2014/10/15/behind-autorelease/)
 [http://clang.llvm.org/docs/AutomaticReferenceCounting.html](http://clang.llvm.org/docs/AutomaticReferenceCounting.html)
 [http://www.yifeiyang.net/development-of-the-iphone-simply-3/](http://www.yifeiyang.net/development-of-the-iphone-simply-3/)
+
+**版权声明**：我已将本文在微信公众平台的发表权「独家代理」给 iOS 开发（iOSDevTips）微信公众号。扫下方二维码即可关注「iOS 开发」：
+
+![iOS 开发二维码](http://blog.devtang.com/images/weixin-qr.jpg)
