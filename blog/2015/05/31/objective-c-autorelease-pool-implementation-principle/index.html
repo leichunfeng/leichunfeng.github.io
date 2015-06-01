@@ -210,11 +210,11 @@
 
 <p>我们先在第 35 行打一个断点，当程序运行到这个断点时，我们通过 <code>lldb</code> 命令 <code>watchpoint set v string_weak_</code> 设置观察点，观察 <code>string_weak_</code> 变量的值的变化。如下图所示，我们将在 console 中看到类似的输出，说明我们已经成功地设置了一个观察点：</p>
 
-<p><img src="/images/watchpoint1.jpg" title="设置观察点" alt="设置观察点"></p>
+<p><img src="http://blog.leichunfeng.com/images/watchpoint1.jpg" title="设置观察点" alt="设置观察点" /></p>
 
 <p>设置好观察点后，点击 <code>Continue program execution</code> 按钮，继续运行程序，我们将看到如下图所示的界面：</p>
 
-<p><img src="/images/watchpoint2.jpg" title="设置观察点" alt="设置观察点"></p>
+<p><img src="http://blog.leichunfeng.com/images/watchpoint2.jpg" title="设置观察点" alt="设置观察点" /></p>
 
 <p>我们先看 console 中的输出，注意到 <code>string_weak_</code> 变量的值由 <code>0x00007f9b886567d0</code> 变成了 <code>0x0000000000000000</code> ，也就是 <code>nil</code> 。说明此时它所指向的对象被释放了。另外，我们也可以注意到一个细节，那就是 console 中打印了两次对象的值，说明此时 <code>viewWillAppear</code> 也已经被调用了，而 <code>viewDidAppear</code> 还没有被调用。</p>
 
@@ -247,7 +247,7 @@
 
 <p>一个空的 AutoreleasePoolPage 的内存结构如下图所示：</p>
 
-<p><img src="/images/AutoreleasePoolPage.png" title="AutoreleasePoolPage" alt="AutoreleasePoolPage"></p>
+<p><img src="http://blog.leichunfeng.com/images/AutoreleasePoolPage.png" title="AutoreleasePoolPage" alt="AutoreleasePoolPage" /></p>
 
 <ol>
 <li><code>magic</code> 用来校验 AutoreleasePoolPage 的结构是否完整；</li>
@@ -479,11 +479,11 @@
 
 <p>下面是某个线程的 autoreleasepool 堆栈的内存结构图，在这个 autoreleasepool 堆栈中总共有两个 POOL_SENTINEL ，即有两个 autoreleasepool 。该堆栈由三个 AutoreleasePoolPage 结点组成，第一个 AutoreleasePoolPage 结点为 <code>coldPage()</code> ，最后一个 AutoreleasePoolPage 结点为 <code>hotPage()</code> 。其中，前两个结点已经满了，最后一个结点中保存了最新添加的 autoreleased 对象 <code>objr3</code> 的内存地址。</p>
 
-<p><img src="/images/AutoreleasePoolPage1.png" title="AutoreleasePoolPage" alt="AutoreleasePoolPage"></p>
+<p><img src="http://blog.leichunfeng.com/images/AutoreleasePoolPage1.png" title="AutoreleasePoolPage1" alt="AutoreleasePoolPage1" /></p>
 
 <p>此时，如果执行 <code>pop(token1)</code> 操作，那么该 autoreleasepool 堆栈的内存结构将会变成如下图所示：</p>
 
-<p><img src="/images/AutoreleasePoolPage2.png" title="AutoreleasePoolPage" alt="AutoreleasePoolPage"></p>
+<p><img src="http://blog.leichunfeng.com/images/AutoreleasePoolPage2.png" title="AutoreleasePoolPage2" alt="AutoreleasePoolPage2" /></p>
 
 <h2>NSThread、NSRunLoop 和 NSAutoreleasePool</h2>
 
