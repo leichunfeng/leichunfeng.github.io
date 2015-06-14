@@ -1,0 +1,262 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>雷纯锋的技术博客</title>
+  <meta name="author" content="雷纯锋">
+
+  
+  <meta name="description" content="Objective-C 是一门面向对象的程序设计语言，它的对象模型是基于类来建立的。我们可以在苹果开源的 runtime（我下载的是当前的最新版本 objc4-646.tar.gz ）中发现 Objective-C 对象模型的实现细节。 对象 在 Objective-C 中， &hellip;">
+  
+    <meta name="keywords" content="雷纯锋的技术博客, 雷纯锋, 技术博客, 博客, iOS, Objective-C, Android, Java, HTML5, CSS3, JavaScript, Octopress, GitHub Pages, GitHub, Pages, GitCafe, RAC, ReactiveCocoa, Git">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://leichunfeng.github.io/posts/5">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="雷纯锋的技术博客" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="http://cdn.staticfile.org/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+
+  
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">雷纯锋的技术博客</a></h1>
+  
+    <h2>记录自己学习的点滴，收获分享知识的乐趣</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:leichunfeng.github.io" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">首页</a></li>
+  <li><a href="/blog/archives">所有文章</a></li>
+  <li><a href="http://weibo.com/leichunfeng">我的微博</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div class="blog-index">
+  
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/04/25/objective-c-object-model/">Objective-C 对象模型</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-04-25T19:38:02+08:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>7:38 pm</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Objective-C 是一门面向对象的程序设计语言，它的对象模型是基于类来建立的。我们可以在苹果开源的 <a href="http://opensource.apple.com/tarballs/objc4/">runtime</a>（我下载的是当前的最新版本 <code>objc4-646.tar.gz</code> ）中发现 Objective-C 对象模型的实现细节。</p>
+
+<h2>对象</h2>
+
+<p>在 Objective-C 中，每一个对象都是某个类的实例，且这个对象的 <code>isa</code>（在 64 位 CPU 下，<code>isa</code> 已经不再是一个简单的指针，在本文中我们暂且把它当作普通指针来理解，后面我会单独写一篇博文来详细介绍 <code>Non-pointer isa</code> ）指针指向它所属的类。</p>
+
+<p>打开刚下载的 runtime 工程，在文件 <code>objc-private.h</code> 的第 127-232 行我们可以找到 Objective-C 中的对象的定义 <code>struct objc_object</code> 。是的，Objective-C 中的对象本质上是结构体对象，其中 <code>isa</code> 是它唯一的私有成员变量。</p>
+
+<p><img src="/images/objc_object.jpg" title="Objective-C 对象的定义" alt="Objective-C 对象的定义"></p>
+
+<p>在同一个文件的第 51-52 行我们可以找到 <code>Class</code> 和 <code>id</code> 类型的定义，它们分别是 <code>struct objc_class</code> 和 <code>struct objc_object</code> 类型的指针。这也是为什么 <code>id</code> 类型可以指向任意对象的原因。其中 <code>struct objc_class</code> 就是 Objective-C 中的类的定义，在下一节将会详细介绍。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">typedef</span> <span class="k">struct</span> <span class="n">objc_class</span> <span class="o">*</span><span class="kt">Class</span><span class="p">;</span>
+</span><span class='line'><span class="k">typedef</span> <span class="k">struct</span> <span class="n">objc_object</span> <span class="o">*</span><span class="kt">id</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h2>类</h2>
+
+<p>对象的类不仅描述了对象的数据：对象占用的内存大小、成员变量的类型和布局等，而且也描述了对象的行为：对象能够响应的消息、实现的实例方法等。因此，当我们调用实例方法 <code>[receiver message]</code> 给一个对象发送消息时，这个对象能否响应这个消息就需要通过 <code>isa</code> 找到它所属的类（当然还有 superclass，本文主要内容不是这个，所以不展开）才能知道。</p>
+
+<p>打开文件 <code>objc-runtime-new.h</code> ，在第 687-902 行我们可以找到 Objective-C 中的类的定义 <code>struct objc_class</code> 。同样的，Objective-C 中类也是一个结构体对象，并且继承了 <code>struct objc_object</code> 。</p>
+
+<p><img src="/images/objc_class.jpg" title="Objective-C 类的定义" alt="Objective-C 类的定义"></p>
+
+<p>所以，Objective-C 中的类本质上也是对象，我们称之为类对象。按照我们前面所说的所有的对象都是某个类的实例，那么类对象又是什么类的实例呢？答案就是我们将在下一节介绍的元类。</p>
+
+<p>在 Objective-C 中有一个非常特殊的类 <code>NSObject</code> ，绝大部分的类都继承自它。它是 Objective-C 中的两个根类（rootclass）之一，另外一个是 NSProxy（本文不讨论）。同样的，我们打开文件 <code>NSObject.h</code> ，可以看到 <code>NSObject</code> 类其实就只有一个成员变量 <code>isa</code> ，所有继承自 <code>NSObject</code> 的类也都会有这个成员变量。</p>
+
+<p><img src="/images/nsobject.jpg" title="NSObject 类" alt="NSObject 类"></p>
+
+<h2>元类</h2>
+
+<p>我们上面提到，本质上 Objective-C 中的类也是对象，它也是某个类的实例，这个类我们称之为元类（metaclass）。</p>
+
+<p>因此，我们也可以通过调用类方法，比如 <code>[NSObject new]</code>，给类对象发送消息。同样的，类对象能否响应这个消息也要通过 <code>isa</code> 找到类对象所属的类（元类）才能知道。也就是说，实例方法是保存在类中的，而类方法是保存在元类中的。</p>
+
+<p>那元类也是对象吗？是的话那它又是什么类的实例呢？是的，没错，元类也是对象（元类对象），元类也是某个类的实例，这个类我们称之为根元类（root metaclass）。不过，有一点比较特殊，那就是所有的元类所属的类都是同一个根元类（当然根元类也是元类，所以它所属的类也是根元类，即它本身）。根元类指的就是根类的元类，具体来说就是根类 <code>NSObject</code> 对应的元类。</p>
+
+<p>因此，理论上我们也可以给元类发送消息，但是 Objective-C 倾向于隐藏元类，不想让大家知道元类的存在。元类是为了保持 Objective-C 对象模型在设计上的完整性而引入的，比如用来保存类方法等，它主要是用来给编译器使用的。</p>
+
+<p>说了这么多，大家可能已经有点绕迷糊了，下面我们看一张图，一切自会明了。</p>
+
+<p><img src="/images/object_model.png" title="Objective-C 对象模型" alt="Objective-C 对象模型"></p>
+
+<h2>参考链接</h2>
+
+<ul>
+<li><a href="http://www.devtang.com/blog/2013/10/15/objective-c-object-model/">http://www.devtang.com/blog/2013/10/15/objective-c-object-model/</a></li>
+<li><a href="http://husbandman.diandian.com/post/2012-08-17/40036035008">http://husbandman.diandian.com/post/2012-08-17/40036035008</a></li>
+<li><a href="http://www.sealiesoftware.com/blog/archive/2009/04/14/objc_explain_Classes_and_metaclasses.html">http://www.sealiesoftware.com/blog/archive/2009/04/14/objc_explain_Classes_and_metaclasses.html</a></li>
+</ul>
+
+</div>
+  
+  
+
+
+    </article>
+  
+  <div class="pagination">
+    
+      <a class="prev" href="/posts/6">&larr; Older</a>
+    
+    <a href="/blog/archives">Blog Archives</a>
+    
+    <a class="next" href="/posts/4">Newer &rarr;</a>
+    
+  </div>
+</div>
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/06/14/objective-c-method-swizzling-best-practice/">Objective-C Method Swizzling 的最佳实践</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/05/31/objective-c-autorelease-pool-implementation-principle/">Objective-C Autorelease Pool 的实现原理</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/05/18/objective-c-category-implementation-principle/">Objective-C Category 的实现原理</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/">Objective-C +load vs +initialize</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/04/25/objective-c-object-model/">Objective-C 对象模型</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal/">结合 Reveal 谈谈 MBProgressHUD 的用法</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/">将 Octopress 博客从 GitHub 迁移到 GitCafe</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/11/11/use-octopress-plus-github-pages-to-setup-a-personal-blog/">使用 Octopress+GitHub Pages 搭建个人博客</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2014/11/11/preface/">序言</a>
+      </li>
+    
+  </ul>
+</section>
+<section>
+  <h1>About Me</h1>
+  <p>
+  	雷纯锋，iOS 开发者，GitHub 第三方客户端 <a href="https://itunes.apple.com/cn/app/id961330940?mt=8">GitBucket</a> 的作者，热衷于分享，曾在南航移动团队工作过两年，目前就职于广州一家小的创业公司。
+  </p>
+	<p>
+		新浪微博：<a href="http://weibo.com/leichunfeng">雷纯锋2011</a>
+		<br>
+		微信公众号：leichunfeng
+		<br>
+		GitHub：<a href="https://github.com/leichunfeng">leichunfeng</a>
+	</p>
+	<p><img src="/images/qrcode.jpg"></p>
+</section>
+
+
+
+
+<section>
+  <h1>友情链接</h1>
+  <ul id="friendly_link">
+    <li class="post">
+      <a href="http://www.superqq.com">刚刚在线</a>
+    </li>
+  </ul>
+</section>
+
+  
+</aside>
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  <!-- 腾讯分析 -->
+  <script type="text/javascript" src="http://tajs.qq.com/stats?sId=38580234" charset="UTF-8"></script>
+  <!-- 腾讯分析 -->
+  Copyright &copy; 2015 - 雷纯锋 -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+  <span class="credit"> - 感谢 <a href="http://gitcafe.com/signup?invited_by=leichunfeng" target="_blank">GitCafe</a> 为本站提供存储空间</span>
+</p>
+
+</footer>
+  
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
