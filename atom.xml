@@ -4,7 +4,7 @@
   <title><![CDATA[雷纯锋的技术博客]]></title>
   <link href="http://leichunfeng.github.io/atom.xml" rel="self"/>
   <link href="http://leichunfeng.github.io/"/>
-  <updated>2015-06-28T16:54:32+08:00</updated>
+  <updated>2015-07-05T22:21:32+08:00</updated>
   <id>http://leichunfeng.github.io/</id>
   <author>
     <name><![CDATA[雷纯锋]]></name>
@@ -275,20 +275,20 @@
 
 <p>我们先在 <code>viewDidLoad</code> 方法的第 <code>28</code> 行打上断点，然后运行程序，点击导航栏右上角的按钮 <code>Push</code> 到 <code>ViewController</code> 界面，程序将停在断点处。接着，我们使用 <code>lldb</code> 的 <code>watchpoint</code> 命令来设置观察点，观察全局变量 <code>string_weak_assign</code> 、<code>string_weak_retain</code> 和 <code>string_weak_copy</code> 的值的变化。正确设置好观察点后，将会在 <code>console</code> 中看到如下的类似输出：</p>
 
-<p><img src="http://leichunfeng.github.io/images/AssociatedObjects1.jpg" title="设置观察点" alt="设置观察点"></p>
+<p><img src="http://blog.leichunfeng.com/images/AssociatedObjects1.jpg" title="设置观察点" alt="设置观察点" /></p>
 
 <p>点击继续运行按钮，有一个观察点将被命中。我们先查看 <code>console</code> 中的输出，通过将这一步打印的 <code>old value</code> 和上一步的 <code>new value</code> 进行对比，我们可以知道本次命中的观察点是 <code>string_weak_assign</code> ，<code>string_weak_assign</code> 的值变成了 <code>0x0000000000000000</code> ，也就是 <code>nil</code> 。换句话说 <code>self.associatedObject_assign</code> 指向的对象已经被释放了，而通过查看左侧调用栈我们可以知道，这个对象是由于其所在的 <code>autoreleasepool</code> 被 <code>drain</code> 而被释放的，这与我前面的文章<a href="http://blog.leichunfeng.com/blog/2015/05/31/objective-c-autorelease-pool-implementation-principle/">《Objective-C Autorelease Pool 的实现原理
 》</a>中的表述是一致的。<strong>提示</strong>，待会你也可以放开 <code>touchesBegan:withEvent:</code> 中第 <code>31</code> 行的注释，在 <code>ViewController</code> 出现后，点击一下它的 <code>view</code> ，进一步验证一下这个结论。</p>
 
-<p><img src="http://leichunfeng.github.io/images/AssociatedObjects2.jpg" title="设置观察点" alt="设置观察点"></p>
+<p><img src="http://blog.leichunfeng.com/images/AssociatedObjects2.jpg" title="设置观察点" alt="设置观察点" /></p>
 
 <p>接下来，我们点击 <code>ViewController</code> 导航栏左上角的按钮，返回前一个界面，此时，又将有一个观察点被命中。同理，我们可以知道这个观察点是 <code>string_weak_retain</code> 。我们查看左侧的调用栈，将会发现一个非常敏感的函数调用 <code>_object_remove_assocations</code> ，调用这个函数后 <code>ViewController</code> 的所有关联对象被全部移除。最终，<code>self.associatedObject_retain</code> 指向的对象被释放。</p>
 
-<p><img src="http://leichunfeng.github.io/images/AssociatedObjects3.jpg" title="设置观察点" alt="设置观察点"></p>
+<p><img src="http://blog.leichunfeng.com/images/AssociatedObjects3.jpg" title="设置观察点" alt="设置观察点" /></p>
 
 <p>点击继续运行按钮，最后一个观察点 <code>string_weak_copy</code> 被命中。同理，<code>self.associatedObject_copy</code> 指向的对象也由于关联对象的移除被最终释放。</p>
 
-<p><img src="http://leichunfeng.github.io/images/AssociatedObjects4.jpg" title="设置观察点" alt="设置观察点"></p>
+<p><img src="http://blog.leichunfeng.com/images/AssociatedObjects4.jpg" title="设置观察点" alt="设置观察点" /></p>
 
 <h3>结论</h3>
 
@@ -417,7 +417,7 @@
 
 <p>弄清楚这些数据结构之间的关系后，再回过头来看上面的代码就不难了。我们发现，在苹果的底层代码中一般都会充斥着各种 <code>if else</code> ，可见写好 <code>if else</code> 后我们就距离成为高手不远了。开个玩笑，我们来看下面的流程图，一图胜千言：</p>
 
-<p><img src="http://leichunfeng.github.io/images/objc_setAssociatedObject.png" title="objc_setAssociatedObject" alt="objc_setAssociatedObject"></p>
+<p><img src="http://blog.leichunfeng.com/images/objc_setAssociatedObject.png" title="objc_setAssociatedObject" alt="objc_setAssociatedObject" /></p>
 
 <h3>objc_getAssociatedObject</h3>
 
@@ -2268,7 +2268,7 @@
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 </pre></td><td class='code'><pre><code class='html'><span class='line'><span class="nt">&lt;p&gt;</span>
-</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2015-06-28 16:54:32 +0800 - 雷纯锋 -
+</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2015-07-05 22:21:32 +0800 - 雷纯锋 -
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span>Powered by <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://octopress.org&quot;</span><span class="nt">&gt;</span>Octopress<span class="nt">&lt;/a&gt;&lt;/span&gt;</span>
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span> - 感谢 <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://gitcafe.com/signup?invited_by=leichunfeng&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;</span>GitCafe<span class="nt">&lt;/a&gt;</span> 为本站提供存储空间<span class="nt">&lt;/span&gt;</span>
 </span><span class='line'><span class="nt">&lt;/p&gt;</span>
