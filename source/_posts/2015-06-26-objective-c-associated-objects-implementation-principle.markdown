@@ -184,20 +184,20 @@ __weak NSString *string_weak_copy   = nil;
 
 我们先在 `viewDidLoad` 方法的第 `28` 行打上断点，然后运行程序，点击导航栏右上角的按钮 `Push` 到 `ViewController` 界面，程序将停在断点处。接着，我们使用 `lldb` 的 `watchpoint` 命令来设置观察点，观察全局变量 `string_weak_assign` 、`string_weak_retain` 和 `string_weak_copy` 的值的变化。正确设置好观察点后，将会在 `console` 中看到如下的类似输出：
 
-{% img /images/AssociatedObjects1.jpg '设置观察点' '设置观察点' %}
+![设置观察点](http://blog.leichunfeng.com/images/AssociatedObjects1.jpg "设置观察点")
 
 点击继续运行按钮，有一个观察点将被命中。我们先查看 `console` 中的输出，通过将这一步打印的 `old value` 和上一步的 `new value` 进行对比，我们可以知道本次命中的观察点是 `string_weak_assign` ，`string_weak_assign` 的值变成了 `0x0000000000000000` ，也就是 `nil` 。换句话说 `self.associatedObject_assign` 指向的对象已经被释放了，而通过查看左侧调用栈我们可以知道，这个对象是由于其所在的 `autoreleasepool` 被 `drain` 而被释放的，这与我前面的文章[《Objective-C Autorelease Pool 的实现原理
 》](http://blog.leichunfeng.com/blog/2015/05/31/objective-c-autorelease-pool-implementation-principle/)中的表述是一致的。**提示**，待会你也可以放开 `touchesBegan:withEvent:` 中第 `31` 行的注释，在 `ViewController` 出现后，点击一下它的 `view` ，进一步验证一下这个结论。
 
-{% img /images/AssociatedObjects2.jpg '设置观察点' '设置观察点' %}
+![设置观察点](http://blog.leichunfeng.com/images/AssociatedObjects2.jpg "设置观察点")
 
 接下来，我们点击 `ViewController` 导航栏左上角的按钮，返回前一个界面，此时，又将有一个观察点被命中。同理，我们可以知道这个观察点是 `string_weak_retain` 。我们查看左侧的调用栈，将会发现一个非常敏感的函数调用 `_object_remove_assocations` ，调用这个函数后 `ViewController` 的所有关联对象被全部移除。最终，`self.associatedObject_retain` 指向的对象被释放。
 
-{% img /images/AssociatedObjects3.jpg '设置观察点' '设置观察点' %}
+![设置观察点](http://blog.leichunfeng.com/images/AssociatedObjects3.jpg "设置观察点")
 
 点击继续运行按钮，最后一个观察点 `string_weak_copy` 被命中。同理，`self.associatedObject_copy` 指向的对象也由于关联对象的移除被最终释放。
 
-{% img /images/AssociatedObjects4.jpg '设置观察点' '设置观察点' %}
+![设置观察点](http://blog.leichunfeng.com/images/AssociatedObjects4.jpg "设置观察点")
 
 ### 结论
 
@@ -274,7 +274,7 @@ void _object_set_associative_reference(id object, void *key, id value, uintptr_t
 
 弄清楚这些数据结构之间的关系后，再回过头来看上面的代码就不难了。我们发现，在苹果的底层代码中一般都会充斥着各种 `if else` ，可见写好 `if else` 后我们就距离成为高手不远了。开个玩笑，我们来看下面的流程图，一图胜千言：
 
-{% img /images/objc_setAssociatedObject.png 'objc_setAssociatedObject' 'objc_setAssociatedObject' %}
+![objc_setAssociatedObject](http://blog.leichunfeng.com/images/objc_setAssociatedObject.png "objc_setAssociatedObject")
 
 ### objc_getAssociatedObject
 
