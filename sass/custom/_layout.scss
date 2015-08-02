@@ -19,3 +19,6 @@
 //$sidebar-pad-medium: 15px;
 //$sidebar-pad-wide: 20px;
 //$sidebar-width-wide: 300px;
+
+article ul, ol { margin-bottom: 1.5em !important; }
+article li > ul, ol { padding-left: 30px; margin-bottom: 0 !important; }
