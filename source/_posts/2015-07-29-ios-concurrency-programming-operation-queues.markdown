@@ -77,26 +77,26 @@ categories:
 
 ## Operation Queues vs. Grand Central Dispatch (GCD)
 
-简单来说，GCD 是苹果基于 C 语言开发的，一个用于多核编程的解决方案，主要用于优化应用程序以支持多核处理器以及其他对称多处理系统。而 operation qqueues 则是建立在 GCD 的基础之上的，面向对象的解决方案。它使用起来比 GCD 更加灵活，功能也更加强大。下面简单地介绍了 operation qqueues 和 GCD 各自的使用场景：
+简单来说，GCD 是苹果基于 C 语言开发的，一个用于多核编程的解决方案，主要用于优化应用程序以支持多核处理器以及其他对称多处理系统。而 operation queues 则是建立在 GCD 的基础之上的，面向对象的解决方案。它使用起来比 GCD 更加灵活，功能也更加强大。下面简单地介绍了 operation queues 和 GCD 各自的使用场景：
 
-- operation qqueues：相对 GCD 来说，使用 operation qqueues 会增加一点点额外的开销，但是我们却换来了非常强大的灵活性和功能，我们可以给 operation 之间添加依赖关系、取消一个正在执行的 operation 、暂停和恢复 operation queue 等；
+- operation queues：相对 GCD 来说，使用 operation queues 会增加一点点额外的开销，但是我们却换来了非常强大的灵活性和功能，我们可以给 operation 之间添加依赖关系、取消一个正在执行的 operation 、暂停和恢复 operation queue 等；
 - GCD：则是一种更轻量级的执行并发任务的方式，使用 GCD 时我们并不关心任务的调度情况，而让系统帮我们自动处理。但是 GCD 的短板也是非常明显的，比如我们想要给任务之间添加依赖关系、取消或者暂停一个正在执行的任务时就会变得非常棘手。
 
 ## 关于 Operation 对象
 
 在 iOS 开发中，我们可以使用 NSoperation 类来封装需要执行的任务，而一个 operation 对象（以下正文简称 operation ）指的就是 NSoperation 类的一个具体实例。NSoperation 本身是一个抽象类，不能直接实例化，因此，如果我们想要使用它来执行具体任务的话，就必须创建自己的子类或者使用系统预定义的两个具体子类，NSInvocationOperation 和 NSBlockOperation 。
 
-**NSInvocationOperation**：我们可以通过一个 object 和 selector 非常方便地创建一个 NSInvocationOperation，这是一种非常动态和灵活的方式。假设我们已经有了一个现成的方法，这个方法中的代码正好就是我们需要执行的任务，那么我们就可以在不修改任何现有代码的情况下，通过方法所在的对象和这个现有方法直接创建一个 NSInvocationOperation。
+**NSInvocationOperation**：我们可以通过一个 object 和 selector 非常方便地创建一个 NSInvocationOperation ，这是一种非常动态和灵活的方式。假设我们已经有了一个现成的方法，这个方法中的代码正好就是我们需要执行的任务，那么我们就可以在不修改任何现有代码的情况下，通过方法所在的对象和这个现有方法直接创建一个 NSInvocationOperation 。
 
-**NSBlockOperation**：我们可以使用 NSBlockOperation来并发执行一个或多个 block ，只有当一个 NSBlockOperation所关联的所有 block 都执行完毕时，这个 NSBlockOperation才算执行完成，有点类似于 dispatch_group 的概念。
+**NSBlockOperation**：我们可以使用 NSBlockOperation 来并发执行一个或多个 block ，只有当一个 NSBlockOperation 所关联的所有 block 都执行完毕时，这个 NSBlockOperation 才算执行完成，有点类似于 dispatch_group 的概念。
 
 另外，所有的 operation 都支持以下特性：
 
 - 支持在 operation 之间建立依赖关系，只有当一个 operation 所依赖的所有 operation 都执行完成时，这个 operation 才能开始执行。
-- 支持一个可选的 completion block ，这个 block 将会在 operation的主任务执行完成时被调用。
-- 支持通过 KVO 来观察 operation执行状态的变化。
-- 支持设置执行的优先级，从而影响 operation之间的相对执行顺序。
-- 支持取消操作，可以允许我们停止正在执行的 operation。
+- 支持一个可选的 completion block ，这个 block 将会在 operation 的主任务执行完成时被调用。
+- 支持通过 KVO 来观察 operation 执行状态的变化。
+- 支持设置执行的优先级，从而影响 operation 之间的相对执行顺序。
+- 支持取消操作，可以允许我们停止正在执行的 operation 。
 
 ### 并发 vs. 非并发 Operation
 
@@ -108,7 +108,7 @@ categories:
 
 ### 创建 NSInvocationOperation 对象
 
-正如上面提到的，NSInvocationOperation 类是 NSoperation 抽象类的一个具体子类，当一个 NSInvocationOperation开始执行时，它会调用我们指定的 object 的 selector 方法。通过使用 NSInvocationOperation 类，我们可以避免为每一个任务都创建一个自定义的子类，特别是当我们在修改一个已经存在的应用，并且这个应用中已经有了我们需要执行的任务所对应的 object 和 selector 时非常有用。
+正如上面提到的，NSInvocationOperation 类是 NSoperation 抽象类的一个具体子类，当一个 NSInvocationOperation 开始执行时，它会调用我们指定的 object 的 selector 方法。通过使用 NSInvocationOperation 类，我们可以避免为每一个任务都创建一个自定义的子类，特别是当我们在修改一个已经存在的应用，并且这个应用中已经有了我们需要执行的任务所对应的 object 和 selector 时非常有用。
 
 ``` objc
 @implementation OQMyCustomClass
@@ -158,7 +158,7 @@ categories:
 
 ### 创建 NSBlockOperation 对象
 
-NSBlockOperation 类是 NSoperation 抽象类的另外一个系统预定义的具体子类，我们可以用它来封装一个或多个 block 。我们知道 GCD 主要就是用来进行 block 调度的，那为什么我们还需要 NSBlockOperation 类呢？一般来说，有两个场景我们会优先使用 NSBlockOperation 类：1、当我们在应用中已经使用了 operation qqueues 且不想创建 dispatch qqueues 时，NSBlockOperation 类可以为我们的应用提供一个面向对象的封装；2、我们需要用到 dispatch qqueues 不具备的功能时，比如需要设置 operation 之间的依赖关系、使用 KVO 观察 operation 的状态变化等。
+NSBlockOperation 类是 NSoperation 抽象类的另外一个系统预定义的具体子类，我们可以用它来封装一个或多个 block 。我们知道 GCD 主要就是用来进行 block 调度的，那为什么我们还需要 NSBlockOperation 类呢？一般来说，有两个场景我们会优先使用 NSBlockOperation 类：1、当我们在应用中已经使用了 operation queues 且不想创建 dispatch queues 时，NSBlockOperation 类可以为我们的应用提供一个面向对象的封装；2、我们需要用到 dispatch queues 不具备的功能时，比如需要设置 operation 之间的依赖关系、使用 KVO 观察 operation 的状态变化等。
 
 ``` objc
 @implementation OQCreateBlockoperation
@@ -273,7 +273,7 @@ NSBlockOperation 类是 NSoperation 抽象类的另外一个系统预定义的�
 
 ### 配置并发执行的 Operation
 
-在默认情况下，operation 是同步执行的，也就是说在调用它们的 start 方法的线程中执行它们的任务。而在 operation 和 operation qqueues 结合使用时，operation qqueues 可以为非并发的 operation 提供线程，因此，大部分的 operation 仍然可以异步执行。但是，如果你想要手动执行 operation ，又想 operation 能够异步执行的话，那么你需要做一些额外的配置来让你的 operation 能够支持并发执行。下面列举了一些你需要重写的方法：
+在默认情况下，operation 是同步执行的，也就是说在调用它们的 start 方法的线程中执行它们的任务。而在 operation 和 operation queues 结合使用时，operation queues 可以为非并发的 operation 提供线程，因此，大部分的 operation 仍然可以异步执行。但是，如果你想要手动执行 operation ，又想 operation 能够异步执行的话，那么你需要做一些额外的配置来让你的 operation 能够支持并发执行。下面列举了一些你需要重写的方法：
 
 - start，必须：所有并发的 operation 都必须要重写这个方法，替换掉 NSoperation 抽象类中的默认实现。start 方法是一个 operation 的起点，我们可以在这里配置任务执行的线程或者一些其它的执行环境。另外，需要特别注意的是，在我们重写的 start 方法中一定不要调用父类的实现。
 - main，可选：通常这个方法就是专门用来实现与该 operation 相关联的任务的。尽管我们可以直接在 start 方法中执行我们的任务，但是用 main 方法来实现我们的任务可以使设置代码和任务代码得到分离，从而使 operation 的结构更清晰。
@@ -433,7 +433,7 @@ NSoperationueue* aueue = [[NSoperationueue alloc] init];
 
 - addoperation:，添加一个 operation 到 operation queue 中；
 - addoperations:waitUntilFinished:，添加一组 operation 到 operation queue 中；
-- addoperationWithBlock:，直接添加一个 block 到 operation queue 中，而不用创建一个 NSBlockOperation。
+- addoperationWithBlock:，直接添加一个 block 到 operation queue 中，而不用创建一个 NSBlockOperation 。
 
 在大多数情况下，一个 operation 被添加到 operation queue 后不久就会执行，但是也有很多原因会使 operation queue 延迟执行入队的 operation 。比如，我们前面提到了的，如果一个 operation 所依赖的其他 operation 还没有完成执行时，这个 operation 就不能开始执行；再比如说 operation queue 被暂时执行或者已经达到了它最大可并发的 operation 数。下面的示例代码展示了这三种方法的基本用法：
 
