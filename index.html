@@ -9,7 +9,7 @@
   <meta name="author" content="雷纯锋">
 
   
-  <meta name="description" content="现如今移动设备也早已经进入了多核心 CPU 时代，并且随着时间的推移，CPU 的核心数只会增加不会减少。而作为软件开发者，我们需要做的就是尽可能地提高应用的并发性，来充分地利用这些多核心 CPU 的性能。在 iOS 开发中，我们主要可以通过 Operation Queues、Dispatch &hellip;">
+  <meta name="description" content="现如今移动设备也早已经进入了多核心 CPU 时代，并且随着时间的推移，CPU 的核心数只会增加不会减少。而作为软件开发者，我们需要做的就是尽可能地提高应用的并发性，来充分利用这些多核心 CPU 的性能。在 iOS 开发中，我们主要可以通过 Operation Queues、Dispatch &hellip;">
   
     <meta name="keywords" content="雷纯锋的技术博客, 雷纯锋, 技术博客, 博客, iOS, Objective-C, Android, Java, HTML5, CSS3, JavaScript, Octopress, GitHub Pages, GitHub, Pages, GitCafe, RAC, ReactiveCocoa, Git">
   
@@ -88,7 +88,7 @@
   </header>
 
 
-  <div class="entry-content"><p>现如今移动设备也早已经进入了多核心 <code>CPU</code> 时代，并且随着时间的推移，<code>CPU</code> 的核心数只会增加不会减少。而作为软件开发者，我们需要做的就是尽可能地提高应用的并发性，来充分地利用这些多核心 <code>CPU</code> 的性能。在 iOS 开发中，我们主要可以通过 Operation Queues、Dispatch Queues 和 Dispatch Sources 来提高应用的并发性，本文将主要介绍 operation queues 的相关知识，另外两个属于 Grand Central Dispatch（以下正文简称 <code>GCD</code> ）的范畴，将会在后续的文章中进行介绍。</p>
+  <div class="entry-content"><p>现如今移动设备也早已经进入了多核心 <code>CPU</code> 时代，并且随着时间的推移，<code>CPU</code> 的核心数只会增加不会减少。而作为软件开发者，我们需要做的就是尽可能地提高应用的并发性，来充分利用这些多核心 <code>CPU</code> 的性能。在 iOS 开发中，我们主要可以通过 Operation Queues、Dispatch Queues 和 Dispatch Sources 来提高应用的并发性。本文将主要介绍 Operation Queues 的相关知识，另外两个属于 Grand Central Dispatch（以下正文简称 <code>GCD</code> ）的范畴，将会在后续的文章中进行介绍。</p>
 
 <p>由于本文涉及的内容较多，所以建议读者先提前了解一下本文的目录结构，以便对本文有一个宏观的认识：</p>
 
@@ -146,7 +146,7 @@
 
 <h2>基本概念</h2>
 
-<p>在正式开始介绍 operation queues 的相关知识前，我想先介绍几个在 iOS 并发编程中非常容易混淆的基本概念，以帮助读者更好地理解本文。</p>
+<p>在正式开始介绍 Operation Queues 的相关知识前，我想先介绍几个在 iOS 并发编程中非常容易混淆的基本概念，以帮助读者更好地理解本文。<strong>注</strong>，本文中的 Operation Queues 指的是 NSOperation 和 NSOperationQueue 的统称。</p>
 
 <h3>术语</h3>
 
@@ -188,10 +188,10 @@
 
 <h2>Operation Queues vs. Grand Central Dispatch (GCD)</h2>
 
-<p>简单来说，GCD 是苹果基于 C 语言开发的，一个用于多核编程的解决方案，主要用于优化应用程序以支持多核处理器以及其他对称多处理系统。而 operation queues 则是一个建立在 <code>GCD</code> 的基础之上的，面向对象的解决方案。它使用起来比 <code>GCD</code> 更加灵活，功能也更加强大。下面简单地介绍了 operation queues 和 <code>GCD</code> 各自的使用场景：</p>
+<p>简单来说，<code>GCD</code> 是苹果基于 <code>C</code> 语言开发的，一个用于多核编程的解决方案，主要用于优化应用程序以支持多核处理器以及其他对称多处理系统。而 Operation Queues 则是一个建立在 <code>GCD</code> 的基础之上的，面向对象的解决方案。它使用起来比 <code>GCD</code> 更加灵活，功能也更加强大。下面简单地介绍了 Operation Queues 和 <code>GCD</code> 各自的使用场景：</p>
 
 <ul>
-<li>operation queues ：相对 <code>GCD</code> 来说，使用 operation queues 会增加一点点额外的开销，但是我们却换来了非常强大的灵活性和功能，我们可以给 operation 之间添加依赖关系、取消一个正在执行的 operation 、暂停和恢复 operation queue 等；</li>
+<li>Operation Queues ：相对 <code>GCD</code> 来说，使用 Operation Queues 会增加一点点额外的开销，但是我们却换来了非常强大的灵活性和功能，我们可以给 operation 之间添加依赖关系、取消一个正在执行的 operation 、暂停和恢复 operation queue 等；</li>
 <li><code>GCD</code> ：则是一种更轻量级的，以 <code>FIFO</code> 的顺序执行并发任务的方式，使用 <code>GCD</code> 时我们并不关心任务的调度情况，而让系统帮我们自动处理。但是 <code>GCD</code> 的短板也是非常明显的，比如我们想要给任务之间添加依赖关系、取消或者暂停一个正在执行的任务时就会变得非常棘手。</li>
 </ul>
 
@@ -200,9 +200,9 @@
 
 <p>在 iOS 开发中，我们可以使用 NSOperation 类来封装需要执行的任务，而一个 operation 对象（以下正文简称 operation ）指的就是 NSOperation 类的一个具体实例。NSOperation 本身是一个抽象类，不能直接实例化，因此，如果我们想要使用它来执行具体任务的话，就必须创建自己的子类或者使用系统预定义的两个子类，NSInvocationOperation 和 NSBlockOperation 。</p>
 
-<p><strong>NSInvocationOperation</strong>：我们可以通过一个 <code>object</code> 和 <code>selector</code> 非常方便地创建一个 NSInvocationOperation ，这是一种非常动态和灵活的方式。假设我们已经有了一个现成的方法，这个方法中的代码正好就是我们需要执行的任务，那么我们就可以在不修改任何现有代码的情况下，通过方法所在的对象和这个现有方法直接创建一个 NSInvocationOperation 。</p>
+<p><strong>NSInvocationOperation</strong> ：我们可以通过一个 <code>object</code> 和 <code>selector</code> 非常方便地创建一个 NSInvocationOperation ，这是一种非常动态和灵活的方式。假设我们已经有了一个现成的方法，这个方法中的代码正好就是我们需要执行的任务，那么我们就可以在不修改任何现有代码的情况下，通过方法所在的对象和这个现有方法直接创建一个 NSInvocationOperation 。</p>
 
-<p><strong>NSBlockOperation</strong>：我们可以使用 NSBlockOperation 来并发执行一个或多个 block ，只有当一个 NSBlockOperation 所关联的所有 block 都执行完毕时，这个 NSBlockOperation 才算执行完成，有点类似于 <code>dispatch_group</code> 的概念。</p>
+<p><strong>NSBlockOperation</strong> ：我们可以使用 NSBlockOperation 来并发执行一个或多个 block ，只有当一个 NSBlockOperation 所关联的所有 block 都执行完毕时，这个 NSBlockOperation 才算执行完成，有点类似于 <code>dispatch_group</code> 的概念。</p>
 
 <p>另外，所有的 operation 都支持以下特性：</p>
 
@@ -227,7 +227,7 @@
 
 <p>正如上面提到的，NSInvocationOperation 是 NSOperation 类的一个子类，当一个 NSInvocationOperation 开始执行时，它会调用我们指定的 <code>object</code> 的 <code>selector</code> 方法。通过使用 NSInvocationOperation 类，我们可以避免为每一个任务都创建一个自定义的子类，特别是当我们在修改一个已经存在的应用，并且这个应用中已经有了我们需要执行的任务所对应的 <code>object</code> 和 <code>selector</code> 时非常有用。</p>
 
-<p>下面的示例代码展示了如何通过 <code>object</code> 和 <code>selector</code> 创建一个 NSInvocationOperation 对象。<strong>说明</strong>，本文中的所有示例代码都可以在这里 <a href="https://github.com/leichunfeng/OperationQueues">OperationQueues</a> 找到，每一个类都有与之对应的测试类，充当 <code>client</code> 的角色，建议你在看完不同小节的代码时，运行一下相应的测试用例，观察打印的结果，以加深理解。</p>
+<p>下面的示例代码展示了如何通过 <code>object</code> 和 <code>selector</code> 创建一个 NSInvocationOperation 对象。<strong>说明</strong>，本文中的所有示例代码都可以在这里 <a href="https://github.com/leichunfeng/OperationQueues">OperationQueues</a> 找到，每一个类都有与之对应的测试类，充当 <code>client</code> 的角色，建议你在看完一个小节的代码时，运行一下相应的测试用例，观察打印的结果，以加深理解。</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -298,8 +298,8 @@
 <p>NSBlockOperation 是 NSOperation 类的另外一个系统预定义的子类，我们可以用它来封装一个或多个 <code>block</code> 。我们知道 <code>GCD</code> 主要就是用来进行 <code>block</code> 调度的，那为什么我们还需要 NSBlockOperation 类呢？一般来说，有以下两个场景我们会优先使用 NSBlockOperation 类：</p>
 
 <ul>
-<li>当我们在应用中已经使用了 operation queues 且不想创建 dispatch queues 时，NSBlockOperation 类可以为我们的应用提供一个面向对象的封装；</li>
-<li>我们需要用到 dispatch queues 不具备的功能时，比如需要设置 operation 之间的依赖关系、使用 <code>KVO</code> 观察 operation 的状态变化等。</li>
+<li>当我们在应用中已经使用了 Operation Queues 且不想创建 Dispatch Queues 时，NSBlockOperation 类可以为我们的应用提供一个面向对象的封装；</li>
+<li>我们需要用到 Dispatch Queues 不具备的功能时，比如需要设置 operation 之间的依赖关系、使用 <code>KVO</code> 观察 operation 的状态变化等。</li>
 </ul>
 
 
@@ -501,13 +501,13 @@
 
 <h3>配置并发执行的 Operation</h3>
 
-<p>在默认情况下，operation 是同步执行的，也就是说在调用它的 <code>start</code> 方法的线程中执行它们的任务。而在 operation 和 operation queues 结合使用时，operation queues 可以为非并发的 operation 提供线程，因此，大部分的 operation 仍然可以异步执行。但是，如果你想要手动地执行一个 operation ，又想这个 operation 能够异步执行的话，你需要做一些额外的配置来让你的 operation 支持并发执行。下面列举了一些你可能需要重写的方法：</p>
+<p>在默认情况下，operation 是同步执行的，也就是说在调用它的 <code>start</code> 方法的线程中执行它们的任务。而在 operation 和 operation queue 结合使用时，operation queue 可以为非并发的 operation 提供线程，因此，大部分的 operation 仍然可以异步执行。但是，如果你想要手动地执行一个 operation ，又想这个 operation 能够异步执行的话，你需要做一些额外的配置来让你的 operation 支持并发执行。下面列举了一些你可能需要重写的方法：</p>
 
 <ul>
-<li><code>start</code> ，必须的：所有并发执行的 operation 都必须要重写这个方法，替换掉 NSOperation 类中的默认实现。<code>start</code> 方法是一个 operation 的起点，我们可以在这里配置任务执行的线程或者一些其它的执行环境。另外，需要特别注意的是，在我们重写的 <code>start</code> 方法中一定不要调用父类的实现；</li>
-<li><code>main</code> ，可选的：通常这个方法就是专门用来实现与该 operation 相关联的任务的。尽管我们可以直接在 <code>start</code> 方法中执行我们的任务，但是用 <code>main</code> 方法来实现我们的任务可以使设置代码和任务代码得到分离，从而使 operation 的结构更清晰；</li>
-<li><code>isExecuting</code> 和 <code>isFinished</code> ，必须的：并发执行的 operation 需要负责配置它们的执行环境，并且向外界客户报告执行环境的状态。因此，一个并发执行的 operation 必须要维护一些状态信息，用来记录它的任务是否正在执行，是否已经完成执行等。此外，当这两个方法所代表的值发生变化时，我们需要生成相应的 <code>KVO</code> 通知，以便外界能够观察到这些状态的变化；</li>
-<li><code>isConcurrent</code> ，必须的：这个方法的返回值用来标识一个 operation 是否是并发的 operation ，我们需要重写这个方法并返回 <code>YES</code> 。</li>
+<li><code>start</code> ：必须的，所有并发执行的 operation 都必须要重写这个方法，替换掉 NSOperation 类中的默认实现。<code>start</code> 方法是一个 operation 的起点，我们可以在这里配置任务执行的线程或者一些其它的执行环境。另外，需要特别注意的是，在我们重写的 <code>start</code> 方法中一定不要调用父类的实现；</li>
+<li><code>main</code> ：可选的，通常这个方法就是专门用来实现与该 operation 相关联的任务的。尽管我们可以直接在 <code>start</code> 方法中执行我们的任务，但是用 <code>main</code> 方法来实现我们的任务可以使设置代码和任务代码得到分离，从而使 operation 的结构更清晰；</li>
+<li><code>isExecuting</code> 和 <code>isFinished</code> ：必须的，并发执行的 operation 需要负责配置它们的执行环境，并且向外界客户报告执行环境的状态。因此，一个并发执行的 operation 必须要维护一些状态信息，用来记录它的任务是否正在执行，是否已经完成执行等。此外，当这两个方法所代表的值发生变化时，我们需要生成相应的 <code>KVO</code> 通知，以便外界能够观察到这些状态的变化；</li>
+<li><code>isConcurrent</code> ：必须的，这个方法的返回值用来标识一个 operation 是否是并发的 operation ，我们需要重写这个方法并返回 <code>YES</code> 。</li>
 </ul>
 
 
@@ -609,7 +609,7 @@
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>接下来，是真正执行任务的 <code>main</code> 方法，值得注意的是在任务执行完毕后，我们需要手动触动 <code>isExecuting</code> 和 <code>isFinished</code> 的 <code>KVO</code> 通知。</p>
+<p>最后，是真正执行任务的 <code>main</code> 方法，值得注意的是在任务执行完毕后，我们需要手动触动 <code>isExecuting</code> 和 <code>isFinished</code> 的 <code>KVO</code> 通知。</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -658,7 +658,7 @@
 
 <h3>维护 KVO 通知</h3>
 
-<p>NSOperation 类的以下 <code>key paths</code> 支持 <code>KVO</code> 通知，我们可以通过观察这些 <code>key paths</code> 非常方便地监听到一个 operation 内部状态的变化。</p>
+<p>NSOperation 类的以下 <code>key paths</code> 支持 <code>KVO</code> 通知，我们可以通过观察这些 <code>key paths</code> 非常方便地监听到一个 operation 内部状态的变化：</p>
 
 <ul>
 <li>isCancelled</li>
@@ -897,7 +897,7 @@
 
 <h2>总结</h2>
 
-<p>看到这里，我想你对 iOS 的并发编程模型已经有了一定的了解。正如文中所说的，我们应该尽可能地直接使用队列而不是线程，让系统去与线程打交道，而我们只需定义好要调度的任务就可以了。一般情况下，我们完全不需要去自定义一个并发的 operation ，因为在与 operation queue 结合使用时，operation queue 会自动为非并发的 operation 创建一个线程。operation queues 是对 <code>GCD</code> 面向对象的封装，它可以高度定制化，对依赖关系、队列优先级和线程优先级等提供了很好的支持，是我们实现复杂任务调度时的不二之选。</p>
+<p>看到这里，我想你对 iOS 的并发编程模型已经有了一定的了解。正如文中所说的，我们应该尽可能地直接使用队列而不是线程，让系统去与线程打交道，而我们只需定义好要调度的任务就可以了。一般情况下，我们也完全不需要去自定义一个并发的 operation ，因为在与 operation queue 结合使用时，operation queue 会自动为非并发的 operation 创建一个线程。Operation Queues 是对 <code>GCD</code> 面向对象的封装，它可以高度定制化，对依赖关系、队列优先级和线程优先级等提供了很好的支持，是我们实现复杂任务调度时的不二之选。</p>
 
 <h2>参考链接</h2>
 
