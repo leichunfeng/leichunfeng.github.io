@@ -542,3 +542,7 @@ NSOperationQueue *operationQueue = [[NSOperationQueue alloc] init];
 [http://www.raywenderlich.com/76341/use-nsoperation-nsoperationqueue-swift](http://www.raywenderlich.com/76341/use-nsoperation-nsoperationqueue-swift)
 <br>
 [http://blog.xcodev.com/archives/operation-queue-intro/](http://blog.xcodev.com/archives/operation-queue-intro/)
+
+**版权声明**：我已将本文在微信公众平台的发表权「独家代理」给 iOS 开发（iOSDevTips）微信公众号。扫下方二维码即可关注「iOS 开发」：
+
+![iOS 开发二维码](http://blog.devtang.com/images/weixin-qr.jpg)
