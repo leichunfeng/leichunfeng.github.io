@@ -85,7 +85,7 @@
   </header>
 
 
-<div class="entry-content"><p>现如今移动设备也早已经进入了多核心 CPU 时代，并且随着时间的推移，CPU 的核心数只会增加不会减少。而作为软件开发者，我们需要做的就是尽可能地提高应用的并发性，来充分地利用这些多核心 CPU 的性能。在 iOS 开发中，我们主要可以通过 Operation Queues、Dispatch Queues 和 Dispatch Sources 来提高应用的并发性，本文将主要介绍 operation queues 的相关知识，另外两个属于 Grand Central Dispatch（以下正文简称 GCD ）的范畴，将会在后续的文章中进行介绍。</p>
+<div class="entry-content"><p>现如今移动设备也早已经进入了多核心 <code>CPU</code> 时代，并且随着时间的推移，<code>CPU</code> 的核心数只会增加不会减少。而作为软件开发者，我们需要做的就是尽可能地提高应用的并发性，来充分地利用这些多核心 <code>CPU</code> 的性能。在 iOS 开发中，我们主要可以通过 Operation Queues、Dispatch Queues 和 Dispatch Sources 来提高应用的并发性，本文将主要介绍 operation queues 的相关知识，另外两个属于 Grand Central Dispatch（以下正文简称 <code>GCD</code> ）的范畴，将会在后续的文章中进行介绍。</p>
 
 <p>由于本文涉及的内容较多，所以建议读者先提前了解一下本文的目录结构，以便对本文有一个宏观的认识：</p>
 
@@ -185,11 +185,11 @@
 
 <h2>Operation Queues vs. Grand Central Dispatch (GCD)</h2>
 
-<p>简单来说，GCD 是苹果基于 C 语言开发的，一个用于多核编程的解决方案，主要用于优化应用程序以支持多核处理器以及其他对称多处理系统。而 operation queues 则是一个建立在 GCD 的基础之上的，面向对象的解决方案。它使用起来比 GCD 更加灵活，功能也更加强大。下面简单地介绍了 operation queues 和 GCD 各自的使用场景：</p>
+<p>简单来说，GCD 是苹果基于 C 语言开发的，一个用于多核编程的解决方案，主要用于优化应用程序以支持多核处理器以及其他对称多处理系统。而 operation queues 则是一个建立在 <code>GCD</code> 的基础之上的，面向对象的解决方案。它使用起来比 <code>GCD</code> 更加灵活，功能也更加强大。下面简单地介绍了 operation queues 和 <code>GCD</code> 各自的使用场景：</p>
 
 <ul>
-<li>operation queues ：相对 GCD 来说，使用 operation queues 会增加一点点额外的开销，但是我们却换来了非常强大的灵活性和功能，我们可以给 operation 之间添加依赖关系、取消一个正在执行的 operation 、暂停和恢复 operation queue 等；</li>
-<li>GCD ：则是一种更轻量级的，以 <code>FIFO</code> 的顺序执行并发任务的方式，使用 GCD 时我们并不关心任务的调度情况，而让系统帮我们自动处理。但是 GCD 的短板也是非常明显的，比如我们想要给任务之间添加依赖关系、取消或者暂停一个正在执行的任务时就会变得非常棘手。</li>
+<li>operation queues ：相对 <code>GCD</code> 来说，使用 operation queues 会增加一点点额外的开销，但是我们却换来了非常强大的灵活性和功能，我们可以给 operation 之间添加依赖关系、取消一个正在执行的 operation 、暂停和恢复 operation queue 等；</li>
+<li><code>GCD</code> ：则是一种更轻量级的，以 <code>FIFO</code> 的顺序执行并发任务的方式，使用 <code>GCD</code> 时我们并不关心任务的调度情况，而让系统帮我们自动处理。但是 <code>GCD</code> 的短板也是非常明显的，比如我们想要给任务之间添加依赖关系、取消或者暂停一个正在执行的任务时就会变得非常棘手。</li>
 </ul>
 
 
@@ -292,7 +292,7 @@
 
 <h3>创建 NSBlockOperation 对象</h3>
 
-<p>NSBlockOperation 是 NSOperation 类的另外一个系统预定义的子类，我们可以用它来封装一个或多个 <code>block</code> 。我们知道 GCD 主要就是用来进行 <code>block</code> 调度的，那为什么我们还需要 NSBlockOperation 类呢？一般来说，有以下两个场景我们会优先使用 NSBlockOperation 类：</p>
+<p>NSBlockOperation 是 NSOperation 类的另外一个系统预定义的子类，我们可以用它来封装一个或多个 <code>block</code> 。我们知道 <code>GCD</code> 主要就是用来进行 <code>block</code> 调度的，那为什么我们还需要 NSBlockOperation 类呢？一般来说，有以下两个场景我们会优先使用 NSBlockOperation 类：</p>
 
 <ul>
 <li>当我们在应用中已经使用了 operation queues 且不想创建 dispatch queues 时，NSBlockOperation 类可以为我们的应用提供一个面向对象的封装；</li>
@@ -708,7 +708,7 @@
 
 <p>从 iOS 4.0 开始，一个 operation 可以在它的主任务执行完成时回调一个 completion block 。我们可以用 completion block 来执行一些主任务之外的工作，比如，我们可以用它来通知一些客户 operation 已经执行完毕，而并发的 operation 也可以用这个 block 来生成最终的 <code>KVO</code> 通知。如果需要设置一个 operation 的 completion block ，直接调用 NSOperation 类的 <code>setCompletionBlock:</code> 方法即可。</p>
 
-<p><strong>注意</strong>，当一个 operation 被取消时，它的 completion block 仍然会执行，所以我们需要在真正执行代码前检查一下 <code>isCancelled</code> 方法的返回值。另外，我们也没有办法保证 completion block 被回调时一定是在主线程，理论上它应该是与触发 <code>isFinished</code> 的 <code>KVO</code> 通知所在的线程一致的，所以如果有必要的话我们可以在 completion block 中使用 GCD 来保证从主线程更新 <code>UI</code> 。</p>
+<p><strong>注意</strong>，当一个 operation 被取消时，它的 completion block 仍然会执行，所以我们需要在真正执行代码前检查一下 <code>isCancelled</code> 方法的返回值。另外，我们也没有办法保证 completion block 被回调时一定是在主线程，理论上它应该是与触发 <code>isFinished</code> 的 <code>KVO</code> 通知所在的线程一致的，所以如果有必要的话我们可以在 completion block 中使用 <code>GCD</code> 来保证从主线程更新 <code>UI</code> 。</p>
 
 <h2>执行 Operation 对象</h2>
 
@@ -894,7 +894,7 @@
 
 <h2>总结</h2>
 
-<p>看到这里，我想你对 iOS 的并发编程模型已经有了一定的了解。正如文中所说的，我们应该尽可能地直接使用队列而不是线程，让系统去与线程打交道，而我们只需定义好要调度的任务就可以了。一般情况下，我们完全不需要去自定义一个并发的 operation ，因为在与 operation queue 结合使用时，operation queue 会自动为非并发的 operation 创建一个线程。operation queues 是对 GCD 面向对象的封装，它可以高度定制化，对依赖关系、队列优先级和线程优先级等提供了很好的支持，是我们实现复杂任务调度时的不二之选。</p>
+<p>看到这里，我想你对 iOS 的并发编程模型已经有了一定的了解。正如文中所说的，我们应该尽可能地直接使用队列而不是线程，让系统去与线程打交道，而我们只需定义好要调度的任务就可以了。一般情况下，我们完全不需要去自定义一个并发的 operation ，因为在与 operation queue 结合使用时，operation queue 会自动为非并发的 operation 创建一个线程。operation queues 是对 <code>GCD</code> 面向对象的封装，它可以高度定制化，对依赖关系、队列优先级和线程优先级等提供了很好的支持，是我们实现复杂任务调度时的不二之选。</p>
 
 <h2>参考链接</h2>
 
