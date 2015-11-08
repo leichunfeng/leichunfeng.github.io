@@ -1,70 +1,65 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>http://leichunfeng.github.io/blog/2015/11/08/functor-applicative-and-monad/</loc>
+    <lastmod>2015-11-08T10:53:16+08:00</lastmod>
+  </url>
+  <url>
     <loc>http://leichunfeng.github.io/blog/2015/07/29/ios-concurrency-programming-operation-queues/</loc>
     <lastmod>2015-07-29T22:06:33+08:00</lastmod>
-    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/2015/06/26/objective-c-associated-objects-implementation-principle/</loc>
     <lastmod>2015-06-26T22:35:58+08:00</lastmod>
-    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/2015/06/14/objective-c-method-swizzling-best-practice/</loc>
     <lastmod>2015-06-14T12:03:32+08:00</lastmod>
-    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/2015/05/31/objective-c-autorelease-pool-implementation-principle/</loc>
     <lastmod>2015-05-31T10:46:34+08:00</lastmod>
-    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/2015/05/18/objective-c-category-implementation-principle/</loc>
     <lastmod>2015-05-18T00:20:57+08:00</lastmod>
-    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/</loc>
     <lastmod>2015-05-02T17:06:15+08:00</lastmod>
-    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/2015/04/25/objective-c-object-model/</loc>
     <lastmod>2015-04-25T19:38:02+08:00</lastmod>
-    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal/</loc>
     <lastmod>2015-03-16T12:32:51+08:00</lastmod>
-    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/</loc>
     <lastmod>2014-11-15T13:38:20+08:00</lastmod>
-    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/2014/11/11/use-octopress-plus-github-pages-to-setup-a-personal-blog/</loc>
     <lastmod>2014-11-11T21:47:07+08:00</lastmod>
-    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/2014/11/11/preface/</loc>
     <lastmod>2014-11-11T18:49:07+08:00</lastmod>
-    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/blog/archives/</loc>
-    <lastmod>2015-09-22T22:15:31+08:00</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
   </url>
   <url>
     <loc>http://leichunfeng.github.io/</loc>
-    <lastmod>2015-09-22T22:15:31+08:00</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>http://leichunfeng.github.io/images/Functor、Applicative 和 Monad - 雷纯锋的技术博客.html</loc>
+    <lastmod>2015-11-08T16:35:04+08:00</lastmod>
+  </url>
+  <url>
+    <loc>http://leichunfeng.github.io/images/Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/jiathis_utility.html</loc>
+    <lastmod>2015-11-08T16:35:04+08:00</lastmod>
   </url>
 </urlset>
