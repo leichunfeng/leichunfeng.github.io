@@ -314,7 +314,7 @@ Nothing
 2. `Applicative` ：使用 `<*>` 应用一个上下文中的函数到一个上下文中的值；
 3. `Monad` ：使用 `>>=` 应用一个接收一个普通值但是返回一个在上下文中的值的函数到一个上下文中的值。
 
-此外，我们还介绍了一种非常有意思的数据类型 `Maybe` ，它实现了 `Functor typeclass`、`Applicative typeclass` 和 `Monad typeclass` ，所以它同时是 `Functor`、`Applicative` 和 `Monad` 。除了 `Maybe` 类型外，还有其它一些非常有用的 `Monad` ，比如列表 `[]`、`IO`、函数 `(->) r` 等。
+此外，我们还介绍了一种非常有意思的数据类型 `Maybe` ，它实现了 `Functor typeclass`、`Applicative typeclass` 和 `Monad typeclass` ，所以它同时是 `Functor`、`Applicative` 和 `Monad` 。除了 `Maybe` 类型外，还有一些其它非常有用的 `Monad` ，比如列表 `[]`、`IO`、函数 `(->) r` 等，有机会的话我们再进行介绍。
 
 以上就是本文的全部内容，希望可以对你有所帮助，Good luck !
 
