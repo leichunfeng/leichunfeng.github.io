@@ -4,6 +4,7 @@ title: "Functor、Applicative 和 Monad"
 date: 2015-11-08 10:53:16 +0800
 comments: true
 categories: 
+keywords: Functor, Applicative, Monad, Maybe, type, typeclass, Haskell
 ---
 
 `Functor`、`Applicative` 和 `Monad` 是函数式编程语言中三个非常重要的概念，尤其是 `Monad` ，难倒了不知道多少英雄好汉。事实上，它们的概念是非常简单的，但是却很少有文章能够将它们描述清楚，往往还适得其反，越描越黑。与其它文章不同的是，本文将从结论出发，层层深入，一步步为你揭开它们的神秘面纱。
