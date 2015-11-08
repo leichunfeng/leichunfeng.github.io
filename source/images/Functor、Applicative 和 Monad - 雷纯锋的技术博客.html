@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<!-- saved from url=(0068)http://localhost:4000/blog/2015/11/08/functor-applicative-and-monad/ -->
+<html class="cye-lm js video maskImage placeholder" lang="en"><!--<![endif]--><head _wxhkphogpkobbkjccgfifhfjlahnoocnan_="shake_1.0"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><script src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/saved_resource" charset="utf-8" id="uyan_script"></script><script src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/id.php" charset="utf-8"></script>
+  <meta charset="utf-8">
+  <title>Functor、Applicative 和 Monad - 雷纯锋的技术博客</title>
+  <meta name="author" content="雷纯锋">
+
+  
+  <meta name="description" content="Functor、Applicative 和 Monad 是函数式编程语言中三个非常重要的概念，尤其是 Monad ，难倒了不知道多少英雄好汉。事实上，它们的概念是非常简单的，但是却很少有文章能够将它们描述清楚，往往还适得其反，越描越黑。与所有其它文章不同的是，本文将从结论出发，层层深入， …">
+  
+    <meta name="keywords" content="雷纯锋的技术博客, 雷纯锋, 技术博客, 博客, iOS, Objective-C, Android, Java, HTML5, CSS3, JavaScript, Octopress, GitHub Pages, GitHub, Pages, GitCafe, RAC, ReactiveCocoa, Git">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width,minimum-scale=1,maximum-scale=1">
+
+  
+  <link rel="canonical" href="http://leichunfeng.github.io/blog/2015/11/08/functor-applicative-and-monad">
+  <link href="http://localhost:4000/favicon.png" rel="icon">
+  <link href="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="http://localhost:4000/atom.xml" rel="alternate" title="雷纯锋的技术博客" type="application/atom+xml">
+  <script src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/modernizr-2.0.js"></script><style id="nightModeStyle">
+html.cye-enabled.cye-nm:not(*:-webkit-full-screen-ancestor) body,
+ html.cye-enabled.cye-nm:not(*:-webkit-full-screen-ancestor) #cye-workaround-body {-webkit-filter:contrast(91%) brightness(84%) invert(1);}</style><style id="cyebody">html.cye-enabled.cye-lm body{background-color:#cce8cf !important;border-color:rgb(51, 58, 51) !important;background-image:none !important;color:#000000  !important}</style><style id="cyediv">html.cye-enabled.cye-lm div{background-color:#cce8cf !important;border-color:rgb(51, 58, 51) !important;background-image:none !important;color:#000000  !important}</style><style id="cyetable">html.cye-enabled.cye-lm th{background-color:#cce8cf !important;border-color:rgb(51, 58, 51) !important;background-image:none !important;color:#000000  !important}html.cye-enabled.cye-lm td{background-color:#cce8cf !important;border-color:rgb(51, 58, 51) !important;background-image:none !important;color:#000000  !important}</style><style id="cyetextInput">html.cye-enabled.cye-lm input[type=text]{background-color:#cce8cf !important;border-color:rgb(51, 58, 51) !important;background-image:none !important;color:#000000  !important}html.cye-enabled.cye-lm textarea{background-color:#cce8cf !important;border-color:rgb(51, 58, 51) !important;background-image:none !important;color:#000000  !important}</style><style id="cyeselect">html.cye-enabled.cye-lm select{background-color:#cce8cf !important;border-color:rgb(51, 58, 51) !important;background-image:none !important;color:#000000  !important}</style><style id="cyeul">html.cye-enabled.cye-lm ul{background-color:#cce8cf !important;border-color:rgb(51, 58, 51) !important;background-image:none !important;color:#000000  !important}</style><style id="cyeChangeByClick">html.cye-enabled.cye-lm .cye-lm-tag,html.cye-enabled.cye-lm.cye-lm-tag{background-color:#cce8cf !important;border-color:rgb(51, 58, 51) !important;background-image:none !important;color:#000000  !important}</style>
+  <script src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+
+  
+
+<style id="style-1-cropbar-clipper">/* Copyright 2014 Evernote Corporation. All rights reserved. */
+.en-markup-crop-options {
+    top: 18px !important;
+    left: 50% !important;
+    margin-left: -100px !important;
+    width: 200px !important;
+    border: 2px rgba(255,255,255,.38) solid !important;
+    border-radius: 4px !important;
+}
+
+.en-markup-crop-options div div:first-of-type {
+    margin-left: 0px !important;
+}
+</style></head>
+
+<body><link href="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/jiathis_counter.css" rel="stylesheet" type="text/css"><link href="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/jiathis_share.css" rel="stylesheet" type="text/css"><iframe frameborder="0" style="position: absolute; display: none; opacity: 0;"></iframe><div class="jiathis_style" style="position: absolute; z-index: 1000000000; display: none; top: 50%; left: 50%; overflow: auto;"></div><div class="jiathis_style" style="position: absolute; z-index: 1000000000; display: none; overflow: auto;"></div><iframe frameborder="0" src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/jiathis_utility.html" style="display: none;"></iframe>
+  <header role="banner"><hgroup>
+  <h1><a href="http://localhost:4000/">雷纯锋的技术博客</a></h1>
+  
+    <h2>工欲善其事，必先利其器</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="http://localhost:4000/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="https://www.google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:leichunfeng.github.io">
+    <input class="search" type="text" name="q" results="0" placeholder="Search">
+  </fieldset>
+</form>
+  
+<fieldset class="mobile-nav"><select><option value="">Navigate…</option><option value="http://localhost:4000/">» 首页</option><option value="http://localhost:4000/blog/archives">» 所有文章</option><option value="http://weibo.com/leichunfeng">» 我的微博</option><option value="https://github.com/leichunfeng">» GitHub</option><option value="http://localhost:4000/atom.xml">» RSS</option></select></fieldset><ul class="main-navigation">
+  <li><a href="http://localhost:4000/">首页</a></li>
+  <li><a href="http://localhost:4000/blog/archives">所有文章</a></li>
+  <li><a href="http://weibo.com/leichunfeng">我的微博</a></li>
+  <li><a href="https://github.com/leichunfeng">GitHub</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Functor、Applicative 和 Monad</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class="entry-date" datetime="2015-11-08T10:53:16+08:00"><span class="date"><span class="date-month">Nov</span> <span class="date-day">8</span><span class="date-suffix">th</span>, <span class="date-year">2015</span></span> <span class="time">10:53 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>Functor、Applicative 和 Monad 是函数式编程语言中三个非常重要的概念，尤其是 Monad ，难倒了不知道多少英雄好汉。事实上，它们的概念是非常简单的，但是却很少有文章能够将它们描述清楚，往往还适得其反，越描越黑。与所有其它文章不同的是，本文将从结论出发，层层深入，一步步为你揭开它们的神秘面纱。</p>
+
+<h2>结论</h2>
+
+<p>关于 Functor、Applicative 和 Monad 的概念，其实各用一句话就可以概括。毫不夸张地说，下面三句话就是你需要知道的关于它们的全部内容：</p>
+
+<ol>
+<li>一个 functor 就是一种实现了 Functor typeclass 的数据类型；</li>
+<li>一个 applicative 就是一种实现了 Applicative typeclass 的数据类型；</li>
+<li>一个 monad 就是一种实现了 Monad typeclass 的数据类型。</li>
+</ol>
+
+
+<p>也许，你可能会问那什么是 typeclass 呢？我想在你看到实现二字的时候，就已经猜到了。是的，typeclass 就类似于 Java 中的接口，或者说 Obj-C 中的协议。typeclass 中定义了一些函数，实现一个 typeclass 就是要实现这些函数，而所有实现了这个 typeclass 的数据类型都会拥有这些共同的行为。</p>
+
+<p>另外，Functor、Applicative 和 Monad 三者之间的关系是什么呢，为什么它们常常一起出现？其实，applicative 是增强型的 functor ，一个数据类型要成为 applicative 的前提条件是它必须是 functor ；同样的，monad 是增强型的 applicative ，一个数据类型要成为 monad 的前提条件是它必须是 applicative 。这个关系，在我们看到 Applicative typeclass 和 Monad typeclass 的定义时，自然就会明了。</p>
+
+<h2>Maybe</h2>
+
+<p>在正式开始介绍 Functor、Applicative 和 Monad 的定义前，我想先介绍一种非常有意思的数据类型，Maybe 类型：</p>
+
+<blockquote><p>The Maybe type encapsulates an optional value. A value of type Maybe a either contains a value of type a (represented as Just a), or it is empty (represented as Nothing).</p></blockquote>
+
+<p>Maybe 类型封装了一个可选值。一个 Maybe a 类型的值要么包含一个 a 类型的值（用 Just a 表示）；要么为空（用 Nothing 表示）。我们可以把 Maybe 看作一个盒子，这个盒子里面装着一个 a 类型的值，或者说泛型，比如 Obj-C 中的 <code>NSArray&lt;ObjectType&gt;</code> 。不过，最正确的理解应该是把 Maybe 看作一个上下文，这个上下文代表的就是可能有值，也可能没有值：</p>
+
+<p><img src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/maybe.png" title="maybe" alt="maybe"></p>
+
+<figure class="code"><figcaption><span></span></figcaption><div class="highlight"><table><tbody><tr><td class="gutter"><pre class="line-numbers"><span class="line-number">1</span>
+</pre></td><td class="code"><pre><code class="objc"><span class="line"><span class="n">data</span> <span class="n">Maybe</span> <span class="n">a</span> <span class="o">=</span> <span class="n">Nothing</span> <span class="o">|</span> <span class="n">Just</span> <span class="n">a</span>
+</span></code></pre></td></tr></tbody></table></div></figure>
+
+
+<p>下面，我们来直观地感觉一下 Maybe 类型：</p>
+
+<figure class="code"><figcaption><span></span></figcaption><div class="highlight"><table><tbody><tr><td class="gutter"><pre class="line-numbers"><span class="line-number">1</span>
+<span class="line-number">2</span>
+<span class="line-number">3</span>
+<span class="line-number">4</span>
+</pre></td><td class="code"><pre><code class="objc"><span class="line"><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">Nothing</span>
+</span><span class="line"><span class="n">Nothing</span>
+</span><span class="line"><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">Just</span> <span class="mi">2</span>
+</span><span class="line"><span class="n">Just</span> <span class="mi">2</span>
+</span></code></pre></td></tr></tbody></table></div></figure>
+
+
+<p>我们可以用前面提到的盒子模型来理解一下，Nothing 是一个空盒子；而 Just 2 则是一个装着 2 这个值的盒子：</p>
+
+<p><img src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/just2.png" title="just2" alt="just2"></p>
+
+<p><strong>注</strong>：Maybe 类型实现了 Functor typeclass、Applicative typeclass 和 Monad typeclass ，所以它同时是 functor、applicative 和 monad ，至于实现细节将在下面章节进行介绍。</p>
+
+<h2>Functor</h2>
+
+<p>在正式开始介绍 Functor 前，我们先思考一个问题，假如我们有一个普通值 2 ：</p>
+
+<p><img src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/normal2.png" title="normal2" alt="normal2"></p>
+
+<p>我们要如何将 (+3) 这个普通函数应用到这个普通值上呢？我想上过小学的朋友应该都知道，这就是一个简单的加法运算：</p>
+
+<p><img src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/value_apply.png" title="value_apply" alt="value_apply"></p>
+
+<figure class="code"><figcaption><span></span></figcaption><div class="highlight"><table><tbody><tr><td class="gutter"><pre class="line-numbers"><span class="line-number">1</span>
+<span class="line-number">2</span>
+</pre></td><td class="code"><pre><code class="objc"><span class="line"><span class="n">ghci</span><span class="o">&gt;</span> <span class="p">(</span><span class="o">+</span><span class="mi">3</span><span class="p">)</span> <span class="mi">2</span>
+</span><span class="line"><span class="mi">5</span>
+</span></code></pre></td></tr></tbody></table></div></figure>
+
+
+<p>那么，如果这个普通值 2 是在一个上下文当中呢？比如 Maybe ，此时，这个普通值 2 就变成了 Just 2 ：</p>
+
+<p><img src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/just2.png" title="just2" alt="just2"></p>
+
+<p>这时，我们就不能直接将 (+3) 这个普通函数应用到 Just 2 上了。那么我们要如何将一个普通函数应用到一个在上下文中的值呢？</p>
+
+<p><img src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/fmap.png" title="fmap" alt="fmap"></p>
+
+<p>是的，我想你已经猜到了，Functor 就是干这事的，欲知后事如何，请看下节分解。</p>
+
+<h3>Functor typeclass</h3>
+
+<p>首先，我们来看一下 Functor typeclass 的定义：</p>
+
+<figure class="code"><figcaption><span></span></figcaption><div class="highlight"><table><tbody><tr><td class="gutter"><pre class="line-numbers"><span class="line-number">1</span>
+<span class="line-number">2</span>
+</pre></td><td class="code"><pre><code class="objc"><span class="line"><span class="k">class</span> <span class="n">Functor</span> <span class="n">f</span> <span class="n">where</span>
+</span><span class="line">    <span class="n">fmap</span> <span class="o">::</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">b</span>
+</span></code></pre></td></tr></tbody></table></div></figure>
+
+
+<p>在 Functor typeclass 中定义了一个函数 fmap ，它将一个普通函数应用到一个在上下文中的 a 类型的值，然后返回一个在相同上下文中的 b 类型的值，这里的 f 就是一个盒子，也就是上下文。我们知道 Maybe 类型就是一个上下文，并且它实现了 Functor typeclass ，我们将 f 用 Maybe 代入可得：</p>
+
+<figure class="code"><figcaption><span></span></figcaption><div class="highlight"><table><tbody><tr><td class="gutter"><pre class="line-numbers"><span class="line-number">1</span>
+<span class="line-number">2</span>
+</pre></td><td class="code"><pre><code class="objc"><span class="line"><span class="k">class</span> <span class="n">Functor</span> <span class="n">Maybe</span> <span class="n">where</span>
+</span><span class="line">    <span class="n">fmap</span> <span class="o">::</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">b</span>
+</span></code></pre></td></tr></tbody></table></div></figure>
+
+
+<p>因此，对于 Maybe 类型来说，它要实现的 fmap 函数就是将一个普通函数应用到一个在 Maybe 上下文中的 a 类型的值，返回一个在 Maybe 上下文中的 b 类型的值。我们来看一下 Maybe 类型对 Functor typeclass 的实现：</p>
+
+<figure class="code"><figcaption><span></span></figcaption><div class="highlight"><table><tbody><tr><td class="gutter"><pre class="line-numbers"><span class="line-number">1</span>
+<span class="line-number">2</span>
+<span class="line-number">3</span>
+</pre></td><td class="code"><pre><code class="objc"><span class="line"><span class="n">instance</span> <span class="n">Applicative</span> <span class="n">Maybe</span> <span class="n">where</span>
+</span><span class="line">    <span class="n">fmap</span> <span class="n">func</span> <span class="p">(</span><span class="n">Just</span> <span class="n">x</span><span class="p">)</span> <span class="o">=</span> <span class="n">Just</span> <span class="p">(</span><span class="n">func</span> <span class="n">x</span><span class="p">)</span>
+</span><span class="line">    <span class="n">fmap</span> <span class="n">func</span> <span class="n">Nothing</span> <span class="o">=</span> <span class="n">Nothing</span>
+</span></code></pre></td></tr></tbody></table></div></figure>
+
+
+<p>这里针对 Maybe 上下文的两种情况分别进行了处理。如果盒子中有值，即 Just x ，那么就将 x 从盒子中取出，将函数应用于 x ，然后将结果放入一个相同类型的新盒子中；如果盒子为空，那么直接返回一个新的空盒子。</p>
+
+<p>看到这里，我想你应该已经知道要如何将一个普通函数应用到一个在上下文中的值了。比如前面提到的将 (+3) 这个普通函数应用于 Just 2 ：</p>
+
+<p><img src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/fmap_just.png" title="fmap_just" alt="fmap_just"></p>
+
+<figure class="code"><figcaption><span></span></figcaption><div class="highlight"><table><tbody><tr><td class="gutter"><pre class="line-numbers"><span class="line-number">1</span>
+<span class="line-number">2</span>
+</pre></td><td class="code"><pre><code class="objc"><span class="line"><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">fmap</span> <span class="p">(</span><span class="o">+</span><span class="mi">3</span><span class="p">)</span> <span class="p">(</span><span class="n">Just</span> <span class="mi">2</span><span class="p">)</span>
+</span><span class="line"><span class="n">Just</span> <span class="mi">5</span>
+</span></code></pre></td></tr></tbody></table></div></figure>
+
+
+<p>而当我们将 (+3) 应用于一个空盒子，即 Nothing 时，我们会得到一个新的空盒子：</p>
+
+<p><img src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/fmap_nothing.png" title="fmap_nothing" alt="fmap_nothing"></p>
+
+<figure class="code"><figcaption><span></span></figcaption><div class="highlight"><table><tbody><tr><td class="gutter"><pre class="line-numbers"><span class="line-number">1</span>
+<span class="line-number">2</span>
+</pre></td><td class="code"><pre><code class="objc"><span class="line"><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">fmap</span> <span class="p">(</span><span class="o">+</span><span class="mi">3</span><span class="p">)</span> <span class="n">Nothing</span>
+</span><span class="line"><span class="n">Nothing</span>
+</span></code></pre></td></tr></tbody></table></div></figure>
+
+
+<h2>Applicative</h2>
+
+<p>现在，我们已经知道如何将 (+3) 应用到 Just 2 了。那么问题来了，如果 (+3) 也在上下文中呢，比如 Maybe ，(+3) 就变成了 Just (+3) ：</p>
+
+<p><img src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/justadd3.png" title="justadd3" alt="justadd3"></p>
+
+<p>那么我们要如何将一个在上下文中的函数应用到一个在上下文中的值呢？</p>
+
+<p><img src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/apply_justadd3_just2.png" title="apply_justadd3_just2" alt="apply_justadd3_just2"></p>
+
+<p>是的，这就是 Applicative 要干的事，详情请看下节内容。</p>
+
+<h3>Applicative typeclass</h3>
+
+<p>同样的，我们先来看看 Applicative typeclass 的定义：</p>
+
+<figure class="code"><figcaption><span></span></figcaption><div class="highlight"><table><tbody><tr><td class="gutter"><pre class="line-numbers"><span class="line-number">1</span>
+<span class="line-number">2</span>
+<span class="line-number">3</span>
+</pre></td><td class="code"><pre><code class="objc"><span class="line"><span class="k">class</span> <span class="n">Functor</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="n">Applicative</span> <span class="n">f</span> <span class="n">where</span>
+</span><span class="line">    <span class="n">pure</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span>
+</span><span class="line">    <span class="p">(</span><span class="o">&lt;*&gt;</span><span class="p">)</span> <span class="o">::</span> <span class="n">f</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">b</span>
+</span></code></pre></td></tr></tbody></table></div></figure>
+
+
+<p>我们注意到，与 Functor typeclass 的定义不同，Applicative typeclass 的定义中多了一个类约束 Functor f ，表示上下文 f 要实现 Applicative typeclass 的前提条件是它必须要实现 Functor typeclass ，也就是说必须是一个 functor 。同样的，我们将 f 用 Maybe 代入，可得：</p>
+
+<figure class="code"><figcaption><span></span></figcaption><div class="highlight"><table><tbody><tr><td class="gutter"><pre class="line-numbers"><span class="line-number">1</span>
+<span class="line-number">2</span>
+<span class="line-number">3</span>
+</pre></td><td class="code"><pre><code class="objc"><span class="line"><span class="k">class</span> <span class="n">Functor</span> <span class="n">Maybe</span> <span class="o">=&gt;</span> <span class="n">Applicative</span> <span class="n">Maybe</span> <span class="n">where</span>
+</span><span class="line">    <span class="n">pure</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">a</span>
+</span><span class="line">    <span class="p">(</span><span class="o">&lt;*&gt;</span><span class="p">)</span> <span class="o">::</span> <span class="n">Maybe</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">b</span>
+</span></code></pre></td></tr></tbody></table></div></figure>
+
+
+<p>Maybe 要实现 Applicative typeclass 必须要实现其中定义的两个函数：pure 和 (&lt;<em>&gt;) 。pure 函数的功能非常简单，就是将一个值放入 Maybe 上下文中。而 (&lt;</em>&gt;) 函数的作用则是将一个在 Maybe 上下文中的函数应用到一个在 Maybe 上下文中的值，然后返回一个在 Maybe 上下文中的值。我们来看一下 Maybe 类型对 Applicative typeclass 的实现：</p>
+
+<figure class="code"><figcaption><span></span></figcaption><div class="highlight"><table><tbody><tr><td class="gutter"><pre class="line-numbers"><span class="line-number">1</span>
+<span class="line-number">2</span>
+<span class="line-number">3</span>
+<span class="line-number">4</span>
+</pre></td><td class="code"><pre><code class="objc"><span class="line"><span class="n">instance</span> <span class="n">Applicative</span> <span class="n">Maybe</span> <span class="n">where</span>
+</span><span class="line">    <span class="n">pure</span> <span class="o">=</span> <span class="n">Just</span>
+</span><span class="line">    <span class="n">Nothing</span> <span class="o">&lt;*&gt;</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Nothing</span>
+</span><span class="line">    <span class="p">(</span><span class="n">Just</span> <span class="n">func</span><span class="p">)</span> <span class="o">&lt;*&gt;</span> <span class="n">something</span> <span class="o">=</span> <span class="n">fmap</span> <span class="n">func</span> <span class="n">something</span>
+</span></code></pre></td></tr></tbody></table></div></figure>
+
+
+<p>pure 函数的实现非常简单，直接等于 Just 即可。而对于 &lt;*&gt; 函数的实现，我们同样需要针对 Maybe 上下文的两种情况分别进行处理：当装函数的盒子为空时，直接返回一个新的空盒子；当装函数的盒子不为空时，即 Just func ，则取出 func ，使用 fmap 函数直接将 func 应用到那个在上下文中的值，而这个就是我们前面说的 functor 的功能了。</p>
+
+<p>好了，我们接下来看看将 Just (+3) 应用到 Just 2 的过程：</p>
+
+<p><img src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/applicative_just.png" title="applicative_just" alt="applicative_just"></p>
+
+<figure class="code"><figcaption><span></span></figcaption><div class="highlight"><table><tbody><tr><td class="gutter"><pre class="line-numbers"><span class="line-number">1</span>
+<span class="line-number">2</span>
+</pre></td><td class="code"><pre><code class="objc"><span class="line"><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">Just</span> <span class="p">(</span><span class="o">+</span><span class="mi">3</span><span class="p">)</span> <span class="o">&lt;*&gt;</span> <span class="n">Just</span> <span class="mi">2</span>
+</span><span class="line"><span class="n">Just</span> <span class="mi">5</span>
+</span></code></pre></td></tr></tbody></table></div></figure>
+
+
+<p>为什么要放在上下文里面呢？没有上下文不就没有这么多事了？</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">雷纯锋</span></span>
+
+      
+
+
+
+
+<time class="entry-date" datetime="2015-11-08T10:53:16+08:00"><span class="date"><span class="date-month">Nov</span> <span class="date-day">8</span><span class="date-suffix">th</span>, <span class="date-year">2015</span></span> <span class="time">10:53 am</span></time>
+      
+
+
+      <br>原文链接：<a href="http://blog.leichunfeng.com/blog/2015/11/08/functor-applicative-and-monad/">http://blog.leichunfeng.com/blog/2015/11/08/functor-applicative-and-monad/</a> <!-- 添加原文链接需要增加这一行代码 -->
+    </p>
+    
+      <div class="sharing">
+  
+  
+  
+  
+	<!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+	<span class="jiathis_txt">分享到：</span>
+	<a class="jiathis_button_tools_1" title="分享到QQ空间"><span class="jiathis_txt jiathis_separator jtico jtico_qzone">QQ空间</span></a>
+	<a class="jiathis_button_tools_2" title="分享到微信"><span class="jiathis_txt jiathis_separator jtico jtico_weixin">微信</span></a>
+	<a class="jiathis_button_tools_3" title="分享到新浪微博"><span class="jiathis_txt jiathis_separator jtico jtico_tsina">新浪微博</span></a>
+	<a class="jiathis_button_tools_4" title="分享到腾讯微博"><span class="jiathis_txt jiathis_separator jtico jtico_tqq">腾讯微博</span></a>
+	<a href="http://www.jiathis.com/share?uid=1983651" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank">更多</a>
+	<a class="jiathis_counter_style"><span class="jiathis_button_expanded jiathis_counter jiathis_bubble_style" id="jiathis_counter_13" title="累计分享0次">0</span></a>
+</div>
+<script type="text/javascript">
+var jiathis_config = {data_track_clickback:'true'};
+</script>
+<script type="text/javascript" src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/jia.js" charset="utf-8"></script><script type="text/javascript" src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/plugin.client.js" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+<!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/uyan.js"></script>
+<!-- UY END -->
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="http://localhost:4000/blog/2015/11/08/functors-applicatives-and-monads/" title="Previous Post: Functors、Applicatives 和 Monads">« Functors、Applicatives 和 Monads</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar thirds">
+  
+    <section class="first odd">
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/Functor、Applicative 和 Monad - 雷纯锋的技术博客.html">Functor、Applicative 和 Monad</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://localhost:4000/blog/2015/11/08/functors-applicatives-and-monads/">Functors、Applicatives 和 Monads</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://localhost:4000/blog/2015/11/08/at-functors-applicatives-and-monads/">@Functors Applicatives and Monads</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://localhost:4000/blog/2015/11/04/talking-about-a-haskell-monad/">谈谈 Haskell 中的 Monad</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://localhost:4000/blog/2015/07/29/ios-concurrency-programming-operation-queues/">iOS 并发编程之 Operation Queues</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://localhost:4000/blog/2015/06/26/objective-c-associated-objects-implementation-principle/">Objective-C Associated Objects 的实现原理</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://localhost:4000/blog/2015/06/14/objective-c-method-swizzling-best-practice/">Objective-C Method Swizzling 的最佳实践</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://localhost:4000/blog/2015/05/31/objective-c-autorelease-pool-implementation-principle/">Objective-C Autorelease Pool 的实现原理</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://localhost:4000/blog/2015/05/18/objective-c-category-implementation-principle/">Objective-C Category 的实现原理</a>
+      </li>
+    
+      <li class="post">
+        <a href="http://localhost:4000/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/">Objective-C +load vs +initialize</a>
+      </li>
+    
+  </ul>
+</section>
+<section class="even">
+  <h1>About Me</h1>
+  <p>
+  	雷纯锋，iOS 开发者，GitHub 第三方客户端 <a href="https://itunes.apple.com/cn/app/id961330940?mt=8">GitBucket</a> 的作者，热衷于分享，曾在南航移动团队工作过两年，目前就职于广州一家小的创业公司。
+  </p>
+	<p>
+		新浪微博：<a href="http://weibo.com/leichunfeng">雷纯锋2011</a>
+		<br>
+		微信公众号：leichunfeng
+		<br>
+		GitHub：<a href="https://github.com/leichunfeng">leichunfeng</a>
+	</p>
+	<p><img src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/qrcode.jpg"></p>
+</section>
+
+
+
+
+<section class="odd">
+  <h1>友情链接</h1>
+  <ul id="friendly_link">
+    <li class="post">
+      <a href="http://blog.devtang.com/">唐巧的技术博客</a>
+    </li>
+    <li class="post">
+      <a href="http://onevcat.com/">OneV’s Den</a>
+    </li>
+    <li class="post">
+      <a href="http://blog.sunnyxx.com/">sunnyxx</a>
+    </li>
+    <li class="post">
+      <a href="http://www.superqq.com/">刚刚在线</a>
+    </li>
+    <li class="post">
+      <a href="http://isheyes.com/">Jessica</a>
+    </li>
+    <li class="post">
+      <a href="http://z081.com/">Z081</a>
+    </li>
+  </ul>
+</section>
+
+  
+</aside>
+
+
+    <span class="toggle-sidebar"></span></div>
+  </div>
+  <footer role="contentinfo"><p>
+  <!-- 腾讯分析 -->
+  <script type="text/javascript" src="./Functor、Applicative 和 Monad - 雷纯锋的技术博客_files/stats" charset="UTF-8"></script>
+  <!-- 腾讯分析 -->
+  Copyright © 2015 - 雷纯锋 -
+  <span class="credit">Powered by <a href="http://octopress.org/">Octopress</a></span>
+  <span class="credit"> - 感谢 <a href="http://gitcafe.com/signup?invited_by=leichunfeng" target="_blank">GitCafe</a> 为本站提供存储空间</span>
+</p>
+
+</footer>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body><div id="cye-workaround-body" style="position: absolute; left: 0px; top: 0px; display: block; z-index: -2147483648; height: 7758px; width: 1440px; background: none 0% 0% / auto repeat scroll padding-box border-box rgb(37, 37, 37);"></div><div id="cye-workaround-body-image" style="position: absolute; left: 0px; top: 0px; display: block; z-index: -2147483647; height: 7758px; width: 1440px; background: url(http://localhost:4000/images/line-tile.png?1415515498) 0% 0% / auto repeat scroll padding-box border-box rgba(0, 0, 0, 0);"></div></html>
