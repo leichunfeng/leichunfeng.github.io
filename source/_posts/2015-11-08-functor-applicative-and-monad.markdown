@@ -412,4 +412,4 @@ RACSignal *signal2 = [[[signal1
 <br>
 [http://adit.io/posts/2013-04-17-functors,_applicatives,_and_monads_in_pictures.html](http://adit.io/posts/2013-04-17-functors,_applicatives,_and_monads_in_pictures.html)
 
-<img src="/images/wechat_pay.jpg" width="260" />
+<img src="http://blog.leichunfeng.com/images/wechat_pay.jpg" width="260" />
