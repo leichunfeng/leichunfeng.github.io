@@ -12,3 +12,9 @@ source/stylesheets/screen.css
 vendor
 node_modules
 Gemfile.lock
+.idea/encodings.xml
+.idea/modules.xml
+.idea/octopress.iml
+.idea/vcs.xml
+.idea/workspace.xml
+source/images/RACStream.png

@@ -9,6 +9,8 @@ keywords: Functor, Applicative, Monad, Maybe, type, typeclass, Haskell
 
 `Functor`、`Applicative` 和 `Monad` 是函数式编程语言中三个非常重要的概念，尤其是 `Monad` ，难倒了不知道多少英雄好汉。事实上，它们的概念是非常简单的，但是却很少有文章能够将它们描述清楚，往往还适得其反，越描越黑。与其它文章不同的是，本文将从结论出发，层层深入，一步步为你揭开它们的神秘面纱。
 
+**说明**：本文中的主要代码为 [Haskell](https://www.haskell.org) 语言，它是一门纯函数式的编程语言。其中，具体的语法细节，我们不需要太过关心，因为这并不影响你对本文的理解。
+
 ## 结论
 
 关于 `Functor`、`Applicative` 和 `Monad` 的概念，其实各用一句话就可以概括：
@@ -27,7 +29,7 @@ keywords: Functor, Applicative, Monad, Maybe, type, typeclass, Haskell
 
 ## Maybe
 
-在正式开始介绍 `Functor`、`Applicative` 和 `Monad` 的定义前，我想先介绍一种非常有意思的数据类型，[Maybe](https://downloads.haskell.org/~ghc/latest/docs/html/libraries/base-4.8.1.0/Data-Maybe.html) 类型：
+在正式开始介绍 `Functor`、`Applicative` 和 `Monad` 的定义前，我想先介绍一种非常有意思的数据类型，[Maybe](https://downloads.haskell.org/~ghc/latest/docs/html/libraries/base-4.8.1.0/Data-Maybe.html) 类型（可类比 `Swift` 中的 `Optional`）：
 
 >The Maybe type encapsulates an optional value. A value of type Maybe a either contains a value of type a (represented as Just a), or it is empty (represented as Nothing). Using Maybe is a good way to deal with errors or exceptional cases without resorting to drastic measures such as error.
 
@@ -48,7 +50,7 @@ ghci> Just 2
 Just 2
 ```
 
-我们用盒子模型来理解一下，`Nothing` 就是一个空盒子；而 `Just 2` 则是一个装着 `2` 这个值的盒子：
+我们可以用盒子模型来理解一下，`Nothing` 就是一个空盒子；而 `Just 2` 则是一个装着 `2` 这个值的盒子：
 
 {% img /images/just2.png 'just2' 'just2' %}
 
@@ -89,6 +91,8 @@ class Functor f where
 ```
 
 在 `Functor typeclass` 中定义了一个函数 `fmap` ，它将一个函数应用到一个在上下文中的值，并返回另一个在相同上下文中的值，这里的 `f` 是一个类型占位符，表示任意类型的 `Functor` 。
+
+**注**：`fmap` 函数可类比 `Swift` 中的 `map` 方法。
 
 ### Maybe Functor
 
@@ -236,7 +240,7 @@ class Applicative m => Monad m where
 
 怎么样？现在看上去就好多了吧。跟 `Applicative typeclass` 的定义一样，在 `Monad typeclass` 的定义中也有一个类约束 `Applicative m` ，表示的意思是一种数据类型 `m` 要成为 `Monad` 的前提条件是它必须是 `Applicative` 。另外，其实 `return` 函数的功能与 `Applicative` 中的 `pure` 函数的功能是一样的，只不过换了一个名字而已，它们的作用都是将一个值放入上下文中。而 `(>>=)` 函数的功能则是应用一个（接收一个普通值但是返回一个在上下文中的值的）函数到一个上下文中的值，并返回另一个在相同上下文中的值。
 
-**注**：`>>=` 函数的发音为 `bind` ，学习 `ReactiveCocoa` 的同学要注意啦。
+**注**：`>>=` 函数的发音为 `bind` ，学习 `ReactiveCocoa` 的同学要注意啦。另外，`>>=` 函数可类比 `Swift` 中的 `flatMap` 方法。
 
 ### Maybe Monad
 
@@ -293,6 +297,88 @@ Nothing
 
 **注**：链式操作只是 `Monad` 为我们带来的主要好处之一；另一个本文并未涉及到的主要好处是，`Monad` 可以为我们自动处理上下文，而我们只需要关心真正的值就可以了。
 
+### ReactiveCocoa
+
+现在，我们已经知道 `Monad` 是什么了，它就是一种实现了 `Monad typeclass` 的数据类型。那么它有什么具体的应用呢？你总不能让我们都来做理论研究吧。既然如此，那我们就只好祭出 `Obj-C` 中的神器，`ReactiveCocoa` ，它就是根据 `Monad` 的概念搭建起来的。下面是 `RACStream` 的继承结构图：
+
+{% img /images/RACStream.png 'RACStream' 'RACStream' %}
+
+`RACStream` 是 `ReactiveCocoa` 中最核心的类，它就是一个 `Monad` ：
+
+``` objc
+/// An abstract class representing any stream of values.
+///
+/// This class represents a monad, upon which many stream-based operations can
+/// be built.
+///
+/// When subclassing RACStream, only the methods in the main @interface body need
+/// to be overridden.
+@interface RACStream : NSObject
+
+/// Lifts `value` into the stream monad.
+///
+/// Returns a stream containing only the given value.
++ (instancetype)return:(id)value;
+
+/// Lazily binds a block to the values in the receiver.
+///
+/// This should only be used if you need to terminate the bind early, or close
+/// over some state. -flattenMap: is more appropriate for all other cases.
+///
+/// block - A block returning a RACStreamBindBlock. This block will be invoked
+///         each time the bound stream is re-evaluated. This block must not be
+///         nil or return nil.
+///
+/// Returns a new stream which represents the combined result of all lazy
+/// applications of `block`.
+- (instancetype)bind:(RACStreamBindBlock (^)(void))block;
+
+@end
+```
+
+我们可以看到，在 `RACStream` 中定义了两个看上去非常眼熟的方法：
+
+1. `+ (instancetype)return:(id)value;` ；
+2. `- (instancetype)bind:(RACStreamBindBlock (^)(void))block;` 。
+
+其中，`return:` 方法的功能就是将一个值 `value` 放入 `RACStream` 上下文中；而 `bind:` 方法的功能则是将一个 `RACStreamBindBlock` 类型的 `block` 应用到一个在 `RACStream` 上下文中的值（`receiver`），并返回另一个在 `RACStream` 上下文中的值。并且，`RACStreamBindBlock` 类型的 `block` 就是一个接收一个普通值但是返回一个在 `RACStream` 上下文中的值的“函数”：
+
+``` objc
+/// A block which accepts a value from a RACStream and returns a new instance
+/// of the same stream class.
+///
+/// Setting `stop` to `YES` will cause the bind to terminate after the returned
+/// value. Returning `nil` will result in immediate termination.
+typedef RACStream * (^RACStreamBindBlock)(id value, BOOL *stop);
+```
+
+接下来，为了加深理解，我们一起来对比一下 `Monad typeclass` 的定义：
+
+``` objc
+class Applicative m => Monad m where
+    return :: a -> m a
+    (>>=) :: m a -> (a -> m b) -> m b
+```
+
+同样的，我们将类型占位符 `m` 用 `RACStream` 代入，可得：
+
+``` objc
+class Applicative RACStream => Monad RACStream where
+    return :: a -> RACStream a
+    (>>=) :: RACStream a -> (a -> RACStream b) -> RACStream b
+```
+
+其中，`return :: a -> RACStream a` 就对应 `+ (instancetype)return:(id)value;` ，而 `(>>=) :: RACStream a -> (a -> RACStream b) -> RACStream b` 则对应 `- (instancetype)bind:(RACStreamBindBlock (^)(void))block;` 。**注**：我们前面已经提到过了，`>>=` 函数的发音就是 `bind` 。因此，`ReactiveCocoa` 便有了下面的玩法：
+
+``` objc
+RACSignal *signal2 = [[[signal1
+    bind:block1]
+    bind:block2]
+    bind:block3];
+```
+
+`Monad` 就像是 `ReactiveCocoa` 中的太极，太极生两仪，两仪生四象，四象生八卦。至此，我们已经知道了 `ReactiveCocoa` 中最核心的原理，而更多关于 `ReactiveCocoa` 的内容我们将在后续的源码解析中再进行介绍，敬请期待。
+
 ## 总结
 
 `Functor`、`Applicative` 和 `Monad` 是什么：
@@ -314,7 +400,7 @@ Nothing
 2. `Applicative` ：使用 `<*>` 应用一个上下文中的函数到一个上下文中的值；
 3. `Monad` ：使用 `>>=` 应用一个接收一个普通值但是返回一个在上下文中的值的函数到一个上下文中的值。
 
-此外，我们还介绍了一种非常有意思的数据类型 `Maybe` ，它实现了 `Functor typeclass`、`Applicative typeclass` 和 `Monad typeclass` ，所以它同时是 `Functor`、`Applicative` 和 `Monad` 。除了 `Maybe` 类型外，还有一些其它非常有用的 `Monad` ，比如列表 `[]`、`IO`、函数 `(->) r` 等，有机会的话我们再进行介绍。
+此外，我们还介绍了一种非常有意思的数据类型 `Maybe` ，它实现了 `Functor typeclass`、`Applicative typeclass` 和 `Monad typeclass` ，所以它同时是 `Functor`、`Applicative` 和 `Monad` 。
 
 以上就是本文的全部内容，希望可以对你有所帮助，Good luck !
 
