@@ -108,7 +108,7 @@
 
 <blockquote><p>A typeclass is a sort of interface that defines some behavior. If a type is a part of a typeclass, that means that it supports and implements the behavior the typeclass describes. A lot of people coming from OOP get confused by typeclasses because they think they are like classes in object oriented languages. Well, they&rsquo;re not. You can think of them kind of as Java interfaces, only better.</p></blockquote>
 
-<p>是的，<code>typeclass</code> 就类似于 <code>Java</code> 中的接口，或者 <code>Obj-C</code> 中的协议。在 <code>typeclass</code> 中定义了一些函数，实现一个 <code>typeclass</code> 就是要实现这些函数，而所有实现了这个 <code>typeclass</code> 的数据类型都会拥有这些共同的行为。</p>
+<p>是的，<code>typeclass</code> 就类似于 <code>Java</code> 中的接口，或者 <code>Objective-C</code> 中的协议。在 <code>typeclass</code> 中定义了一些函数，实现一个 <code>typeclass</code> 就是要实现这些函数，而所有实现了这个 <code>typeclass</code> 的数据类型都会拥有这些共同的行为。</p>
 
 <p>那 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 三者之间有什么联系吗，为什么它们老是结队出现呢？其实，<code>Applicative</code> 是增强型的 <code>Functor</code> ，一种数据类型要成为 <code>Applicative</code> 的前提条件是它必须是 <code>Functor</code> ；同样的，<code>Monad</code> 是增强型的 <code>Applicative</code> ，一种数据类型要成为 <code>Monad</code> 的前提条件是它必须是 <code>Applicative</code> 。<strong>注</strong>：这个联系，在我们看到 <code>Applicative typeclass</code> 和 <code>Monad typeclass</code> 的定义时，自然就会明了。</p>
 
@@ -118,7 +118,7 @@
 
 <blockquote><p>The Maybe type encapsulates an optional value. A value of type Maybe a either contains a value of type a (represented as Just a), or it is empty (represented as Nothing). Using Maybe is a good way to deal with errors or exceptional cases without resorting to drastic measures such as error.</p></blockquote>
 
-<p><code>Maybe</code> 类型封装了一个可选值。一个 <code>Maybe a</code> 类型的值要么包含一个 <code>a</code> 类型的值（用 <code>Just a</code> 表示）；要么为空（用 <code>Nothing</code> 表示）。我们可以把 <code>Maybe</code> 看作一个盒子，这个盒子里面可能装着一个 <code>a</code> 类型的值，即 <code>Just a</code> ；也可能是一个空盒子，即 <code>Nothing</code> 。不过，最正确的理解应该是把 <code>Maybe</code> 看作一个上下文，这个上下文表示某次计算可能成功也可能失败，成功时用 <code>Just a</code> 表示，<code>a</code> 为计算结果；失败时用 <code>Nothing</code> 表示，这就是 <code>Maybe</code> 类型存在的意义：</p>
+<p><code>Maybe</code> 类型封装了一个可选值。一个 <code>Maybe a</code> 类型的值要么包含一个 <code>a</code> 类型的值（用 <code>Just a</code> 表示）；要么为空（用 <code>Nothing</code> 表示）。我们可以把 <code>Maybe</code> 看作一个盒子，这个盒子里面可能装着一个 <code>a</code> 类型的值，即 <code>Just a</code> ；也可能是一个空盒子，即 <code>Nothing</code> 。或者，你也可以把它理解成泛型，比如 <code>Objective-C</code> 中的 <code>NSArray&lt;ObjectType&gt;</code> 。不过，最正确的理解应该是把 <code>Maybe</code> 看作一个上下文，这个上下文表示某次计算可能成功也可能失败，成功时用 <code>Just a</code> 表示，<code>a</code> 为计算结果；失败时用 <code>Nothing</code> 表示，这就是 <code>Maybe</code> 类型存在的意义：</p>
 
 <p><img src="/images/maybe.png" title="maybe" alt="maybe"></p>
 
@@ -452,7 +452,7 @@
 
 <h3>ReactiveCocoa</h3>
 
-<p>现在，我们已经知道 <code>Monad</code> 是什么了，它就是一种实现了 <code>Monad typeclass</code> 的数据类型。那么它有什么具体的应用呢？你总不能让我们都来做理论研究吧。既然如此，那我们就只好祭出 <code>Obj-C</code> 中的神器，<code>ReactiveCocoa</code> ，它就是根据 <code>Monad</code> 的概念搭建起来的。下面是 <code>RACStream</code> 的继承结构图：</p>
+<p>现在，我们已经知道 <code>Monad</code> 是什么了，它就是一种实现了 <code>Monad typeclass</code> 的数据类型。那么它有什么具体的应用呢？你总不能让我们都来做理论研究吧。既然如此，那我们就只好祭出 <code>Objective-C</code> 中的神器，<code>ReactiveCocoa</code> ，它就是根据 <code>Monad</code> 的概念搭建起来的。下面是 <code>RACStream</code> 的继承结构图：</p>
 
 <p><img src="/images/RACStream.png" title="RACStream" alt="RACStream"></p>
 
