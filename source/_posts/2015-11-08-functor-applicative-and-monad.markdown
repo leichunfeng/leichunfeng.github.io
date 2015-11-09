@@ -35,7 +35,7 @@ keywords: Functor, Applicative, Monad, Maybe, type, typeclass, Haskell
 
 `Maybe` 类型封装了一个可选值。一个 `Maybe a` 类型的值要么包含一个 `a` 类型的值（用 `Just a` 表示）；要么为空（用 `Nothing` 表示）。我们可以把 `Maybe` 看作一个盒子，这个盒子里面可能装着一个 `a` 类型的值，即 `Just a` ；也可能是一个空盒子，即 `Nothing` 。或者，你也可以把它理解成泛型，比如 `Objective-C` 中的 `NSArray<ObjectType>` 。不过，最正确的理解应该是把 `Maybe` 看作一个上下文，这个上下文表示某次计算可能成功也可能失败，成功时用 `Just a` 表示，`a` 为计算结果；失败时用 `Nothing` 表示，这就是 `Maybe` 类型存在的意义：
 
-{% img /images/maybe.png 'maybe' 'maybe' %}
+![maybe](http://blog.leichunfeng.com/images/maybe.png)
 
 ``` objc
 data Maybe a = Nothing | Just a
@@ -52,7 +52,7 @@ Just 2
 
 我们可以用盒子模型来理解一下，`Nothing` 就是一个空盒子；而 `Just 2` 则是一个装着 `2` 这个值的盒子：
 
-{% img /images/just2.png 'just2' 'just2' %}
+![just2](http://blog.leichunfeng.com/images/just2.png)
 
 **提前剧透**：`Maybe` 类型实现了 `Functor typeclass`、`Applicative typeclass` 和 `Monad typeclass` ，所以它同时是 `Functor`、`Applicative` 和 `Monad` ，具体实现细节将在下面的章节进行介绍。
 
@@ -60,11 +60,11 @@ Just 2
 
 在正式开始介绍 `Functor` 前，我们先思考一个这样的问题，假如我们有一个值 `2` ：
 
-{% img /images/normal2.png 'normal2' 'normal2' %}
+![normal2](http://blog.leichunfeng.com/images/normal2.png)
 
 我们如何将函数 `(+3)` 应用到这个值上呢？我想上过小学的朋友应该都知道，这就是一个简单的加法运算：
 
-{% img /images/value_apply.png 'value_apply' 'value_apply' %}
+![value_apply](http://blog.leichunfeng.com/images/value_apply.png)
 
 ``` objc
 ghci> (+3) 2
@@ -73,11 +73,11 @@ ghci> (+3) 2
 
 分分钟搞定。那么问题来了，如果这个值 `2` 是在一个上下文中呢？比如 `Maybe` ，此时，这个值 `2` 就变成了 `Just 2` ：
 
-{% img /images/just2.png 'just2' 'just2' %}
+![just2](http://blog.leichunfeng.com/images/just2.png)
 
 这个时候，我们就不能直接将函数 `(+3)` 应用到 `Just 2` 了。那么，我们如何将一个函数应用到一个在上下文中的值呢？
 
-{% img /images/fmap.png 'fmap' 'fmap' %}
+![fmap](http://blog.leichunfeng.com/images/fmap.png)
 
 是的，我想你应该已经猜到了，`Functor` 就是干这事的，欲知后事如何，请看下节分解。
 
@@ -115,7 +115,7 @@ instance Functor Maybe where
 
 看到这里，我想你应该已经知道如何将一个函数应用到一个在上下文中的值了。比如前面提到的将函数 `(+3)` 应用到 `Just 2` ：
 
-{% img /images/fmap_just.png 'fmap_just' 'fmap_just' %}
+![fmap_just](http://blog.leichunfeng.com/images/fmap_just.png)
 
 ``` objc
 ghci> fmap (+3) (Just 2)
@@ -124,7 +124,7 @@ Just 5
 
 另外，值得一提的是，当我们将函数 `(+3)` 应用到一个空盒子，即 `Nothing` 时，我们将会得到一个新的空盒子：
 
-{% img /images/fmap_nothing.png 'fmap_nothing' 'fmap_nothing' %}
+![fmap_nothing](http://blog.leichunfeng.com/images/fmap_nothing.png)
 
 ``` objc
 ghci> fmap (+3) Nothing
@@ -135,11 +135,11 @@ Nothing
 
 现在，我们已经知道如何将函数 `(+3)` 应用到 `Just 2` 了。那么问题又来了，如果函数 `(+3)` 也在上下文中呢，比如 `Maybe` ，此时，函数 `(+3)` 就变成了 `Just (+3)` ：
 
-{% img /images/justadd3.png 'justadd3' 'justadd3' %}
+![justadd3](http://blog.leichunfeng.com/images/justadd3.png)
 
 那么，我们如何将一个在上下文中的函数应用到一个在上下文中的值呢？
 
-{% img /images/apply_justadd3_just2.png 'apply_justadd3_just2' 'apply_justadd3_just2' %}
+![apply_justadd3_just2](http://blog.leichunfeng.com/images/apply_justadd3_just2.png)
 
 这就是 `Applicative` 要干的事，详情请看下节内容。
 
@@ -185,7 +185,7 @@ instance Applicative Maybe where
 
 好了，我们接下来看一下将 `Just (+3)` 应用到 `Just 2` 的具体过程：
 
-{% img /images/applicative_just.png 'applicative_just' 'applicative_just' %}
+![applicative_just](http://blog.leichunfeng.com/images/applicative_just.png)
 
 ``` objc
 ghci> Just (+3) <*> Just 2
@@ -203,15 +203,15 @@ Nothing
 
 截至目前，我们已经知道了 `Functor` 的作用就是应用一个函数到一个上下文中的值：
 
-{% img /images/fmap.png 'fmap' 'fmap' %}
+![fmap](http://blog.leichunfeng.com/images/fmap.png)
 
 而 `Applicative` 的作用则是应用一个上下文中的函数到一个上下文中的值：
 
-{% img /images/apply_justadd3_just2.png 'apply_justadd3_just2' 'apply_justadd3_just2' %}
+![apply_justadd3_just2](http://blog.leichunfeng.com/images/apply_justadd3_just2.png)
 
 那么 `Monad` 又会是什么呢？其实，`Monad` 的作用跟 `Functor` 类似，也是应用一个函数到一个上下文中的值。不同之处在于，`Functor` 应用的是一个接收一个普通值并且返回一个普通值的函数，而 `Monad` 应用的是一个接收一个普通值但是返回一个在上下文中的值的函数：
 
-{% img /images/bind.png 'bind' 'bind' %}
+![bind](http://blog.leichunfeng.com/images/bind.png)
 
 ### Monad typeclass
 
@@ -265,7 +265,7 @@ instance Monad Maybe where
 
 下面，我们一起来看一个具体的例子。我们先定义一个 `half` 函数，这个函数接收一个数字 `x` 作为参数，如果 `x` 是偶数，则将 `x` 除以 `2` ，并将结果放入 `Maybe` 盒子中；如果 `x` 不是偶数，则返回一个空盒子：
 
-{% img /images/half.png 'half' 'half' %}
+![half](http://blog.leichunfeng.com/images/half.png)
 
 ``` objc
 half x = if even x
@@ -288,7 +288,7 @@ Nothing
 
 看到上面的运算过程，不知道你有没有看出点什么端倪呢？上一步的输出作为下一步的输入，并且只要你愿意的话，这个过程可以无限地进行下去。我想你可能已经想到了，是的，就是链式操作。所有的操作链接起来就像是一条生产线，每一步的操作都是对输入进行加工，然后产生输出，整个操作过程可以看作是对最初的原材料 `Just 20` 进行加工并最终生产出成品 `Nothing` 的过程：
 
-{% img /images/monad_chain.png 'monad_chain' 'monad_chain' %}
+![monad_chain](http://blog.leichunfeng.com/images/monad_chain.png)
 
 ``` objc
 ghci> Just 20 >>= half >>= half >>= half
@@ -301,7 +301,7 @@ Nothing
 
 现在，我们已经知道 `Monad` 是什么了，它就是一种实现了 `Monad typeclass` 的数据类型。那么它有什么具体的应用呢？你总不能让我们都来做理论研究吧。既然如此，那我们就只好祭出 `Objective-C` 中的神器，`ReactiveCocoa` ，它就是根据 `Monad` 的概念搭建起来的。下面是 `RACStream` 的继承结构图：
 
-{% img /images/RACStream.png 'RACStream' 'RACStream' %}
+![RACStream](http://blog.leichunfeng.com/images/RACStream.png)
 
 `RACStream` 是 `ReactiveCocoa` 中最核心的类，它就是一个 `Monad` ：
 
@@ -394,7 +394,7 @@ RACSignal *signal2 = [[[signal1
 
 `Functor`、`Applicative` 和 `Monad` 三者之间的区别：
 
-{% img /images/recap.png 'recap' 'recap' %}
+![recap](http://blog.leichunfeng.com/images/recap.png)
 
 1. `Functor` ：使用 `fmap` 应用一个函数到一个上下文中的值；
 2. `Applicative` ：使用 `<*>` 应用一个上下文中的函数到一个上下文中的值；
