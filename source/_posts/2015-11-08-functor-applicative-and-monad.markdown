@@ -23,7 +23,7 @@ keywords: Functor, Applicative, Monad, Maybe, type, typeclass, Haskell
 
 >A typeclass is a sort of interface that defines some behavior. If a type is a part of a typeclass, that means that it supports and implements the behavior the typeclass describes. A lot of people coming from OOP get confused by typeclasses because they think they are like classes in object oriented languages. Well, they're not. You can think of them kind of as Java interfaces, only better.
 
-是的，`typeclass` 就类似于 `Java` 中的接口，或者 `Obj-C` 中的协议。在 `typeclass` 中定义了一些函数，实现一个 `typeclass` 就是要实现这些函数，而所有实现了这个 `typeclass` 的数据类型都会拥有这些共同的行为。
+是的，`typeclass` 就类似于 `Java` 中的接口，或者 `Objective-C` 中的协议。在 `typeclass` 中定义了一些函数，实现一个 `typeclass` 就是要实现这些函数，而所有实现了这个 `typeclass` 的数据类型都会拥有这些共同的行为。
 
 那 `Functor`、`Applicative` 和 `Monad` 三者之间有什么联系吗，为什么它们老是结队出现呢？其实，`Applicative` 是增强型的 `Functor` ，一种数据类型要成为 `Applicative` 的前提条件是它必须是 `Functor` ；同样的，`Monad` 是增强型的 `Applicative` ，一种数据类型要成为 `Monad` 的前提条件是它必须是 `Applicative` 。**注**：这个联系，在我们看到 `Applicative typeclass` 和 `Monad typeclass` 的定义时，自然就会明了。
 
@@ -33,7 +33,7 @@ keywords: Functor, Applicative, Monad, Maybe, type, typeclass, Haskell
 
 >The Maybe type encapsulates an optional value. A value of type Maybe a either contains a value of type a (represented as Just a), or it is empty (represented as Nothing). Using Maybe is a good way to deal with errors or exceptional cases without resorting to drastic measures such as error.
 
-`Maybe` 类型封装了一个可选值。一个 `Maybe a` 类型的值要么包含一个 `a` 类型的值（用 `Just a` 表示）；要么为空（用 `Nothing` 表示）。我们可以把 `Maybe` 看作一个盒子，这个盒子里面可能装着一个 `a` 类型的值，即 `Just a` ；也可能是一个空盒子，即 `Nothing` 。不过，最正确的理解应该是把 `Maybe` 看作一个上下文，这个上下文表示某次计算可能成功也可能失败，成功时用 `Just a` 表示，`a` 为计算结果；失败时用 `Nothing` 表示，这就是 `Maybe` 类型存在的意义：
+`Maybe` 类型封装了一个可选值。一个 `Maybe a` 类型的值要么包含一个 `a` 类型的值（用 `Just a` 表示）；要么为空（用 `Nothing` 表示）。我们可以把 `Maybe` 看作一个盒子，这个盒子里面可能装着一个 `a` 类型的值，即 `Just a` ；也可能是一个空盒子，即 `Nothing` 。或者，你也可以把它理解成泛型，比如 `Objective-C` 中的 `NSArray<ObjectType>` 。不过，最正确的理解应该是把 `Maybe` 看作一个上下文，这个上下文表示某次计算可能成功也可能失败，成功时用 `Just a` 表示，`a` 为计算结果；失败时用 `Nothing` 表示，这就是 `Maybe` 类型存在的意义：
 
 {% img /images/maybe.png 'maybe' 'maybe' %}
 
@@ -299,7 +299,7 @@ Nothing
 
 ### ReactiveCocoa
 
-现在，我们已经知道 `Monad` 是什么了，它就是一种实现了 `Monad typeclass` 的数据类型。那么它有什么具体的应用呢？你总不能让我们都来做理论研究吧。既然如此，那我们就只好祭出 `Obj-C` 中的神器，`ReactiveCocoa` ，它就是根据 `Monad` 的概念搭建起来的。下面是 `RACStream` 的继承结构图：
+现在，我们已经知道 `Monad` 是什么了，它就是一种实现了 `Monad typeclass` 的数据类型。那么它有什么具体的应用呢？你总不能让我们都来做理论研究吧。既然如此，那我们就只好祭出 `Objective-C` 中的神器，`ReactiveCocoa` ，它就是根据 `Monad` 的概念搭建起来的。下面是 `RACStream` 的继承结构图：
 
 {% img /images/RACStream.png 'RACStream' 'RACStream' %}
 
