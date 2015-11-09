@@ -117,7 +117,7 @@
 
 <p><code>Maybe</code> 类型封装了一个可选值。一个 <code>Maybe a</code> 类型的值要么包含一个 <code>a</code> 类型的值（用 <code>Just a</code> 表示）；要么为空（用 <code>Nothing</code> 表示）。我们可以把 <code>Maybe</code> 看作一个盒子，这个盒子里面可能装着一个 <code>a</code> 类型的值，即 <code>Just a</code> ；也可能是一个空盒子，即 <code>Nothing</code> 。或者，你也可以把它理解成泛型，比如 <code>Objective-C</code> 中的 <code>NSArray&lt;ObjectType&gt;</code> 。不过，最正确的理解应该是把 <code>Maybe</code> 看作一个上下文，这个上下文表示某次计算可能成功也可能失败，成功时用 <code>Just a</code> 表示，<code>a</code> 为计算结果；失败时用 <code>Nothing</code> 表示，这就是 <code>Maybe</code> 类型存在的意义：</p>
 
-<p><img src="/images/maybe.png" title="maybe" alt="maybe"></p>
+<p><img src="http://blog.leichunfeng.com/images/maybe.png" alt="maybe" /></p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 </pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">data</span> <span class="n">Maybe</span> <span class="n">a</span> <span class="o">=</span> <span class="n">Nothing</span> <span class="o">|</span> <span class="n">Just</span> <span class="n">a</span>
@@ -139,7 +139,7 @@
 
 <p>我们可以用盒子模型来理解一下，<code>Nothing</code> 就是一个空盒子；而 <code>Just 2</code> 则是一个装着 <code>2</code> 这个值的盒子：</p>
 
-<p><img src="/images/just2.png" title="just2" alt="just2"></p>
+<p><img src="http://blog.leichunfeng.com/images/just2.png" alt="just2" /></p>
 
 <p><strong>提前剧透</strong>：<code>Maybe</code> 类型实现了 <code>Functor typeclass</code>、<code>Applicative typeclass</code> 和 <code>Monad typeclass</code> ，所以它同时是 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> ，具体实现细节将在下面的章节进行介绍。</p>
 
@@ -147,11 +147,11 @@
 
 <p>在正式开始介绍 <code>Functor</code> 前，我们先思考一个这样的问题，假如我们有一个值 <code>2</code> ：</p>
 
-<p><img src="/images/normal2.png" title="normal2" alt="normal2"></p>
+<p><img src="http://blog.leichunfeng.com/images/normal2.png" alt="normal2" /></p>
 
 <p>我们如何将函数 <code>(+3)</code> 应用到这个值上呢？我想上过小学的朋友应该都知道，这就是一个简单的加法运算：</p>
 
-<p><img src="/images/value_apply.png" title="value_apply" alt="value_apply"></p>
+<p><img src="http://blog.leichunfeng.com/images/value_apply.png" alt="value_apply" /></p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -162,11 +162,11 @@
 
 <p>分分钟搞定。那么问题来了，如果这个值 <code>2</code> 是在一个上下文中呢？比如 <code>Maybe</code> ，此时，这个值 <code>2</code> 就变成了 <code>Just 2</code> ：</p>
 
-<p><img src="/images/just2.png" title="just2" alt="just2"></p>
+<p><img src="http://blog.leichunfeng.com/images/just2.png" alt="just2" /></p>
 
 <p>这个时候，我们就不能直接将函数 <code>(+3)</code> 应用到 <code>Just 2</code> 了。那么，我们如何将一个函数应用到一个在上下文中的值呢？</p>
 
-<p><img src="/images/fmap.png" title="fmap" alt="fmap"></p>
+<p><img src="http://blog.leichunfeng.com/images/fmap.png" alt="fmap" /></p>
 
 <p>是的，我想你应该已经猜到了，<code>Functor</code> 就是干这事的，欲知后事如何，请看下节分解。</p>
 
@@ -211,7 +211,7 @@
 
 <p>看到这里，我想你应该已经知道如何将一个函数应用到一个在上下文中的值了。比如前面提到的将函数 <code>(+3)</code> 应用到 <code>Just 2</code> ：</p>
 
-<p><img src="/images/fmap_just.png" title="fmap_just" alt="fmap_just"></p>
+<p><img src="http://blog.leichunfeng.com/images/fmap_just.png" alt="fmap_just" /></p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -222,7 +222,7 @@
 
 <p>另外，值得一提的是，当我们将函数 <code>(+3)</code> 应用到一个空盒子，即 <code>Nothing</code> 时，我们将会得到一个新的空盒子：</p>
 
-<p><img src="/images/fmap_nothing.png" title="fmap_nothing" alt="fmap_nothing"></p>
+<p><img src="http://blog.leichunfeng.com/images/fmap_nothing.png" alt="fmap_nothing" /></p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -235,11 +235,11 @@
 
 <p>现在，我们已经知道如何将函数 <code>(+3)</code> 应用到 <code>Just 2</code> 了。那么问题又来了，如果函数 <code>(+3)</code> 也在上下文中呢，比如 <code>Maybe</code> ，此时，函数 <code>(+3)</code> 就变成了 <code>Just (+3)</code> ：</p>
 
-<p><img src="/images/justadd3.png" title="justadd3" alt="justadd3"></p>
+<p><img src="http://blog.leichunfeng.com/images/justadd3.png" alt="justadd3" /></p>
 
 <p>那么，我们如何将一个在上下文中的函数应用到一个在上下文中的值呢？</p>
 
-<p><img src="/images/apply_justadd3_just2.png" title="apply_justadd3_just2" alt="apply_justadd3_just2"></p>
+<p><img src="http://blog.leichunfeng.com/images/apply_justadd3_just2.png" alt="apply_justadd3_just2" /></p>
 
 <p>这就是 <code>Applicative</code> 要干的事，详情请看下节内容。</p>
 
@@ -298,7 +298,7 @@
 
 <p>好了，我们接下来看一下将 <code>Just (+3)</code> 应用到 <code>Just 2</code> 的具体过程：</p>
 
-<p><img src="/images/applicative_just.png" title="applicative_just" alt="applicative_just"></p>
+<p><img src="http://blog.leichunfeng.com/images/applicative_just.png" alt="applicative_just" /></p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -320,15 +320,15 @@
 
 <p>截至目前，我们已经知道了 <code>Functor</code> 的作用就是应用一个函数到一个上下文中的值：</p>
 
-<p><img src="/images/fmap.png" title="fmap" alt="fmap"></p>
+<p><img src="http://blog.leichunfeng.com/images/fmap.png" alt="fmap" /></p>
 
 <p>而 <code>Applicative</code> 的作用则是应用一个上下文中的函数到一个上下文中的值：</p>
 
-<p><img src="/images/apply_justadd3_just2.png" title="apply_justadd3_just2" alt="apply_justadd3_just2"></p>
+<p><img src="http://blog.leichunfeng.com/images/apply_justadd3_just2.png" alt="apply_justadd3_just2" /></p>
 
 <p>那么 <code>Monad</code> 又会是什么呢？其实，<code>Monad</code> 的作用跟 <code>Functor</code> 类似，也是应用一个函数到一个上下文中的值。不同之处在于，<code>Functor</code> 应用的是一个接收一个普通值并且返回一个普通值的函数，而 <code>Monad</code> 应用的是一个接收一个普通值但是返回一个在上下文中的值的函数：</p>
 
-<p><img src="/images/bind.png" title="bind" alt="bind"></p>
+<p><img src="http://blog.leichunfeng.com/images/bind.png" alt="bind" /></p>
 
 <h3>Monad typeclass</h3>
 
@@ -402,7 +402,7 @@
 
 <p>下面，我们一起来看一个具体的例子。我们先定义一个 <code>half</code> 函数，这个函数接收一个数字 <code>x</code> 作为参数，如果 <code>x</code> 是偶数，则将 <code>x</code> 除以 <code>2</code> ，并将结果放入 <code>Maybe</code> 盒子中；如果 <code>x</code> 不是偶数，则返回一个空盒子：</p>
 
-<p><img src="/images/half.png" title="half" alt="half"></p>
+<p><img src="http://blog.leichunfeng.com/images/half.png" alt="half" /></p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -436,7 +436,7 @@
 
 <p>看到上面的运算过程，不知道你有没有看出点什么端倪呢？上一步的输出作为下一步的输入，并且只要你愿意的话，这个过程可以无限地进行下去。我想你可能已经想到了，是的，就是链式操作。所有的操作链接起来就像是一条生产线，每一步的操作都是对输入进行加工，然后产生输出，整个操作过程可以看作是对最初的原材料 <code>Just 20</code> 进行加工并最终生产出成品 <code>Nothing</code> 的过程：</p>
 
-<p><img src="/images/monad_chain.png" title="monad_chain" alt="monad_chain"></p>
+<p><img src="http://blog.leichunfeng.com/images/monad_chain.png" alt="monad_chain" /></p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -451,7 +451,7 @@
 
 <p>现在，我们已经知道 <code>Monad</code> 是什么了，它就是一种实现了 <code>Monad typeclass</code> 的数据类型。那么它有什么具体的应用呢？你总不能让我们都来做理论研究吧。既然如此，那我们就只好祭出 <code>Objective-C</code> 中的神器，<code>ReactiveCocoa</code> ，它就是根据 <code>Monad</code> 的概念搭建起来的。下面是 <code>RACStream</code> 的继承结构图：</p>
 
-<p><img src="/images/RACStream.png" title="RACStream" alt="RACStream"></p>
+<p><img src="http://blog.leichunfeng.com/images/RACStream.png" alt="RACStream" /></p>
 
 <p><code>RACStream</code> 是 <code>ReactiveCocoa</code> 中最核心的类，它就是一个 <code>Monad</code> ：</p>
 
@@ -597,7 +597,7 @@
 
 <p><code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 三者之间的区别：</p>
 
-<p><img src="/images/recap.png" title="recap" alt="recap"></p>
+<p><img src="http://blog.leichunfeng.com/images/recap.png" alt="recap" /></p>
 
 <ol>
 <li><code>Functor</code> ：使用 <code>fmap</code> 应用一个函数到一个上下文中的值；</li>
