@@ -91,6 +91,8 @@
 
   <div class="entry-content"><p><code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 是函数式编程语言中三个非常重要的概念，尤其是 <code>Monad</code> ，难倒了不知道多少英雄好汉。事实上，它们的概念是非常简单的，但是却很少有文章能够将它们描述清楚，往往还适得其反，越描越黑。与其它文章不同的是，本文将从结论出发，层层深入，一步步为你揭开它们的神秘面纱。</p>
 
+<p><strong>说明</strong>：本文中的主要代码为 <a href="https://www.haskell.org">Haskell</a> 语言，它是一门纯函数式的编程语言。其中，具体的语法细节，我们不需要太过关心，因为这并不影响你对本文的理解。</p>
+
 <h2>结论</h2>
 
 <p>关于 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 的概念，其实各用一句话就可以概括：</p>
@@ -112,7 +114,7 @@
 
 <h2>Maybe</h2>
 
-<p>在正式开始介绍 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 的定义前，我想先介绍一种非常有意思的数据类型，<a href="https://downloads.haskell.org/~ghc/latest/docs/html/libraries/base-4.8.1.0/Data-Maybe.html">Maybe</a> 类型：</p>
+<p>在正式开始介绍 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 的定义前，我想先介绍一种非常有意思的数据类型，<a href="https://downloads.haskell.org/~ghc/latest/docs/html/libraries/base-4.8.1.0/Data-Maybe.html">Maybe</a> 类型（可类比 <code>Swift</code> 中的 <code>Optional</code>）：</p>
 
 <blockquote><p>The Maybe type encapsulates an optional value. A value of type Maybe a either contains a value of type a (represented as Just a), or it is empty (represented as Nothing). Using Maybe is a good way to deal with errors or exceptional cases without resorting to drastic measures such as error.</p></blockquote>
 
@@ -138,7 +140,7 @@
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>我们用盒子模型来理解一下，<code>Nothing</code> 就是一个空盒子；而 <code>Just 2</code> 则是一个装着 <code>2</code> 这个值的盒子：</p>
+<p>我们可以用盒子模型来理解一下，<code>Nothing</code> 就是一个空盒子；而 <code>Just 2</code> 则是一个装着 <code>2</code> 这个值的盒子：</p>
 
 <p><img src="/images/just2.png" title="just2" alt="just2"></p>
 
@@ -183,6 +185,8 @@
 
 
 <p>在 <code>Functor typeclass</code> 中定义了一个函数 <code>fmap</code> ，它将一个函数应用到一个在上下文中的值，并返回另一个在相同上下文中的值，这里的 <code>f</code> 是一个类型占位符，表示任意类型的 <code>Functor</code> 。</p>
+
+<p><strong>注</strong>：<code>fmap</code> 函数可类比 <code>Swift</code> 中的 <code>map</code> 方法。</p>
 
 <h3>Maybe Functor</h3>
 
@@ -369,7 +373,7 @@
 
 <p>怎么样？现在看上去就好多了吧。跟 <code>Applicative typeclass</code> 的定义一样，在 <code>Monad typeclass</code> 的定义中也有一个类约束 <code>Applicative m</code> ，表示的意思是一种数据类型 <code>m</code> 要成为 <code>Monad</code> 的前提条件是它必须是 <code>Applicative</code> 。另外，其实 <code>return</code> 函数的功能与 <code>Applicative</code> 中的 <code>pure</code> 函数的功能是一样的，只不过换了一个名字而已，它们的作用都是将一个值放入上下文中。而 <code>(&gt;&gt;=)</code> 函数的功能则是应用一个（接收一个普通值但是返回一个在上下文中的值的）函数到一个上下文中的值，并返回另一个在相同上下文中的值。</p>
 
-<p><strong>注</strong>：<code>&gt;&gt;=</code> 函数的发音为 <code>bind</code> ，学习 <code>ReactiveCocoa</code> 的同学要注意啦。</p>
+<p><strong>注</strong>：<code>&gt;&gt;=</code> 函数的发音为 <code>bind</code> ，学习 <code>ReactiveCocoa</code> 的同学要注意啦。另外，<code>&gt;&gt;=</code> 函数可类比 <code>Swift</code> 中的 <code>flatMap</code> 方法。</p>
 
 <h3>Maybe Monad</h3>
 
@@ -446,6 +450,135 @@
 
 <p><strong>注</strong>：链式操作只是 <code>Monad</code> 为我们带来的主要好处之一；另一个本文并未涉及到的主要好处是，<code>Monad</code> 可以为我们自动处理上下文，而我们只需要关心真正的值就可以了。</p>
 
+<h3>ReactiveCocoa</h3>
+
+<p>现在，我们已经知道 <code>Monad</code> 是什么了，它就是一种实现了 <code>Monad typeclass</code> 的数据类型。那么它有什么具体的应用呢？你总不能让我们都来做理论研究吧。既然如此，那我们就只好祭出 <code>Obj-C</code> 中的神器，<code>ReactiveCocoa</code> ，它就是根据 <code>Monad</code> 的概念搭建起来的。下面是 <code>RACStream</code> 的继承结构图：</p>
+
+<p><img src="/images/RACStream.png" title="RACStream" alt="RACStream"></p>
+
+<p><code>RACStream</code> 是 <code>ReactiveCocoa</code> 中最核心的类，它就是一个 <code>Monad</code> ：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="c1">/// An abstract class representing any stream of values.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// This class represents a monad, upon which many stream-based operations can</span>
+</span><span class='line'><span class="c1">/// be built.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// When subclassing RACStream, only the methods in the main @interface body need</span>
+</span><span class='line'><span class="c1">/// to be overridden.</span>
+</span><span class='line'><span class="k">@interface</span> <span class="nc">RACStream</span> : <span class="bp">NSObject</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">/// Lifts `value` into the stream monad.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// Returns a stream containing only the given value.</span>
+</span><span class='line'><span class="p">+</span> <span class="p">(</span><span class="kt">instancetype</span><span class="p">)</span><span class="nf">return:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">value</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">/// Lazily binds a block to the values in the receiver.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// This should only be used if you need to terminate the bind early, or close</span>
+</span><span class='line'><span class="c1">/// over some state. -flattenMap: is more appropriate for all other cases.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// block - A block returning a RACStreamBindBlock. This block will be invoked</span>
+</span><span class='line'><span class="c1">///         each time the bound stream is re-evaluated. This block must not be</span>
+</span><span class='line'><span class="c1">///         nil or return nil.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// Returns a new stream which represents the combined result of all lazy</span>
+</span><span class='line'><span class="c1">/// applications of `block`.</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">instancetype</span><span class="p">)</span><span class="nf">bind:</span><span class="p">(</span><span class="n">RACStreamBindBlock</span> <span class="p">(</span><span class="o">^</span><span class="p">)(</span><span class="kt">void</span><span class="p">))</span><span class="nv">block</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>我们可以看到，在 <code>RACStream</code> 中定义了两个看上去非常眼熟的方法：</p>
+
+<ol>
+<li><code>+ (instancetype)return:(id)value;</code> ；</li>
+<li><code>- (instancetype)bind:(RACStreamBindBlock (^)(void))block;</code> 。</li>
+</ol>
+
+
+<p>其中，<code>return:</code> 方法的功能就是将一个值 <code>value</code> 放入 <code>RACStream</code> 上下文中；而 <code>bind:</code> 方法的功能则是将一个 <code>RACStreamBindBlock</code> 类型的 <code>block</code> 应用到一个在 <code>RACStream</code> 上下文中的值（<code>receiver</code>），并返回另一个在 <code>RACStream</code> 上下文中的值。并且，<code>RACStreamBindBlock</code> 类型的 <code>block</code> 就是一个接收一个普通值但是返回一个在 <code>RACStream</code> 上下文中的值的“函数”：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="c1">/// A block which accepts a value from a RACStream and returns a new instance</span>
+</span><span class='line'><span class="c1">/// of the same stream class.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// Setting `stop` to `YES` will cause the bind to terminate after the returned</span>
+</span><span class='line'><span class="c1">/// value. Returning `nil` will result in immediate termination.</span>
+</span><span class='line'><span class="k">typedef</span> <span class="n">RACStream</span> <span class="o">*</span> <span class="p">(</span><span class="o">^</span><span class="n">RACStreamBindBlock</span><span class="p">)(</span><span class="kt">id</span> <span class="n">value</span><span class="p">,</span> <span class="kt">BOOL</span> <span class="o">*</span><span class="n">stop</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>接下来，为了加深理解，我们一起来对比一下 <code>Monad typeclass</code> 的定义：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">class</span> <span class="n">Applicative</span> <span class="n">m</span> <span class="o">=&gt;</span> <span class="n">Monad</span> <span class="n">m</span> <span class="n">where</span>
+</span><span class='line'>    <span class="k">return</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">a</span>
+</span><span class='line'>    <span class="p">(</span><span class="o">&gt;&gt;=</span><span class="p">)</span> <span class="o">::</span> <span class="n">m</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>同样的，我们将类型占位符 <code>m</code> 用 <code>RACStream</code> 代入，可得：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">class</span> <span class="n">Applicative</span> <span class="n">RACStream</span> <span class="o">=&gt;</span> <span class="n">Monad</span> <span class="n">RACStream</span> <span class="n">where</span>
+</span><span class='line'>    <span class="k">return</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">RACStream</span> <span class="n">a</span>
+</span><span class='line'>    <span class="p">(</span><span class="o">&gt;&gt;=</span><span class="p">)</span> <span class="o">::</span> <span class="n">RACStream</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">RACStream</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RACStream</span> <span class="n">b</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>其中，<code>return :: a -&gt; RACStream a</code> 就对应 <code>+ (instancetype)return:(id)value;</code> ，而 <code>(&gt;&gt;=) :: RACStream a -&gt; (a -&gt; RACStream b) -&gt; RACStream b</code> 则对应 <code>- (instancetype)bind:(RACStreamBindBlock (^)(void))block;</code> 。<strong>注</strong>：我们前面已经提到过了，<code>&gt;&gt;=</code> 函数的发音就是 <code>bind</code> 。因此，<code>ReactiveCocoa</code> 便有了下面的玩法：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">RACSignal</span> <span class="o">*</span><span class="n">signal2</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">signal1</span>
+</span><span class='line'>    <span class="nl">bind</span><span class="p">:</span><span class="n">block1</span><span class="p">]</span>
+</span><span class='line'>    <span class="nl">bind</span><span class="p">:</span><span class="n">block2</span><span class="p">]</span>
+</span><span class='line'>    <span class="nl">bind</span><span class="p">:</span><span class="n">block3</span><span class="p">];</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><code>Monad</code> 就像是 <code>ReactiveCocoa</code> 中的太极，太极生两仪，两仪生四象，四象生八卦。至此，我们已经知道了 <code>ReactiveCocoa</code> 中最核心的原理，而更多关于 <code>ReactiveCocoa</code> 的内容我们将在后续的源码解析中再进行介绍，敬请期待。</p>
+
 <h2>总结</h2>
 
 <p><code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 是什么：</p>
@@ -476,7 +609,7 @@
 </ol>
 
 
-<p>此外，我们还介绍了一种非常有意思的数据类型 <code>Maybe</code> ，它实现了 <code>Functor typeclass</code>、<code>Applicative typeclass</code> 和 <code>Monad typeclass</code> ，所以它同时是 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 。除了 <code>Maybe</code> 类型外，还有一些其它非常有用的 <code>Monad</code> ，比如列表 <code>[]</code>、<code>IO</code>、函数 <code>(-&gt;) r</code> 等，有机会的话我们再进行介绍。</p>
+<p>此外，我们还介绍了一种非常有意思的数据类型 <code>Maybe</code> ，它实现了 <code>Functor typeclass</code>、<code>Applicative typeclass</code> 和 <code>Monad typeclass</code> ，所以它同时是 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 。</p>
 
 <p>以上就是本文的全部内容，希望可以对你有所帮助，Good luck !</p>
 
