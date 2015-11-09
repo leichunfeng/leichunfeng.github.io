@@ -280,8 +280,6 @@ ghci> Just 20 >>= half
 Just 10
 ghci> Just 10 >>= half
 Just 5
-ghci> Just 10 >>= half
-Just 5
 ghci> Just 5 >>= half
 Nothing
 ```
