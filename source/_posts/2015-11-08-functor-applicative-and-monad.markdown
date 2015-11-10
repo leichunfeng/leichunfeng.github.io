@@ -90,7 +90,7 @@ class Functor f where
     fmap :: (a -> b) -> f a -> f b
 ```
 
-在 `Functor typeclass` 中定义了一个函数 `fmap` ，它将一个函数应用到一个在上下文中的值，并返回另一个在相同上下文中的值，这里的 `f` 是一个类型占位符，表示任意类型的 `Functor` 。
+在 `Functor typeclass` 中定义了一个函数 `fmap` ，它将一个函数 `(a -> b)` 应用到一个在上下文中的值 `f a` ，并返回另一个在相同上下文中的值 `f b` ，这里的 `f` 是一个类型占位符，表示任意类型的 `Functor` 。
 
 **注**：`fmap` 函数可类比 `Swift` 中的 `map` 方法。
 
@@ -103,7 +103,7 @@ class Functor Maybe where
     fmap :: (a -> b) -> Maybe a -> Maybe b
 ```
 
-因此，对于 `Maybe` 类型来说，它要实现的函数 `fmap` 的功能就是将一个函数应用到一个在 `Maybe` 上下文中的值，并返回另一个在 `Maybe` 上下文中的值。接下来，我们一起来看一下 `Maybe` 类型实现 `Functor typeclass` 的具体细节：
+因此，对于 `Maybe` 类型来说，它要实现的函数 `fmap` 的功能就是将一个函数 `(a -> b)` 应用到一个在 `Maybe` 上下文中的值 `Maybe a` ，并返回另一个在 `Maybe` 上下文中的值 `Maybe b` 。接下来，我们一起来看一下 `Maybe` 类型实现 `Functor typeclass` 的具体细节：
 
 ``` objc
 instance Functor Maybe where
@@ -157,8 +157,8 @@ class Functor f => Applicative f where
 
 在 `Applicative typeclass` 中定义了两个函数：
 
-- `pure` ：将一个值放入上下文中；
-- `(<*>)` ：将一个在上下文中的函数应用到一个在上下文中的值，并返回另一个在上下文中的值。
+- `pure` ：将一个值 `a` 放入上下文中；
+- `(<*>)` ：将一个在上下文中的函数 `f (a -> b)` 应用到一个在上下文中的值 `f a` ，并返回另一个在上下文中的值 `f b` 。
 
 **注**：`<*>` 函数的发音我也不知道，如果有同学知道的话还请告之，谢谢。
 
@@ -172,7 +172,7 @@ class Functor Maybe => Applicative Maybe where
     (<*>) :: Maybe (a -> b) -> Maybe a -> Maybe b
 ```
 
-因此，对于 `Maybe` 类型来说，它要实现的 `pure` 函数的功能就是将一个值放入 `Maybe` 上下文中。而 `(<*>)` 函数的功能则是将一个在 `Maybe` 上下文中的函数应用到一个在 `Maybe` 上下文中的值，并返回另一个在 `Maybe` 上下文中的值。接下来，我们一起来看一下 `Maybe` 类型实现 `Applicative typeclass` 的具体细节：
+因此，对于 `Maybe` 类型来说，它要实现的 `pure` 函数的功能就是将一个值 `a` 放入 `Maybe` 上下文中。而 `(<*>)` 函数的功能则是将一个在 `Maybe` 上下文中的函数 `Maybe (a -> b)` 应用到一个在 `Maybe` 上下文中的值 `Maybe a` ，并返回另一个在 `Maybe` 上下文中的值 `Maybe b` 。接下来，我们一起来看一下 `Maybe` 类型实现 `Applicative typeclass` 的具体细节：
 
 ``` objc
 instance Applicative Maybe where
@@ -238,7 +238,7 @@ class Applicative m => Monad m where
     (>>=) :: m a -> (a -> m b) -> m b
 ```
 
-怎么样？现在看上去就好多了吧。跟 `Applicative typeclass` 的定义一样，在 `Monad typeclass` 的定义中也有一个类约束 `Applicative m` ，表示的意思是一种数据类型 `m` 要成为 `Monad` 的前提条件是它必须是 `Applicative` 。另外，其实 `return` 函数的功能与 `Applicative` 中的 `pure` 函数的功能是一样的，只不过换了一个名字而已，它们的作用都是将一个值放入上下文中。而 `(>>=)` 函数的功能则是应用一个（接收一个普通值但是返回一个在上下文中的值的）函数到一个上下文中的值，并返回另一个在相同上下文中的值。
+怎么样？现在看上去就好多了吧。跟 `Applicative typeclass` 的定义一样，在 `Monad typeclass` 的定义中也有一个类约束 `Applicative m` ，表示的意思是一种数据类型 `m` 要成为 `Monad` 的前提条件是它必须是 `Applicative` 。另外，其实 `return` 函数的功能与 `Applicative` 中的 `pure` 函数的功能是一样的，只不过换了一个名字而已，它们的作用都是将一个值 `a` 放入上下文中。而 `(>>=)` 函数的功能则是应用一个（接收一个普通值 `a` 但是返回一个在上下文中的值 `m b` 的）函数 `(a -> m b)` 到一个上下文中的值 `m a` ，并返回另一个在相同上下文中的值 `m b` 。
 
 **注**：`>>=` 函数的发音为 `bind` ，学习 `ReactiveCocoa` 的同学要注意啦。另外，`>>=` 函数可类比 `Swift` 中的 `flatMap` 方法。
 
@@ -339,7 +339,7 @@ Nothing
 1. `+ (instancetype)return:(id)value;` ；
 2. `- (instancetype)bind:(RACStreamBindBlock (^)(void))block;` 。
 
-其中，`return:` 方法的功能就是将一个值 `value` 放入 `RACStream` 上下文中；而 `bind:` 方法的功能则是将一个 `RACStreamBindBlock` 类型的 `block` 应用到一个在 `RACStream` 上下文中的值（`receiver`），并返回另一个在 `RACStream` 上下文中的值。并且，`RACStreamBindBlock` 类型的 `block` 就是一个接收一个普通值但是返回一个在 `RACStream` 上下文中的值的“函数”：
+其中，`return:` 方法的功能就是将一个值 `value` 放入 `RACStream` 上下文中；而 `bind:` 方法的功能则是将一个 `RACStreamBindBlock` 类型的 `block` 应用到一个在 `RACStream` 上下文中的值（`receiver`），并返回另一个在 `RACStream` 上下文中的值。**注**，`RACStreamBindBlock` 类型的 `block` 就是一个接收一个普通值 `value` 但是返回一个在 `RACStream` 上下文中的值的“函数”：
 
 ``` objc
 /// A block which accepts a value from a RACStream and returns a new instance
