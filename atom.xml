@@ -4,7 +4,7 @@
   <title><![CDATA[雷纯锋的技术博客]]></title>
   <link href="http://leichunfeng.github.io/atom.xml" rel="self"/>
   <link href="http://leichunfeng.github.io/"/>
-  <updated>2015-11-09T12:50:57+08:00</updated>
+  <updated>2015-11-10T10:33:42+08:00</updated>
   <id>http://leichunfeng.github.io/</id>
   <author>
     <name><![CDATA[雷纯锋]]></name>
@@ -113,7 +113,7 @@
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>在 <code>Functor typeclass</code> 中定义了一个函数 <code>fmap</code> ，它将一个函数应用到一个在上下文中的值，并返回另一个在相同上下文中的值，这里的 <code>f</code> 是一个类型占位符，表示任意类型的 <code>Functor</code> 。</p>
+<p>在 <code>Functor typeclass</code> 中定义了一个函数 <code>fmap</code> ，它将一个函数 <code>(a -&gt; b)</code> 应用到一个在上下文中的值 <code>f a</code> ，并返回另一个在相同上下文中的值 <code>f b</code> ，这里的 <code>f</code> 是一个类型占位符，表示任意类型的 <code>Functor</code> 。</p>
 
 <p><strong>注</strong>：<code>fmap</code> 函数可类比 <code>Swift</code> 中的 <code>map</code> 方法。</p>
 
@@ -128,7 +128,7 @@
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>因此，对于 <code>Maybe</code> 类型来说，它要实现的函数 <code>fmap</code> 的功能就是将一个函数应用到一个在 <code>Maybe</code> 上下文中的值，并返回另一个在 <code>Maybe</code> 上下文中的值。接下来，我们一起来看一下 <code>Maybe</code> 类型实现 <code>Functor typeclass</code> 的具体细节：</p>
+<p>因此，对于 <code>Maybe</code> 类型来说，它要实现的函数 <code>fmap</code> 的功能就是将一个函数 <code>(a -&gt; b)</code> 应用到一个在 <code>Maybe</code> 上下文中的值 <code>Maybe a</code> ，并返回另一个在 <code>Maybe</code> 上下文中的值 <code>Maybe b</code> 。接下来，我们一起来看一下 <code>Maybe</code> 类型实现 <code>Functor typeclass</code> 的具体细节：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -193,8 +193,8 @@
 <p>在 <code>Applicative typeclass</code> 中定义了两个函数：</p>
 
 <ul>
-<li><code>pure</code> ：将一个值放入上下文中；</li>
-<li><code>(&lt;*&gt;)</code> ：将一个在上下文中的函数应用到一个在上下文中的值，并返回另一个在上下文中的值。</li>
+<li><code>pure</code> ：将一个值 <code>a</code> 放入上下文中；</li>
+<li><code>(&lt;*&gt;)</code> ：将一个在上下文中的函数 <code>f (a -&gt; b)</code> 应用到一个在上下文中的值 <code>f a</code> ，并返回另一个在上下文中的值 <code>f b</code> 。</li>
 </ul>
 
 
@@ -213,7 +213,7 @@
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>因此，对于 <code>Maybe</code> 类型来说，它要实现的 <code>pure</code> 函数的功能就是将一个值放入 <code>Maybe</code> 上下文中。而 <code>(&lt;*&gt;)</code> 函数的功能则是将一个在 <code>Maybe</code> 上下文中的函数应用到一个在 <code>Maybe</code> 上下文中的值，并返回另一个在 <code>Maybe</code> 上下文中的值。接下来，我们一起来看一下 <code>Maybe</code> 类型实现 <code>Applicative typeclass</code> 的具体细节：</p>
+<p>因此，对于 <code>Maybe</code> 类型来说，它要实现的 <code>pure</code> 函数的功能就是将一个值 <code>a</code> 放入 <code>Maybe</code> 上下文中。而 <code>(&lt;*&gt;)</code> 函数的功能则是将一个在 <code>Maybe</code> 上下文中的函数 <code>Maybe (a -&gt; b)</code> 应用到一个在 <code>Maybe</code> 上下文中的值 <code>Maybe a</code> ，并返回另一个在 <code>Maybe</code> 上下文中的值 <code>Maybe b</code> 。接下来，我们一起来看一下 <code>Maybe</code> 类型实现 <code>Applicative typeclass</code> 的具体细节：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -300,7 +300,7 @@
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>怎么样？现在看上去就好多了吧。跟 <code>Applicative typeclass</code> 的定义一样，在 <code>Monad typeclass</code> 的定义中也有一个类约束 <code>Applicative m</code> ，表示的意思是一种数据类型 <code>m</code> 要成为 <code>Monad</code> 的前提条件是它必须是 <code>Applicative</code> 。另外，其实 <code>return</code> 函数的功能与 <code>Applicative</code> 中的 <code>pure</code> 函数的功能是一样的，只不过换了一个名字而已，它们的作用都是将一个值放入上下文中。而 <code>(&gt;&gt;=)</code> 函数的功能则是应用一个（接收一个普通值但是返回一个在上下文中的值的）函数到一个上下文中的值，并返回另一个在相同上下文中的值。</p>
+<p>怎么样？现在看上去就好多了吧。跟 <code>Applicative typeclass</code> 的定义一样，在 <code>Monad typeclass</code> 的定义中也有一个类约束 <code>Applicative m</code> ，表示的意思是一种数据类型 <code>m</code> 要成为 <code>Monad</code> 的前提条件是它必须是 <code>Applicative</code> 。另外，其实 <code>return</code> 函数的功能与 <code>Applicative</code> 中的 <code>pure</code> 函数的功能是一样的，只不过换了一个名字而已，它们的作用都是将一个值 <code>a</code> 放入上下文中。而 <code>(&gt;&gt;=)</code> 函数的功能则是应用一个（接收一个普通值 <code>a</code> 但是返回一个在上下文中的值 <code>m b</code> 的）函数 <code>(a -&gt; m b)</code> 到一个上下文中的值 <code>m a</code> ，并返回另一个在相同上下文中的值 <code>m b</code> 。</p>
 
 <p><strong>注</strong>：<code>&gt;&gt;=</code> 函数的发音为 <code>bind</code> ，学习 <code>ReactiveCocoa</code> 的同学要注意啦。另外，<code>&gt;&gt;=</code> 函数可类比 <code>Swift</code> 中的 <code>flatMap</code> 方法。</p>
 
@@ -450,7 +450,7 @@
 </ol>
 
 
-<p>其中，<code>return:</code> 方法的功能就是将一个值 <code>value</code> 放入 <code>RACStream</code> 上下文中；而 <code>bind:</code> 方法的功能则是将一个 <code>RACStreamBindBlock</code> 类型的 <code>block</code> 应用到一个在 <code>RACStream</code> 上下文中的值（<code>receiver</code>），并返回另一个在 <code>RACStream</code> 上下文中的值。并且，<code>RACStreamBindBlock</code> 类型的 <code>block</code> 就是一个接收一个普通值但是返回一个在 <code>RACStream</code> 上下文中的值的“函数”：</p>
+<p>其中，<code>return:</code> 方法的功能就是将一个值 <code>value</code> 放入 <code>RACStream</code> 上下文中；而 <code>bind:</code> 方法的功能则是将一个 <code>RACStreamBindBlock</code> 类型的 <code>block</code> 应用到一个在 <code>RACStream</code> 上下文中的值（<code>receiver</code>），并返回另一个在 <code>RACStream</code> 上下文中的值。<strong>注</strong>，<code>RACStreamBindBlock</code> 类型的 <code>block</code> 就是一个接收一个普通值 <code>value</code> 但是返回一个在 <code>RACStream</code> 上下文中的值的“函数”：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -3635,7 +3635,7 @@
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 </pre></td><td class='code'><pre><code class='html'><span class='line'><span class="nt">&lt;p&gt;</span>
-</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2015-11-09 12:50:57 +0800 - 雷纯锋 -
+</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2015-11-10 10:33:42 +0800 - 雷纯锋 -
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span>Powered by <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://octopress.org&quot;</span><span class="nt">&gt;</span>Octopress<span class="nt">&lt;/a&gt;&lt;/span&gt;</span>
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span> - 感谢 <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://gitcafe.com/signup?invited_by=leichunfeng&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;</span>GitCafe<span class="nt">&lt;/a&gt;</span> 为本站提供存储空间<span class="nt">&lt;/span&gt;</span>
 </span><span class='line'><span class="nt">&lt;/p&gt;</span>
