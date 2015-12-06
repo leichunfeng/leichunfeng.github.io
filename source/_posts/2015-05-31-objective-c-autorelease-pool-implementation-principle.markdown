@@ -13,6 +13,21 @@ keywords: release, autorelease, autoreleasepool, AutoreleasePoolPage, NSAutorele
 
 autorelease 本质上就是延迟调用 release ，那 autoreleased 对象究竟会在什么时候释放呢？为了弄清楚这个问题，我们先来做一个小实验。这个小实验分 3 种场景进行，请你先自行思考在每种场景下的 console 输出，以加深理解。**注**：本实验的源码可以在这里 [AutoreleasePool](https://github.com/leichunfeng/AutoreleasePool) 找到。
 
+**特别说明**：在苹果一些新的硬件设备上，本实验的结果已经不再成立，详细情况如下：
+
+- iPad 2
+- ~~iPad Air~~
+- ~~iPad Air 2~~
+- ~~iPad Pro~~
+- iPad Retina
+- iPhone 4s
+- iPhone 5
+- ~~iPhone 5s~~
+- ~~iPhone 6~~
+- ~~iPhone 6 Plus~~
+- ~~iPhone 6s~~
+- ~~iPhone 6s Plus~~
+
 ``` objc
 __weak NSString *string_weak_ = nil;
 
