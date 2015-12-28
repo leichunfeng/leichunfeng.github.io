@@ -43,7 +43,7 @@ keywords: ReactiveCocoa, RAC, Functional Reactive Programming, FRP, RACSignal, �
 
 `ReactiveCocoa` 是一个非常复杂的框架，在正式开始介绍它的核心组件前，我们先来看看它的类图，以便从宏观上了解它的层次结构：
 
-![ReactiveCocoa v2.5](http://localhost:4000/images/ReactiveCocoa v2.5.png)
+![ReactiveCocoa v2.5](http://blog.leichunfeng.com/images/ReactiveCocoa v2.5.png)
 
 从上面的类图中，我们可以看出，`ReactiveCocoa` 主要由以下四大核心组件构成：
 
@@ -187,13 +187,13 @@ keywords: ReactiveCocoa, RAC, Functional Reactive Programming, FRP, RACSignal, �
 
 `RACSubject` 代表的是可以手动控制的信号，我们可以把它看作是 `RACSignal` 的可变版本，就好比 `NSMutableArray` 是 `NSArray` 的可变版本一样。`RACSubject` 继承自 `RACSignal` ，所以它可以作为信号源被订阅者订阅，同时，它又实现了 `RACSubscriber` 协议，所以它也可以作为订阅者订阅其他信号源，这个就是 `RACSubject` 为什么可以手动控制的原因：
 
-<img src="http://localhost:4000/images/RACSubject.png" width="650" />
+<img src="http://blog.leichunfeng.com/images/RACSubject.png" width="650" />
 
 根据官方的 [Design Guidelines](https://github.com/ReactiveCocoa/ReactiveCocoa/blob/v2.5/Documentation/DesignGuidelines.md#avoid-using-subjects-when-possible) 中的说法，我们应该尽可能少地使用它。因为它太过灵活，我们可以在任何时候任何地方操作它，所以一旦过度使用，就会使代码变得非常复杂，难以理解。
 
 根据我的实际使用经验，在 `MVVM` 中使用 `RACSubject` 可以非常方便地实现统一的错误处理逻辑。比如，我们可以在 `viewModel` 的基类中声明一个 `RACSubject` 类型的属性 `errors` ，然后在 `viewController` 的基类中编写统一的错误处理逻辑：
 
-```
+``` objc
 [self.viewModel.errors subscribeNext:^(NSError *error) {
     // 错误处理逻辑
 }
@@ -230,7 +230,7 @@ keywords: ReactiveCocoa, RAC, Functional Reactive Programming, FRP, RACSignal, �
 
 事实上，一个序列的 `tail` 仍然是一个序列，如果我们将序列看作是一条毛毛虫，那么 `head` 和 `tail` 可表示如下：
 
-![listmonster](http://localhost:4000/images/listmonster.png)
+![listmonster](http://blog.leichunfeng.com/images/listmonster.png)
 
 同样的，一个序列的 `tail` 也可以看作是由 `head` 和 `tail` 组成，而这个新的 `tail` 又可以继续看作是由 `head` 和 `tail` 组成，这个过程可以一直进行下去。而这个就是 `RACSequence` 得以建立的理论基础，所以一个 `RACSequence` 子类的最小实现就是 `head` 和 `tail` ：
 
@@ -368,13 +368,13 @@ RACSequence *results = [[strings.rac_sequence
 
 订阅者对信号源的一次订阅过程可以抽象为：通过 `RACSignal` 的 `-subscribe:` 方法传入一个订阅者，并最终返回一个 `RACDisposable` 对象的过程：
 
-<img src="http://localhost:4000/images/subscribe.png" width="480" />
+<img src="http://blog.leichunfeng.com/images/subscribe.png" width="480" />
 
 **注意**：在 `ReactiveCocoa` 中并没有专门的类 `RACSubscription` 来代表一次订阅，而间接地使用 `RACDisposable` 来充当这一角色。因此，一个 `RACDisposable` 对象就代表着一次订阅，并且我们可以用它来取消这次订阅，详细内容将会在下面的章节中进行介绍。
 
 除了 `RACSignal` 的子类外，还有两个实现了 `RACSubscriber` 协议的类，如下图所示：
 
-<img src="http://localhost:4000/images/RACSubscriber.png" width="450" />
+<img src="http://blog.leichunfeng.com/images/RACSubscriber.png" width="450" />
 
 其中，`RACSubscriber` 类的名字与 `RACSubscriber` 协议的名字相同，这跟 `Objective-C` 中的 `NSObject` 类的名字与 `NSObject` 协议的名字相同是一样一样的，除了名字相同外，然并卵。通常来说，`RACSubscriber` 类充当的角色就是信号源的真正订阅者，它老老实实地实现了 `RACSubscriber` 协议。
 
@@ -405,7 +405,7 @@ RACSequence *results = [[strings.rac_sequence
 
 `RACMulticastConnection` 通过一个标志 `_hasConnected` 来保证只对 `sourceSignal` 订阅一次，然后对外暴露一个 `RACSubject` 类型的 `signal` 供外部订阅者订阅。这样一来，不管外部订阅者对 `signal` 订阅多少次，我们对 `sourceSignal` 的订阅至多只会有一次：
 
-![RACMulticastConnection](http://localhost:4000/images/RACMulticastConnection.png)
+![RACMulticastConnection](http://blog.leichunfeng.com/images/RACMulticastConnection.png)
 
 **注**：了解 `RACMulticastConnection` 的实现原理，对于我们后面理解 `-replay` 、`replayLast` 和 `replayLazily` 等方法非常有帮助。
 
@@ -419,7 +419,7 @@ RACSequence *results = [[strings.rac_sequence
 
 同样的，`RACScheduler` 的一系列功能也是通过类簇来实现的，除了用来测试的子类外，总共还有四个私有子类：
 
-![RACScheduler](http://localhost:4000/images/RACScheduler.png)
+<img src="http://blog.leichunfeng.com/images/RACScheduler.png" width="650" />
 
 咋看之下，`RACScheduler` 的儿子貌似还不少，但是真正出力干活的却真心不多，主要就是 `RACTargetQueueScheduler` 子类：
 
@@ -444,7 +444,7 @@ RACSequence *results = [[strings.rac_sequence
 
 `RACDisposable` 在 `ReactiveCocoa` 中就充当着清洁工的角色，它封装了取消和清理一次订阅所必需的工作。它有一个核心的方法 `-dispose` ，调用这个方法就会执行相应的清理工作，这有点类似于 `NSObject` 的 `-dealloc` 方法。`RACDisposable` 总共有四个子类，它的继承结构图如下：
 
-<img src="http://localhost:4000/images/RACDisposable.png" width="450" />
+<img src="http://blog.leichunfeng.com/images/RACDisposable.png" width="450" />
 
 - `RACSerialDisposable` ：作为 `disposable` 的容器使用，可以包含一个 `disposable` 对象，并且允许将这个 `disposable` 对象通过原子操作交换出来；
 - `RACKVOTrampoline` ：代表一次 `KVO` 观察，并且可以用来停止观察；
@@ -470,5 +470,3 @@ RACSequence *results = [[strings.rac_sequence
 [http://m.oschina.net/blog/294178](http://m.oschina.net/blog/294178)
 
 <img src="http://blog.leichunfeng.com/images/wechat_pay.jpg" width="260" />
-
-
