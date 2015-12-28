@@ -4,6 +4,7 @@ title: "ReactiveCocoa v2.5 源码解析之架构总览"
 date: 2015-12-25 20:44:27 +0800
 comments: true
 categories: 
+keywords: ReactiveCocoa, RAC, Functional Reactive Programming, FRP, RACSignal, 信号, Monad
 ---
 
 `ReactiveCocoa` 是一个 `iOS` 中的函数式响应式编程框架，它受 [Functional Reactive Programming](https://en.wikipedia.org/wiki/Functional_reactive_programming) 的启发，是 [Justin Spahr-Summers](https://github.com/jspahrsummers) 和 [Josh Abernathy](https://github.com/joshaber) 在开发 [GitHub for Mac](https://desktop.github.com/) 过程中的一个副产品，它提供了一系列用于组合和转换值流的 `API` 。
