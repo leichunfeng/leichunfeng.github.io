@@ -9,7 +9,7 @@
   <meta name="author" content="雷纯锋">
 
   
-  <meta name="description" content="内存管理一直是学习 Objective-C 的重点和难点之一，尽管现在已经是 ARC 时代了，但是了解 Objective-C 的内存管理机制仍然是十分必要的。其中，弄清楚 autorelease 的原理更是重中之重，只有理解了 autorelease 的原理，我们才算是真正了解了 &hellip;">
+  <meta name="description" content="Objective-C 中的 Method Swizzling 是一项异常强大的技术，它可以允许我们动态地替换方法的实现，实现 Hook 功能，是一种比子类化更加灵活的“重写”方法的方式。 Method Swizzling 的原理 Method Swizzling 是一把双刃剑， &hellip;">
   
     <meta name="keywords" content="雷纯锋的技术博客, 雷纯锋, 技术博客, 博客, iOS, Objective-C, Android, Java, HTML5, CSS3, JavaScript, Octopress, GitHub Pages, GitHub, Pages, GitCafe, RAC, ReactiveCocoa, Git">
   
@@ -73,7 +73,7 @@
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2015/05/31/objective-c-autorelease-pool-implementation-principle/">Objective-C Autorelease Pool 的实现原理</a></h1>
+      <h1 class="entry-title"><a href="/blog/2015/06/14/objective-c-method-swizzling-best-practice/">Objective-C Method Swizzling 的最佳实践</a></h1>
     
     
       <p class="meta">
@@ -82,36 +82,126 @@
 
 
 
-<time class='entry-date' datetime='2015-05-31T10:46:34+08:00'><span class='date'><span class='date-month'>May</span> <span class='date-day'>31</span><span class='date-suffix'>st</span>, <span class='date-year'>2015</span></span> <span class='time'>10:46 am</span></time>
+<time class='entry-date' datetime='2015-06-14T12:03:32+08:00'><span class='date'><span class='date-month'>Jun</span> <span class='date-day'>14</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>12:03 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>内存管理一直是学习 Objective-C 的重点和难点之一，尽管现在已经是 ARC 时代了，但是了解 Objective-C 的内存管理机制仍然是十分必要的。其中，弄清楚 autorelease 的原理更是重中之重，只有理解了 autorelease 的原理，我们才算是真正了解了 Objective-C 的内存管理机制。<strong>注</strong>：本文使用的 <a href="http://opensource.apple.com/tarballs/objc4/">runtime</a> 源码是当前的最新版本 <code>objc4-646.tar.gz</code> 。</p>
+  <div class="entry-content"><p>Objective-C 中的 Method Swizzling 是一项<strong>异常</strong>强大的技术，它可以允许我们动态地替换方法的实现，实现 <code>Hook</code> 功能，是一种比子类化更加灵活的“重写”方法的方式。</p>
 
-<h2>autoreleased 对象什么时候释放</h2>
+<h2>Method Swizzling 的原理</h2>
 
-<p>autorelease 本质上就是延迟调用 release ，那 autoreleased 对象究竟会在什么时候释放呢？为了弄清楚这个问题，我们先来做一个小实验。这个小实验分 3 种场景进行，请你先自行思考在每种场景下的 console 输出，以加深理解。<strong>注</strong>：本实验的源码可以在这里 <a href="https://github.com/leichunfeng/AutoreleasePool">AutoreleasePool</a> 找到。</p>
+<p>Method Swizzling 是一把双刃剑，使用得当可以让我们非常轻松地实现复杂的功能，而如果一旦误用，它也很可能会给我们的程序带来毁灭性的伤害。但是我们大可不必惊慌，在了解了它的实现原理后，我们就可以“信手拈来”了。</p>
 
-<p><strong>特别说明</strong>：在苹果一些新的硬件设备上，本实验的结果已经不再成立，详细情况如下：</p>
+<p>我们先来了解下 Objective-C 中方法 <code>Method</code> 的数据结构：</p>
 
-<ul>
-<li>iPad 2</li>
-<li><del>iPad Air</del></li>
-<li><del>iPad Air 2</del></li>
-<li><del>iPad Pro</del></li>
-<li>iPad Retina</li>
-<li>iPhone 4s</li>
-<li>iPhone 5</li>
-<li><del>iPhone 5s</del></li>
-<li><del>iPhone 6</del></li>
-<li><del>iPhone 6 Plus</del></li>
-<li><del>iPhone 6s</del></li>
-<li><del>iPhone 6s Plus</del></li>
-</ul>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">typedef</span> <span class="k">struct</span> <span class="kt">method_t</span> <span class="o">*</span><span class="n">Method</span><span class="p">;</span>
+</span><span class='line'><span class="k">struct</span> <span class="kt">method_t</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kt">SEL</span> <span class="n">name</span><span class="p">;</span>
+</span><span class='line'>    <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">types</span><span class="p">;</span>
+</span><span class='line'>    <span class="kt">IMP</span> <span class="n">imp</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">struct</span> <span class="nl">SortBySELAddress</span> <span class="p">:</span>
+</span><span class='line'>        <span class="n">public</span> <span class="n">std</span><span class="o">::</span><span class="n">binary_function</span><span class="o">&lt;</span><span class="k">const</span> <span class="kt">method_t</span><span class="o">&amp;</span><span class="p">,</span>
+</span><span class='line'>                                    <span class="k">const</span> <span class="kt">method_t</span><span class="o">&amp;</span><span class="p">,</span> <span class="kt">bool</span><span class="o">&gt;</span>
+</span><span class='line'>    <span class="p">{</span>
+</span><span class='line'>        <span class="kt">bool</span> <span class="n">operator</span><span class="p">()</span> <span class="p">(</span><span class="k">const</span> <span class="kt">method_t</span><span class="o">&amp;</span> <span class="n">lhs</span><span class="p">,</span>
+</span><span class='line'>                         <span class="k">const</span> <span class="kt">method_t</span><span class="o">&amp;</span> <span class="n">rhs</span><span class="p">)</span>
+</span><span class='line'>        <span class="p">{</span> <span class="k">return</span> <span class="n">lhs</span><span class="p">.</span><span class="n">name</span> <span class="o">&lt;</span> <span class="n">rhs</span><span class="p">.</span><span class="n">name</span><span class="p">;</span> <span class="p">}</span>
+</span><span class='line'>    <span class="p">};</span>
+</span><span class='line'><span class="p">};</span>
+</span></code></pre></td></tr></table></div></figure>
 
+
+<p>本质上，它就是 <code>struct method_t</code> 类型的指针，所以我们重点看下结构体 <code>method_t</code> 的定义。在结构体 <code>method_t</code> 中定义了三个成员变量和一个成员函数：</p>
+
+<ol>
+<li><code>name</code> 表示的是方法的名称，用于唯一标识某个方法，比如 <code>@selector(viewWillAppear:)</code> ；</li>
+<li><code>types</code> 表示的是方法的返回值和参数类型（详细信息可以查阅苹果官方文档中的 <a href="https://developer.apple.com/library/ios/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html#//apple_ref/doc/uid/TP40008048-CH100-SW1">Type Encodings</a> ）；</li>
+<li><code>imp</code> 是一个函数指针，指向方法的实现；</li>
+<li><code>SortBySELAddress</code> 顾名思义，是一个根据 <code>name</code> 的地址对方法进行排序的函数。</li>
+</ol>
+
+
+<p>由此，我们也可以发现 Objective-C 中的方法名是不包括参数类型的，也就是说下面两个方法在 runtime 看来就是同一个方法：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span><span class="p">;</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">string</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>而下面两个方法却是可以共存的：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span><span class="p">;</span>
+</span><span class='line'><span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>因为实例方法和类方法是分别保存在类对象和元类对象中的，更多详情可以查看我前面的文章<a href="http://blog.leichunfeng.com/blog/2015/04/25/objective-c-object-model/">《Objective-C 对象模型》</a>。</p>
+
+<p>原则上，方法的名称 <code>name</code> 和方法的实现 <code>imp</code> 是一一对应的，而 Method Swizzling 的原理就是动态地改变它们的对应关系，以达到替换方法实现的目的。</p>
+
+<h2>Method Swizzling 有什么用</h2>
+
+<p>说了这么多，到底 Method Swizzling 有什么用呢？表猴急哈，我们接下来看个例子就明白了。用过<a href="http://www.umeng.com/">友盟</a>统计的同学应该知道，要实现<a href="http://dev.umeng.com/analytics/ios-doc/integration#3">页面的统计</a>功能，我们需要在每个页面的 <code>view controller</code> 中添加如下代码：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="nl">viewWillAppear</span><span class="p">:</span><span class="n">animated</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">[</span><span class="n">MobClick</span> <span class="nl">beginLogPageView</span><span class="p">:</span><span class="s">@&quot;PageOne&quot;</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillDisappear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="nl">viewWillDisappear</span><span class="p">:</span><span class="n">animated</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">[</span><span class="n">MobClick</span> <span class="nl">endLogPageView</span><span class="p">:</span><span class="s">@&quot;PageOne&quot;</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>要达到这个目的，我们有两种比较常规的实现方式：</p>
+
+<ol>
+<li>直接修改每个页面的 <code>view controller</code> 代码，简单粗暴；</li>
+<li>子类化 <code>view controller</code> ，并让我们的 <code>view controller</code> 都继承这些子类。</li>
+</ol>
+
+
+<p>第 1 种方式的缺点是不言而喻的，这样做不仅会产生大量重复的代码，而且还很容易遗漏某些页面，非常难维护；第 2 种方式稍微好一点，但是也同样需要我们子类化 <code>UIViewController</code> 、<code>UITableViewController</code> 和 <code>UITabBarController</code> 等不同类型的 <code>view controller</code> 。</p>
+
+<p>也许你跟我一样陷入了思考，难道就没有一种简单优雅的解决方案吗？答案是肯定的，Method Swizzling 就是解决此类问题的最佳方式。</p>
+
+<h2>Method Swizzling 的最佳实践</h2>
+
+<p>下面我们就以替换 <code>viewWillAppear</code> 方法为例谈谈 Method Swizzling 的最佳实践，话不多说，直接上代码：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -147,158 +237,61 @@
 <span class='line-number'>32</span>
 <span class='line-number'>33</span>
 <span class='line-number'>34</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">__weak</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">string_weak_</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@interface</span> <span class="bp">UIViewController</span> <span class="nl">(MRCUMAnalytics)</span>
 </span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidLoad</span> <span class="p">{</span>
-</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="n">viewDidLoad</span><span class="p">];</span>
+</span><span class='line'><span class="k">@end</span>
 </span><span class='line'>
-</span><span class='line'>    <span class="c1">// 场景 1</span>
-</span><span class='line'>    <span class="bp">NSString</span> <span class="o">*</span><span class="n">string</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&quot;leichunfeng&quot;</span><span class="p">];</span>
-</span><span class='line'>    <span class="n">string_weak_</span> <span class="o">=</span> <span class="n">string</span><span class="p">;</span>
+</span><span class='line'><span class="k">@implementation</span> <span class="bp">UIViewController</span> <span class="nl">(MRCUMAnalytics)</span>
 </span><span class='line'>
-</span><span class='line'>    <span class="c1">// 场景 2</span>
-</span><span class='line'><span class="c1">//    @autoreleasepool {</span>
-</span><span class='line'><span class="c1">//        NSString *string = [NSString stringWithFormat:@&quot;leichunfeng&quot;];</span>
-</span><span class='line'><span class="c1">//        string_weak_ = string;</span>
-</span><span class='line'><span class="c1">//    }</span>
+</span><span class='line'><span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">load</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">static</span> <span class="kt">dispatch_once_t</span> <span class="n">onceToken</span><span class="p">;</span>
+</span><span class='line'>    <span class="n">dispatch_once</span><span class="p">(</span><span class="o">&amp;</span><span class="n">onceToken</span><span class="p">,</span> <span class="o">^</span><span class="p">{</span>
+</span><span class='line'>        <span class="kt">Class</span> <span class="k">class</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="k">class</span><span class="p">];</span>
 </span><span class='line'>
-</span><span class='line'>    <span class="c1">// 场景 3</span>
-</span><span class='line'><span class="c1">//    NSString *string = nil;</span>
-</span><span class='line'><span class="c1">//    @autoreleasepool {</span>
-</span><span class='line'><span class="c1">//        string = [NSString stringWithFormat:@&quot;leichunfeng&quot;];</span>
-</span><span class='line'><span class="c1">//        string_weak_ = string;</span>
-</span><span class='line'><span class="c1">//    }</span>
+</span><span class='line'>        <span class="kt">SEL</span> <span class="n">originalSelector</span> <span class="o">=</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">viewWillAppear</span><span class="p">:);</span>
+</span><span class='line'>        <span class="kt">SEL</span> <span class="n">swizzledSelector</span> <span class="o">=</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">mrc_viewWillAppear</span><span class="p">:);</span>
 </span><span class='line'>
-</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;string: %@&quot;</span><span class="p">,</span> <span class="n">string_weak_</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">Method</span> <span class="n">originalMethod</span> <span class="o">=</span> <span class="n">class_getInstanceMethod</span><span class="p">(</span><span class="k">class</span><span class="p">,</span> <span class="n">originalSelector</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">Method</span> <span class="n">swizzledMethod</span> <span class="o">=</span> <span class="n">class_getInstanceMethod</span><span class="p">(</span><span class="k">class</span><span class="p">,</span> <span class="n">swizzledSelector</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="kt">BOOL</span> <span class="n">success</span> <span class="o">=</span> <span class="n">class_addMethod</span><span class="p">(</span><span class="k">class</span><span class="p">,</span> <span class="n">originalSelector</span><span class="p">,</span> <span class="n">method_getImplementation</span><span class="p">(</span><span class="n">swizzledMethod</span><span class="p">),</span> <span class="n">method_getTypeEncoding</span><span class="p">(</span><span class="n">swizzledMethod</span><span class="p">));</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">success</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="n">class_replaceMethod</span><span class="p">(</span><span class="k">class</span><span class="p">,</span> <span class="n">swizzledSelector</span><span class="p">,</span> <span class="n">method_getImplementation</span><span class="p">(</span><span class="n">originalMethod</span><span class="p">),</span> <span class="n">method_getTypeEncoding</span><span class="p">(</span><span class="n">originalMethod</span><span class="p">));</span>
+</span><span class='line'>        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>            <span class="n">method_exchangeImplementations</span><span class="p">(</span><span class="n">originalMethod</span><span class="p">,</span> <span class="n">swizzledMethod</span><span class="p">);</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>    <span class="p">});</span>
 </span><span class='line'><span class="p">}</span>
 </span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
-</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="nl">viewWillAppear</span><span class="p">:</span><span class="n">animated</span><span class="p">];</span>
-</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;string: %@&quot;</span><span class="p">,</span> <span class="n">string_weak_</span><span class="p">);</span>
+</span><span class='line'><span class="cp">#pragma mark - Method Swizzling</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">mrc_viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">[</span><span class="nb">self</span> <span class="nl">mrc_viewWillAppear</span><span class="p">:</span><span class="n">animated</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">[</span><span class="n">MobClick</span> <span class="nl">beginLogPageView</span><span class="p">:</span><span class="n">NSStringFromClass</span><span class="p">([</span><span class="nb">self</span> <span class="k">class</span><span class="p">])];</span>
 </span><span class='line'><span class="p">}</span>
 </span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
-</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="nl">viewDidAppear</span><span class="p">:</span><span class="n">animated</span><span class="p">];</span>
-</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;string: %@&quot;</span><span class="p">,</span> <span class="n">string_weak_</span><span class="p">);</span>
-</span><span class='line'><span class="p">}</span>
+</span><span class='line'><span class="k">@end</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>思考得怎么样了？相信在你心中已经有答案了。那么让我们一起来看看 console 输出：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="c1">// 场景 1</span>
-</span><span class='line'><span class="mi">2015</span><span class="o">-</span><span class="mo">05</span><span class="o">-</span><span class="mi">30</span> <span class="mi">10</span><span class="o">:</span><span class="mi">32</span><span class="o">:</span><span class="mf">20.837</span> <span class="n">AutoreleasePool</span><span class="p">[</span><span class="mi">33876</span><span class="o">:</span><span class="mi">1448343</span><span class="p">]</span> <span class="nl">string</span><span class="p">:</span> <span class="n">leichunfeng</span>
-</span><span class='line'><span class="mi">2015</span><span class="o">-</span><span class="mo">05</span><span class="o">-</span><span class="mi">30</span> <span class="mi">10</span><span class="o">:</span><span class="mi">32</span><span class="o">:</span><span class="mf">20.838</span> <span class="n">AutoreleasePool</span><span class="p">[</span><span class="mi">33876</span><span class="o">:</span><span class="mi">1448343</span><span class="p">]</span> <span class="nl">string</span><span class="p">:</span> <span class="n">leichunfeng</span>
-</span><span class='line'><span class="mi">2015</span><span class="o">-</span><span class="mo">05</span><span class="o">-</span><span class="mi">30</span> <span class="mi">10</span><span class="o">:</span><span class="mi">32</span><span class="o">:</span><span class="mf">20.845</span> <span class="n">AutoreleasePool</span><span class="p">[</span><span class="mi">33876</span><span class="o">:</span><span class="mi">1448343</span><span class="p">]</span> <span class="nl">string</span><span class="p">:</span> <span class="p">(</span><span class="n">null</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">// 场景 2</span>
-</span><span class='line'><span class="mi">2015</span><span class="o">-</span><span class="mo">05</span><span class="o">-</span><span class="mi">30</span> <span class="mi">10</span><span class="o">:</span><span class="mi">32</span><span class="o">:</span><span class="mf">50.548</span> <span class="n">AutoreleasePool</span><span class="p">[</span><span class="mi">33915</span><span class="o">:</span><span class="mi">1448912</span><span class="p">]</span> <span class="nl">string</span><span class="p">:</span> <span class="p">(</span><span class="n">null</span><span class="p">)</span>
-</span><span class='line'><span class="mi">2015</span><span class="o">-</span><span class="mo">05</span><span class="o">-</span><span class="mi">30</span> <span class="mi">10</span><span class="o">:</span><span class="mi">32</span><span class="o">:</span><span class="mf">50.549</span> <span class="n">AutoreleasePool</span><span class="p">[</span><span class="mi">33915</span><span class="o">:</span><span class="mi">1448912</span><span class="p">]</span> <span class="nl">string</span><span class="p">:</span> <span class="p">(</span><span class="n">null</span><span class="p">)</span>
-</span><span class='line'><span class="mi">2015</span><span class="o">-</span><span class="mo">05</span><span class="o">-</span><span class="mi">30</span> <span class="mi">10</span><span class="o">:</span><span class="mi">32</span><span class="o">:</span><span class="mf">50.555</span> <span class="n">AutoreleasePool</span><span class="p">[</span><span class="mi">33915</span><span class="o">:</span><span class="mi">1448912</span><span class="p">]</span> <span class="nl">string</span><span class="p">:</span> <span class="p">(</span><span class="n">null</span><span class="p">)</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">// 场景 3</span>
-</span><span class='line'><span class="mi">2015</span><span class="o">-</span><span class="mo">05</span><span class="o">-</span><span class="mi">30</span> <span class="mi">10</span><span class="o">:</span><span class="mi">33</span><span class="o">:</span><span class="mf">07.075</span> <span class="n">AutoreleasePool</span><span class="p">[</span><span class="mi">33984</span><span class="o">:</span><span class="mi">1449418</span><span class="p">]</span> <span class="nl">string</span><span class="p">:</span> <span class="n">leichunfeng</span>
-</span><span class='line'><span class="mi">2015</span><span class="o">-</span><span class="mo">05</span><span class="o">-</span><span class="mi">30</span> <span class="mi">10</span><span class="o">:</span><span class="mi">33</span><span class="o">:</span><span class="mf">07.075</span> <span class="n">AutoreleasePool</span><span class="p">[</span><span class="mi">33984</span><span class="o">:</span><span class="mi">1449418</span><span class="p">]</span> <span class="nl">string</span><span class="p">:</span> <span class="p">(</span><span class="n">null</span><span class="p">)</span>
-</span><span class='line'><span class="mi">2015</span><span class="o">-</span><span class="mo">05</span><span class="o">-</span><span class="mi">30</span> <span class="mi">10</span><span class="o">:</span><span class="mi">33</span><span class="o">:</span><span class="mf">07.094</span> <span class="n">AutoreleasePool</span><span class="p">[</span><span class="mi">33984</span><span class="o">:</span><span class="mi">1449418</span><span class="p">]</span> <span class="nl">string</span><span class="p">:</span> <span class="p">(</span><span class="n">null</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>跟你预想的结果有出入吗？Any way ，我们一起来分析下为什么会得到这样的结果。</p>
-
-<p><strong>分析</strong>：3 种场景下，我们都通过 <code>[NSString stringWithFormat:@"leichunfeng"]</code> 创建了一个 autoreleased 对象，这是我们实验的前提。并且，为了能够在 <code>viewWillAppear</code> 和 <code>viewDidAppear</code> 中继续访问这个对象，我们使用了一个全局的 <code>__weak</code> 变量 <code>string_weak_</code> 来指向它。因为 <code>__weak</code> 变量有一个特性就是它不会影响所指向对象的生命周期，这里我们正是利用了这个特性。</p>
-
-<p><strong>场景 1</strong>：当使用 <code>[NSString stringWithFormat:@"leichunfeng"]</code> 创建一个对象时，这个对象的引用计数为 1 ，并且这个对象被系统自动添加到了当前的 autoreleasepool 中。当使用局部变量 <code>string</code> 指向这个对象时，这个对象的引用计数 +1 ，变成了 2 。因为在 ARC 下 <code>NSString *string</code> 本质上就是 <code>__strong NSString *string</code> 。所以在 <code>viewDidLoad</code> 方法返回前，这个对象是一直存在的，且引用计数为 2 。而当 <code>viewDidLoad</code> 方法返回时，局部变量 <code>string</code> 被回收，指向了 <code>nil</code> 。因此，其所指向对象的引用计数 -1 ，变成了 1 。</p>
-
-<p>而在 <code>viewWillAppear</code> 方法中，我们仍然可以打印出这个对象的值，说明这个对象并没有被释放。咦，这不科学吧？我读书少，你表骗我。不是一直都说当函数返回的时候，函数内部产生的对象就会被释放的吗？如果你这样想的话，那我只能说：骚年你太年经了。开个玩笑，我们继续。前面我们提到了，这个对象是一个 autoreleased 对象，autoreleased 对象是被添加到了当前最近的 autoreleasepool 中的，只有当这个 autoreleasepool 自身 drain 的时候，autoreleasepool 中的 autoreleased 对象才会被 release 。</p>
-
-<p>另外，我们注意到当在 <code>viewDidAppear</code> 中再打印这个对象的时候，对象的值变成了 <code>nil</code> ，说明此时对象已经被释放了。因此，我们可以大胆地猜测一下，这个对象一定是在 <code>viewWillAppear</code> 和 <code>viewDidAppear</code> 方法之间的某个时候被释放了，并且是由于它所在的 autoreleasepool 被 drain 的时候释放的。</p>
-
-<p>你说什么就是什么咯？有本事你就证明给我看你妈是你妈。额，这个我真证明不了，不过上面的猜测我还是可以证明的，不信，你看！</p>
-
-<p>在开始前，我先简单地说明一下原理，我们可以通过使用 <code>lldb</code> 的 <code>watchpoint</code> 命令来设置观察点，观察全局变量 <code>string_weak_</code> 的值的变化，<code>string_weak_</code> 变量保存的就是我们创建的 autoreleased 对象的地址。在这里，我们再次利用了 <code>__weak</code> 变量的另外一个特性，就是当它所指向的对象被释放时，<code>__weak</code> 变量的值会被置为 <code>nil</code> 。了解了基本原理后，我们开始验证上面的猜测。</p>
-
-<p>我们先在第 35 行打一个断点，当程序运行到这个断点时，我们通过 <code>lldb</code> 命令 <code>watchpoint set v string_weak_</code> 设置观察点，观察 <code>string_weak_</code> 变量的值的变化。如下图所示，我们将在 console 中看到类似的输出，说明我们已经成功地设置了一个观察点：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/watchpoint1.jpg" title="设置观察点" alt="设置观察点" /></p>
-
-<p>设置好观察点后，点击 <code>Continue program execution</code> 按钮，继续运行程序，我们将看到如下图所示的界面：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/watchpoint2.jpg" title="设置观察点" alt="设置观察点" /></p>
-
-<p>我们先看 console 中的输出，注意到 <code>string_weak_</code> 变量的值由 <code>0x00007f9b886567d0</code> 变成了 <code>0x0000000000000000</code> ，也就是 <code>nil</code> 。说明此时它所指向的对象被释放了。另外，我们也可以注意到一个细节，那就是 console 中打印了两次对象的值，说明此时 <code>viewWillAppear</code> 也已经被调用了，而 <code>viewDidAppear</code> 还没有被调用。</p>
-
-<p>接着，我们来看看左侧的线程堆栈。我们看到了一个非常敏感的方法调用 <code>-[NSAutoreleasePool release]</code> ，这个方法最终通过调用 <code>AutoreleasePoolPage::pop(void *)</code> 函数来负责对 autoreleasepool 中的 autoreleased 对象执行 release 操作。结合前面的分析，我们知道在 <code>viewDidLoad</code> 中创建的 autoreleased 对象在方法返回后引用计数为 1 ，所以经过这里的 release 操作后，这个对象的引用计数 -1 ，变成了 0 ，该 autoreleased 对象最终被释放，猜测得证。</p>
-
-<p>另外，值得一提的是，我们在代码中并没有手动添加 autoreleasepool ，那这个 autoreleasepool 究竟是哪里来的呢？看完后面的章节你就明白了。</p>
-
-<p><strong>场景 2</strong>：同理，当通过 <code>[NSString stringWithFormat:@"leichunfeng"]</code> 创建一个对象时，这个对象的引用计数为 1 。而当使用局部变量 <code>string</code> 指向这个对象时，这个对象的引用计数 +1 ，变成了 2 。而出了当前作用域时，局部变量 <code>string</code> 变成了 <code>nil</code> ，所以其所指向对象的引用计数变成 1 。另外，我们知道当出了 <code>@autoreleasepool {}</code> 的作用域时，当前 autoreleasepool 被 drain ，其中的 autoreleased 对象被 release 。所以这个对象的引用计数变成了 0 ，对象最终被释放。</p>
-
-<p><strong>场景 3</strong>：同理，当出了 <code>@autoreleasepool {}</code> 的作用域时，其中的 autoreleased 对象被 release ，对象的引用计数变成 1 。当出了局部变量 <code>string</code> 的作用域，即 <code>viewDidLoad</code> 方法返回时，<code>string</code> 指向了 <code>nil</code> ，其所指向对象的引用计数变成 0 ，对象最终被释放。</p>
-
-<p>理解在这 3 种场景下，autoreleased 对象什么时候释放对我们理解 Objective-C 的内存管理机制非常有帮助。其中，场景 1 出现得最多，就是不需要我们手动添加 <code>@autoreleasepool {}</code> 的情况，直接使用系统维护的 autoreleasepool ；场景 2 就是需要我们手动添加 <code>@autoreleasepool {}</code> 的情况，手动干预 autoreleased 对象的释放时机；场景 3 是为了区别场景 2 而引入的，在这种场景下并不能达到出了 <code>@autoreleasepool {}</code> 的作用域时 autoreleased 对象被释放的目的。</p>
-
-<p><strong>PS</strong>：请读者参考场景 1 的分析过程，使用 <code>lldb</code> 命令 <code>watchpoint</code> 自行验证下在场景 2 和场景 3 下 autoreleased 对象的释放时机，you should give it a try yourself 。</p>
-
-<h2>AutoreleasePoolPage</h2>
-
-<p>细心的读者应该已经有所察觉，我们在上面已经提到了 <code>-[NSAutoreleasePool release]</code> 方法最终是通过调用 <code>AutoreleasePoolPage::pop(void *)</code> 函数来负责对 autoreleasepool 中的 autoreleased 对象执行 release 操作的。</p>
-
-<p>那这里的 AutoreleasePoolPage 是什么东西呢？其实，autoreleasepool 是没有单独的内存结构的，它是通过以 AutoreleasePoolPage 为结点的<strong>双向链表</strong>来实现的。我们打开 runtime 的源码工程，在 <code>NSObject.mm</code> 文件的第 438-932 行可以找到 autoreleasepool 的实现源码。通过阅读源码，我们可以知道：</p>
-
-<ul>
-<li>每一个线程的 autoreleasepool 其实就是一个指针的堆栈；</li>
-<li>每一个指针代表一个需要 release 的对象或者 POOL_SENTINEL（哨兵对象，代表一个 autoreleasepool 的边界）；</li>
-<li>一个 pool token 就是这个 pool 所对应的 POOL_SENTINEL 的内存地址。当这个 pool 被 pop 的时候，所有内存地址在 pool token 之后的对象都会被 release ；</li>
-<li>这个堆栈被划分成了一个以 page 为结点的双向链表。pages 会在必要的时候动态地增加或删除；</li>
-<li>Thread-local storage（线程局部存储）指向 hot page ，即最新添加的 autoreleased 对象所在的那个 page 。</li>
-</ul>
-
-
-<p>一个空的 AutoreleasePoolPage 的内存结构如下图所示：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/AutoreleasePoolPage.png" title="AutoreleasePoolPage" alt="AutoreleasePoolPage" /></p>
+<p><strong>解析</strong>：在上面的代码中有三个关键点需要引起我们的注意：</p>
 
 <ol>
-<li><code>magic</code> 用来校验 AutoreleasePoolPage 的结构是否完整；</li>
-<li><code>next</code> 指向最新添加的 autoreleased 对象的下一个位置，初始化时指向 <code>begin()</code> ；</li>
-<li><code>thread</code> 指向当前线程；</li>
-<li><code>parent</code> 指向父结点，第一个结点的 parent 值为 <code>nil</code> ；</li>
-<li><code>child</code> 指向子结点，最后一个结点的 child 值为 <code>nil</code> ；</li>
-<li><code>depth</code> 代表深度，从 0 开始，往后递增 1；</li>
-<li><code>hiwat</code> 代表 high water mark 。</li>
+<li>为什么是在 <code>+load</code> 方法中实现 Method Swizzling 的逻辑，而不是其他的什么方法，比如 <code>+initialize</code> 等；</li>
+<li>为什么 Method Swizzling 的逻辑需要用 dispatch_once 来进行调度；</li>
+<li>为什么需要调用 <code>class_addMethod</code> 方法，并且以它的结果为依据分别处理两种不同的情况。</li>
 </ol>
 
 
-<p>另外，当 <code>next == begin()</code> 时，表示 AutoreleasePoolPage 为空；当 <code>next == end()</code> 时，表示 AutoreleasePoolPage 已满。</p>
+<p>下面我们就一起来分析下这三个为什么到底是为了什么？</p>
 
-<h3>Autorelease Pool Blocks</h3>
+<p><strong>第 1 个为什么</strong>：看过我前面文章<a href="http://blog.leichunfeng.com/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/">《Objective-C +load vs +initialize》</a> 的同学应该知道，<code>+load</code> 和 <code>+initialize</code> 是 Objective-C runtime 会自动调用的两个类方法。但是它们被调用的时机却是有差别的，<code>+load</code> 方法是在类被加载的时候调用的，而 <code>+initialize</code> 方法是在类或它的子类收到第一条消息之前被调用的，这里所指的消息包括实例方法和类方法的调用。也就是说 <code>+initialize</code> 方法是以懒加载的方式被调用的，如果程序一直没有给某个类或它的子类发送消息，那么这个类的 <code>+initialize</code> 方法是永远不会被调用的。此外 <code>+load</code> 方法还有一个非常重要的特性，那就是子类、父类和分类中的 <code>+load</code> 方法的实现是被区别对待的。换句话说在 Objective-C runtime 自动调用 <code>+load</code> 方法时，分类中的 <code>+load</code> 方法并不会对主类中的 <code>+load</code> 方法造成覆盖。综上所述，<code>+load</code> 方法是实现 Method Swizzling 逻辑的最佳“场所”。</p>
 
-<p>我们使用 <code>clang -rewrite-objc</code> 命令将下面的 Objective-C 代码重写成 C++ 代码：</p>
+<p><strong>第 2 个为什么</strong>：我们上面提到，<code>+load</code> 方法在类加载的时候会被 runtime 自动调用一次，但是它并没有限制程序员对 <code>+load</code> 方法的手动调用。什么？你说不会有程序员这么干？那可说不定，我还见过手动调用 <code>viewDidLoad</code> 方法的程序员，就是介么任性。而我们所能够做的就是尽可能地保证程序能够在各种情况下正常运行。</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@autoreleasepool</span> <span class="p">{</span>
-</span><span class='line'>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+<p><strong>第 3 个为什么</strong>：我们使用 Method Swizzling 的目的通常都是为了给程序增加功能，而不是完全地替换某个功能，所以我们一般都需要在自定义的实现中调用原始的实现。所以这里就会有两种情况需要我们分别进行处理：</p>
 
-
-<p>将会得到以下输出结果（只保留了相关代码）：</p>
+<p><strong>第 1 种情况</strong>：主类本身有实现需要替换的方法，也就是 <code>class_addMethod</code> 方法返回 <code>NO</code> 。这种情况的处理比较简单，直接交换两个方法的实现就可以了：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -310,77 +303,20 @@
 <span class='line-number'>8</span>
 <span class='line-number'>9</span>
 <span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">extern</span> <span class="s">&quot;C&quot;</span> <span class="kr">__declspec</span><span class="p">(</span><span class="n">dllimport</span><span class="p">)</span> <span class="kt">void</span> <span class="o">*</span> <span class="n">objc_autoreleasePoolPush</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
-</span><span class='line'><span class="k">extern</span> <span class="s">&quot;C&quot;</span> <span class="kr">__declspec</span><span class="p">(</span><span class="n">dllimport</span><span class="p">)</span> <span class="kt">void</span> <span class="n">objc_autoreleasePoolPop</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
+</span><span class='line'>    <span class="c1">/// 先调用原始实现，由于主类本身有实现该方法，所以这里实际调用的是主类的实现</span>
+</span><span class='line'>    <span class="p">[</span><span class="nb">self</span> <span class="nl">mrc_viewWillAppear</span><span class="p">:</span><span class="n">animated</span><span class="p">];</span>
+</span><span class='line'>    <span class="c1">/// 我们增加的功能</span>
+</span><span class='line'>    <span class="p">[</span><span class="n">MobClick</span> <span class="nl">beginLogPageView</span><span class="p">:</span><span class="n">NSStringFromClass</span><span class="p">([</span><span class="nb">self</span> <span class="k">class</span><span class="p">])];</span>
+</span><span class='line'><span class="p">}</span>
 </span><span class='line'>
-</span><span class='line'><span class="k">struct</span> <span class="n">__AtAutoreleasePool</span> <span class="p">{</span>
-</span><span class='line'>  <span class="n">__AtAutoreleasePool</span><span class="p">()</span> <span class="p">{</span><span class="n">atautoreleasepoolobj</span> <span class="o">=</span> <span class="n">objc_autoreleasePoolPush</span><span class="p">();}</span>
-</span><span class='line'>  <span class="o">~</span><span class="n">__AtAutoreleasePool</span><span class="p">()</span> <span class="p">{</span><span class="n">objc_autoreleasePoolPop</span><span class="p">(</span><span class="n">atautoreleasepoolobj</span><span class="p">);}</span>
-</span><span class='line'>  <span class="kt">void</span> <span class="o">*</span> <span class="n">atautoreleasepoolobj</span><span class="p">;</span>
-</span><span class='line'><span class="p">};</span>
-</span><span class='line'>
-</span><span class='line'><span class="cm">/* @autoreleasepool */</span> <span class="p">{</span> <span class="n">__AtAutoreleasePool</span> <span class="n">__autoreleasepool</span><span class="p">;</span>
-</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">mrc_viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
+</span><span class='line'>    <span class="c1">/// 主类的实现</span>
 </span><span class='line'><span class="p">}</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>不得不说，苹果对 <code>@autoreleasepool {}</code> 的实现真的是非常巧妙，真正可以称得上是代码的艺术。苹果通过声明一个 <code>__AtAutoreleasePool</code> 类型的局部变量 <code>__autoreleasepool</code> 来实现 <code>@autoreleasepool {}</code> 。当声明 <code>__autoreleasepool</code> 变量时，构造函数 <code>__AtAutoreleasePool()</code> 被调用，即执行 <code>atautoreleasepoolobj = objc_autoreleasePoolPush();</code> ；当出了当前作用域时，析构函数 <code>~__AtAutoreleasePool()</code> 被调用，即执行 <code>objc_autoreleasePoolPop(atautoreleasepoolobj);</code> 。也就是说 <code>@autoreleasepool {}</code> 的实现代码可以进一步简化如下：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="cm">/* @autoreleasepool */</span> <span class="p">{</span>
-</span><span class='line'>    <span class="kt">void</span> <span class="o">*</span><span class="n">atautoreleasepoolobj</span> <span class="o">=</span> <span class="n">objc_autoreleasePoolPush</span><span class="p">();</span>
-</span><span class='line'>    <span class="c1">// 用户代码，所有接收到 autorelease 消息的对象会被添加到这个 autoreleasepool 中</span>
-</span><span class='line'>    <span class="n">objc_autoreleasePoolPop</span><span class="p">(</span><span class="n">atautoreleasepoolobj</span><span class="p">);</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>因此，单个 autoreleasepool 的运行过程可以简单地理解为 <code>objc_autoreleasePoolPush()</code>、<code>[对象 autorelease]</code> 和 <code>objc_autoreleasePoolPop(void *)</code> 三个过程。</p>
-
-<h3>push 操作</h3>
-
-<p>上面提到的 <code>objc_autoreleasePoolPush()</code> 函数本质上就是调用的 AutoreleasePoolPage 的 push 函数。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="kt">void</span> <span class="o">*</span>
-</span><span class='line'><span class="nf">objc_autoreleasePoolPush</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">UseGC</span><span class="p">)</span> <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">AutoreleasePoolPage</span><span class="o">::</span><span class="n">push</span><span class="p">();</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>因此，我们接下来看看 AutoreleasePoolPage 的 push 函数的作用和执行过程。一个 push 操作其实就是创建一个新的 autoreleasepool ，对应 AutoreleasePoolPage 的具体实现就是往 AutoreleasePoolPage 中的 <code>next</code> 位置插入一个 POOL_SENTINEL ，并且返回插入的 POOL_SENTINEL 的内存地址。这个地址也就是我们前面提到的 pool token ，在执行 pop 操作的时候作为函数的入参。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">static</span> <span class="kr">inline</span> <span class="kt">void</span> <span class="o">*</span><span class="nf">push</span><span class="p">()</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="kt">id</span> <span class="o">*</span><span class="n">dest</span> <span class="o">=</span> <span class="n">autoreleaseFast</span><span class="p">(</span><span class="n">POOL_SENTINEL</span><span class="p">);</span>
-</span><span class='line'>    <span class="n">assert</span><span class="p">(</span><span class="o">*</span><span class="n">dest</span> <span class="o">==</span> <span class="n">POOL_SENTINEL</span><span class="p">);</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">dest</span><span class="p">;</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>push 函数通过调用 <code>autoreleaseFast</code> 函数来执行具体的插入操作。</p>
+<p><strong>第 2 种情况</strong>：主类本身没有实现需要替换的方法，而是继承了父类的实现，即 <code>class_addMethod</code> 方法返回 <code>YES</code> 。这时使用 <code>class_getInstanceMethod</code> 函数获取到的 <code>originalSelector</code> 指向的就是父类的方法，我们再通过执行 <code>class_replaceMethod(class, swizzledSelector, method_getImplementation(originalMethod), method_getTypeEncoding(originalMethod));</code> 将父类的实现替换到我们自定义的 <code>mrc_viewWillAppear</code> 方法中。这样就达到了在 <code>mrc_viewWillAppear</code> 方法的实现中调用父类实现的目的。</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -392,160 +328,30 @@
 <span class='line-number'>8</span>
 <span class='line-number'>9</span>
 <span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">static</span> <span class="kr">inline</span> <span class="kt">id</span> <span class="o">*</span><span class="nf">autoreleaseFast</span><span class="p">(</span><span class="kt">id</span> <span class="n">obj</span><span class="p">)</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="n">AutoreleasePoolPage</span> <span class="o">*</span><span class="n">page</span> <span class="o">=</span> <span class="n">hotPage</span><span class="p">();</span>
-</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">page</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">page</span><span class="o">-&gt;</span><span class="n">full</span><span class="p">())</span> <span class="p">{</span>
-</span><span class='line'>        <span class="k">return</span> <span class="n">page</span><span class="o">-&gt;</span><span class="n">add</span><span class="p">(</span><span class="n">obj</span><span class="p">);</span>
-</span><span class='line'>    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">page</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>        <span class="k">return</span> <span class="n">autoreleaseFullPage</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">page</span><span class="p">);</span>
-</span><span class='line'>    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-</span><span class='line'>        <span class="k">return</span> <span class="n">autoreleaseNoPage</span><span class="p">(</span><span class="n">obj</span><span class="p">);</span>
-</span><span class='line'>    <span class="p">}</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
+</span><span class='line'>    <span class="c1">/// 先调用原始实现，由于主类本身并没有实现该方法，所以这里实际调用的是父类的实现</span>
+</span><span class='line'>    <span class="p">[</span><span class="nb">self</span> <span class="nl">mrc_viewWillAppear</span><span class="p">:</span><span class="n">animated</span><span class="p">];</span>
+</span><span class='line'>    <span class="c1">/// 我们增加的功能</span>
+</span><span class='line'>    <span class="p">[</span><span class="n">MobClick</span> <span class="nl">beginLogPageView</span><span class="p">:</span><span class="n">NSStringFromClass</span><span class="p">([</span><span class="nb">self</span> <span class="k">class</span><span class="p">])];</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p><code>autoreleaseFast</code> 函数在执行一个具体的插入操作时，分别对三种情况进行了不同的处理：</p>
-
-<ol>
-<li>当前 page 存在且没有满时，直接将对象添加到当前 page 中，即 <code>next</code> 指向的位置；</li>
-<li>当前 page 存在且已满时，创建一个新的 page ，并将对象添加到新创建的 page 中；</li>
-<li>当前 page 不存在时，即还没有 page 时，创建第一个 page ，并将对象添加到新创建的 page 中。</li>
-</ol>
-
-
-<p>每调用一次 push 操作就会创建一个新的 autoreleasepool ，即往 AutoreleasePoolPage 中插入一个 POOL_SENTINEL ，并且返回插入的 POOL_SENTINEL 的内存地址。</p>
-
-<h3>autorelease 操作</h3>
-
-<p>通过 <code>NSObject.mm</code> 源文件，我们可以找到 <code>-autorelease</code> 方法的实现：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">autorelease</span> <span class="p">{</span>
-</span><span class='line'>    <span class="k">return</span> <span class="p">((</span><span class="kt">id</span><span class="p">)</span><span class="nb">self</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">rootAutorelease</span><span class="p">();</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>通过查看 <code>((id)self)-&gt;rootAutorelease()</code> 的方法调用，我们发现最终调用的就是 AutoreleasePoolPage 的 <code>autorelease</code> 函数。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">__attribute__</span><span class="p">((</span><span class="n">noinline</span><span class="p">,</span><span class="n">used</span><span class="p">))</span>
-</span><span class='line'><span class="kt">id</span>
-</span><span class='line'><span class="n">objc_object</span><span class="o">::</span><span class="n">rootAutorelease2</span><span class="p">()</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">isTaggedPointer</span><span class="p">());</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">AutoreleasePoolPage</span><span class="o">::</span><span class="n">autorelease</span><span class="p">((</span><span class="kt">id</span><span class="p">)</span><span class="n">this</span><span class="p">);</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>AutoreleasePoolPage 的 <code>autorelease</code> 函数的实现对我们来说就比较容量理解了，它跟 push 操作的实现非常相似。只不过 push 操作插入的是一个 POOL_SENTINEL ，而 autorelease 操作插入的是一个具体的 autoreleased 对象。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">static</span> <span class="kr">inline</span> <span class="kt">id</span> <span class="nf">autorelease</span><span class="p">(</span><span class="kt">id</span> <span class="n">obj</span><span class="p">)</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="n">assert</span><span class="p">(</span><span class="n">obj</span><span class="p">);</span>
-</span><span class='line'>    <span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">obj</span><span class="o">-&gt;</span><span class="n">isTaggedPointer</span><span class="p">());</span>
-</span><span class='line'>    <span class="kt">id</span> <span class="o">*</span><span class="n">dest</span> <span class="n">__unused</span> <span class="o">=</span> <span class="n">autoreleaseFast</span><span class="p">(</span><span class="n">obj</span><span class="p">);</span>
-</span><span class='line'>    <span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">dest</span>  <span class="o">||</span>  <span class="o">*</span><span class="n">dest</span> <span class="o">==</span> <span class="n">obj</span><span class="p">);</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">obj</span><span class="p">;</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>pop 操作</h3>
-
-<p>同理，前面提到的 <code>objc_autoreleasePoolPop(void *)</code> 函数本质上也是调用的 AutoreleasePoolPage 的 <code>pop</code> 函数。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="kt">void</span>
-</span><span class='line'><span class="nf">objc_autoreleasePoolPop</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">ctxt</span><span class="p">)</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">UseGC</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
 </span><span class='line'>
-</span><span class='line'>    <span class="c1">// fixme rdar://9167170</span>
-</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ctxt</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">AutoreleasePoolPage</span><span class="o">::</span><span class="n">pop</span><span class="p">(</span><span class="n">ctxt</span><span class="p">);</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">mrc_viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
+</span><span class='line'>    <span class="c1">/// 父类的实现</span>
 </span><span class='line'><span class="p">}</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>pop 函数的入参就是 push 函数的返回值，也就是 POOL_SENTINEL 的内存地址，即 pool token 。当执行 pop 操作时，内存地址在 pool token 之后的所有 autoreleased 对象都会被 release 。直到 pool token 所在 page 的 <code>next</code> 指向 pool token 为止。</p>
-
-<p>下面是某个线程的 autoreleasepool 堆栈的内存结构图，在这个 autoreleasepool 堆栈中总共有两个 POOL_SENTINEL ，即有两个 autoreleasepool 。该堆栈由三个 AutoreleasePoolPage 结点组成，第一个 AutoreleasePoolPage 结点为 <code>coldPage()</code> ，最后一个 AutoreleasePoolPage 结点为 <code>hotPage()</code> 。其中，前两个结点已经满了，最后一个结点中保存了最新添加的 autoreleased 对象 <code>objr3</code> 的内存地址。</p>
-
-<p><img src="http://blog.leichunfeng.com/images/AutoreleasePoolPage1.png" title="AutoreleasePoolPage1" alt="AutoreleasePoolPage1" /></p>
-
-<p>此时，如果执行 <code>pop(token1)</code> 操作，那么该 autoreleasepool 堆栈的内存结构将会变成如下图所示：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/AutoreleasePoolPage2.png" title="AutoreleasePoolPage2" alt="AutoreleasePoolPage2" /></p>
-
-<h2>NSThread、NSRunLoop 和 NSAutoreleasePool</h2>
-
-<p>根据苹果官方文档中对 <a href="https://developer.apple.com/library/ios/documentation/Cocoa/Reference/Foundation/Classes/NSRunLoop_Class/index.html#//apple_ref/doc/constant_group/Run_Loop_Modes">NSRunLoop</a> 的描述，我们可以知道每一个线程，包括主线程，都会拥有一个专属的 NSRunLoop 对象，并且会在有需要的时候自动创建。</p>
-
-<blockquote><p>Each NSThread object, including the application’s main thread, has an NSRunLoop object automatically created for it as needed.</p></blockquote>
-
-<p>同样的，根据苹果官方文档中对 <a href="https://developer.apple.com/library/ios/documentation/Cocoa/Reference/Foundation/Classes/NSAutoreleasePool_Class/index.html#//apple_ref/doc/uid/TP40003623">NSAutoreleasePool</a> 的描述，我们可知，在主线程的 NSRunLoop 对象（在系统级别的其他线程中应该也是如此，比如通过 dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0) 获取到的线程）的每个 event loop 开始前，系统会自动创建一个 autoreleasepool ，并在 event loop 结束时 drain 。我们上面提到的场景 1 中创建的 autoreleased 对象就是被系统添加到了这个自动创建的 autoreleasepool 中，并在这个 autoreleasepool 被 drain 时得到释放。</p>
-
-<blockquote><p>The Application Kit creates an autorelease pool on the main thread at the beginning of every cycle of the event loop, and drains it at the end, thereby releasing any autoreleased objects generated while processing an event.</p></blockquote>
-
-<p>另外，NSAutoreleasePool 中还提到，每一个线程都会维护自己的 autoreleasepool 堆栈。换句话说 autoreleasepool 是与线程紧密相关的，每一个 autoreleasepool 只对应一个线程。</p>
-
-<blockquote><p>Each thread (including the main thread) maintains its own stack of NSAutoreleasePool objects.</p></blockquote>
-
-<p>弄清楚 NSThread、NSRunLoop 和 NSAutoreleasePool 三者之间的关系可以帮助我们从整体上了解 Objective-C 的内存管理机制，清楚系统在背后到底为我们做了些什么，理解整个运行机制等。</p>
+<p>看到这里，相信你对 Method Swizzling 已经有了一定的了解，那么接下来就请你自己亲自试一试吧，you should give it a try yourself 。</p>
 
 <h2>总结</h2>
 
-<p>看到这里，相信你应该对 Objective-C 的内存管理机制有了更进一步的认识。通常情况下，我们是不需要手动添加 autoreleasepool 的，使用线程自动维护的 autoreleasepool 就好了。根据苹果官方文档中对 <a href="https://developer.apple.com/library/ios/documentation/Cocoa/Conceptual/MemoryMgmt/Articles/mmAutoreleasePools.html#//apple_ref/doc/uid/20000047-CJBFBEDI">Using Autorelease Pool Blocks</a> 的描述，我们知道在下面三种情况下是需要我们手动添加 autoreleasepool 的：</p>
-
-<ol>
-<li>如果你编写的程序不是基于 UI 框架的，比如说命令行工具；</li>
-<li>如果你编写的循环中创建了大量的临时对象；</li>
-<li>如果你创建了一个辅助线程。</li>
-</ol>
-
-
-<p>最后，希望本文能对你有所帮助，have fun ！</p>
+<p>Method Swizzling 是一种黑魔法，我们在使用它时需要加倍小心，而遵循本文的最佳实践可以让你事半功倍。</p>
 
 <h2>参考链接</h2>
 
-<p><a href="http://blog.sunnyxx.com/2014/10/15/behind-autorelease/">http://blog.sunnyxx.com/2014/10/15/behind-autorelease/</a>
-<a href="http://clang.llvm.org/docs/AutomaticReferenceCounting.html">http://clang.llvm.org/docs/AutomaticReferenceCounting.html</a>
-<a href="http://www.yifeiyang.net/development-of-the-iphone-simply-3/">http://www.yifeiyang.net/development-of-the-iphone-simply-3/</a></p>
-
-<p><strong>版权声明</strong>：我已将本文在微信公众平台的发表权「独家代理」给 iOS 开发（iOSDevTips）微信公众号。扫下方二维码即可关注「iOS 开发」：</p>
-
-<p><img src="http://blog.devtang.com/images/weixin-qr.jpg" alt="iOS 开发二维码" /></p>
+<p><a href="http://nshipster.com/method-swizzling/">http://nshipster.com/method-swizzling/</a>
+<br>
+<a href="https://www.mikeash.com/pyblog/friday-qa-2010-01-29-method-replacement-for-fun-and-profit.html">https://www.mikeash.com/pyblog/friday-qa-2010-01-29-method-replacement-for-fun-and-profit.html</a></p>
 </div>
   
   
@@ -568,6 +374,10 @@
     <section>
   <h1>Recent Posts</h1>
   <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/12/25/reactivecocoa-v2-dot-5-yuan-ma-jie-xi-zhi-jia-gou-zong-lan/">ReactiveCocoa v2.5 源码解析之架构总览</a>
+      </li>
     
       <li class="post">
         <a href="/blog/2015/11/08/functor-applicative-and-monad/">Functor、Applicative 和 Monad</a>
@@ -603,10 +413,6 @@
     
       <li class="post">
         <a href="/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal/">结合 Reveal 谈谈 MBProgressHUD 的用法</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/">将 Octopress 博客从 GitHub 迁移到 GitCafe</a>
       </li>
     
   </ul>

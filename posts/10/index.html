@@ -9,7 +9,7 @@
   <meta name="author" content="雷纯锋">
 
   
-  <meta name="description" content="在上一篇博文中我们提到了因为 GitHub 毕竟是国外的（你懂的）代码托管网站，所以我们博客的访问速度始终还是比较慢的。因此，如果你想让你的博客访问速度有飞一般的感觉的话，那么就跟我一样将你的 Octopress 博客从 GitHub 迁移到 GitCafe 上吧！ 迁移原理 注意， &hellip;">
+  <meta name="description" content="我的博客已经好几个月没有更新了，想想还真是有些难过。究其原因主要是工作占用了我绝大部分的时间，包含工作日的晚上和大部分周末。剩余的很小部分空余时间，我都用来开发个人 iOS 应用 GitBucket 了。 GitBucket 是一个 GitHub 的 iOS 客户端，使用 MVVM 模式和 RAC &hellip;">
   
     <meta name="keywords" content="雷纯锋的技术博客, 雷纯锋, 技术博客, 博客, iOS, Objective-C, Android, Java, HTML5, CSS3, JavaScript, Octopress, GitHub Pages, GitHub, Pages, GitCafe, RAC, ReactiveCocoa, Git">
   
@@ -73,7 +73,7 @@
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/">将 Octopress 博客从 GitHub 迁移到 GitCafe</a></h1>
+      <h1 class="entry-title"><a href="/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal/">结合 Reveal 谈谈 MBProgressHUD 的用法</a></h1>
     
     
       <p class="meta">
@@ -82,97 +82,72 @@
 
 
 
-<time class='entry-date' datetime='2014-11-15T13:38:20+08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>15</span><span class='date-suffix'>th</span>, <span class='date-year'>2014</span></span> <span class='time'>1:38 pm</span></time>
+<time class='entry-date' datetime='2015-03-16T12:32:51+08:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>12:32 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>在<a href="http://blog.leichunfeng.com/blog/2014/11/11/use-octopress-plus-github-pages-to-setup-a-personal-blog/">上一篇博文</a>中我们提到了因为 GitHub 毕竟是国外的（你懂的）代码托管网站，所以我们博客的访问速度始终还是比较慢的。因此，如果你想让你的博客访问速度有飞一般的感觉的话，那么就跟我一样将你的 Octopress 博客从 GitHub 迁移到 GitCafe 上吧！</p>
+  <div class="entry-content"><p>我的博客已经好几个月没有更新了，想想还真是有些难过。究其原因主要是工作占用了我绝大部分的时间，包含工作日的晚上和大部分周末。剩余的很小部分空余时间，我都用来开发个人 iOS 应用 GitBucket 了。</p>
 
-<h2>迁移原理</h2>
+<p>GitBucket 是一个 GitHub 的 iOS 客户端，使用 <a href="http://en.wikipedia.org/wiki/Model_View_ViewModel">MVVM</a> 模式和 <a href="https://github.com/ReactiveCocoa/ReactiveCocoa">RAC</a> 框架进行开发。目前 GitBucket 的项目代码 <a href="https://github.com/leichunfeng/MVVMReactiveCocoa">MVVMReactiveCocoa</a> 已经在 GitHub 上开源了出来。开发这个应用的主要目的是希望提供一个使用 MVVM 模式和 RAC 框架开发的完整应用，能够对学习 MVVM 模式和 RAC 框架的 iOS 开发者有所帮助。昨天，我已经向 App Store 提交了 GitBucket v1.0 版本，相信很快大家就可以下载使用了。</p>
 
-<p><strong>注意</strong>，这里所说的迁移并非就是要完全抛弃 GitHub ，我们不需要这么极端。而是指我们在将博客内容 <code>push</code> 到 GitHub 的时候，也顺便 <code>push</code> 一份到 GitCafe 上。然后用 GitCafe 上的那份作为我们对外的博客使用，而 GitHub 上的那份则作为备份留存。这样，当我们哪天想再用回 GitHub 的时候，只要将我们的域名重新指回 GitHub 的博客地址就可以了，反之亦然。</p>
+<p>言归正传，接下来我们结合 <a href="http://revealapp.com/">Reveal</a> 来谈谈 <a href="https://github.com/jdg/MBProgressHUD">MBProgressHUD</a> 的用法。这里主要讨论的是什么情况下导航栏上的按钮可用，什么情况下不可用，及其原因。</p>
 
-<p>在开始之前，我想大概谈一谈迁移的原理，理解了原理后你可能都不需要看下面的迁移步骤，自己就能轻松搞定了。我们知道，Octopress 其实为我们建立了两个分支，<code>source</code> 分支充当书桌，<code>master</code> 分支则用于存放最终生成的 <code>HTML</code> 博文。但有一点我们需要特别注意，那就是 Octopress 对这两个分支的操作其实是在本地两个不同的 Git 仓库中进行的。其中，对 <code>source</code> 分支的操作在 <code>octopress</code> 仓库中进行，而对 <code>master</code> 分支的操作则在 <code>_deploy</code> 仓库中进行。因此，接下来我们需要做的就已经比较明确了，只需要给 <code>_deploy</code> 仓库添加一个新的 GitCafe 远程仓库，然后将博客内容顺道 <code>push</code> 一份到 GitCafe 上就 OK 了。</p>
+<p><strong>注</strong>：本博文的程序代码可以在 <a href="https://github.com/leichunfeng/MBProgressHUD">leichunfeng/MBProgressHUD</a> 上找到，读者可以克隆下来亲自运行下看看效果。</p>
 
-<h2>准备工作</h2>
+<h2>关于 self.navigationController.view</h2>
 
-<ol>
-<li>注册 <a href="http://gitcafe.com/signup?invited_by=leichunfeng">GitCafe</a> 账号。</li>
-<li>添加 SSH 公钥到你的 GitCafe 账号下，可参考 GitCafe 官方帮助文档中的<a href="https://gitcafe.com/GitCafe/Help/wiki/%E5%A6%82%E4%BD%95%E5%AE%89%E8%A3%85%E5%92%8C%E8%AE%BE%E7%BD%AE-Git#wiki">《如何安装和设置 Git》</a>。</li>
-<li>创建一个与你的 GitCafe 用户名相同名称的项目，例如 <a href="https://gitcafe.com/leichunfeng/leichunfeng">leichunfeng</a> 。</li>
-</ol>
-
-
-<h2>添加远程仓库</h2>
-
-<p>运行以下命令，给 <code>_deploy</code> 仓库添加你的 GitCafe 仓库为新的远程仓库。记得先将 <code>git@gitcafe.com:leichunfeng/leichunfeng.git</code> 替换为你刚创建的 GitCafe 仓库的 SSH 地址。</p>
+<p>相信看过 MBProgressHUD 官方例子 <code>HudDemo</code> 代码的同学应该看到过下述代码：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">cd</span> <span class="n">_deploy</span>
-</span><span class='line'><span class="n">git</span> <span class="n">remote</span> <span class="n">add</span> <span class="n">gitcafe</span> <span class="n">git</span><span class="vi">@gitcafe</span><span class="o">.</span><span class="n">com</span><span class="ss">:leichunfeng</span><span class="o">/</span><span class="n">leichunfeng</span><span class="o">.</span><span class="n">git</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">HUD</span> <span class="o">=</span> <span class="p">[[</span><span class="n">MBProgressHUD</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithView</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">navigationController</span><span class="p">.</span><span class="n">view</span><span class="p">];</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<h2>修改发布脚本</h2>
-
-<p>为了实现在我们将博客内容 <code>push</code> 到 GitHub 的时候，也顺便 <code>push</code> 一份到 GitCafe 上，我们需要对 Octopress 的发布脚本稍作修改。这里，我们只需要在 <code>Rakefile</code> 文件中的 <code>:deploy</code> 部分添加以下三行代码就可以了。</p>
+<p>当时，你可能会对 <code>self.navigationController.view</code> 有些疑惑，这是什么玩意？其实，如果我们查看下 <code>UINavigationController.h</code> 文件就会发现，<code>UINavigationController</code> 其实是继承自 <code>UIViewController</code> 的，那么它拥有 <code>view</code> 属性也就不奇怪了。</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="nb">puts</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">## Pushing generated </span><span class="si">#{</span><span class="n">deploy_dir</span><span class="si">}</span><span class="s2"> website&quot;</span>
-</span><span class='line'><span class="no">Bundler</span><span class="o">.</span><span class="n">with_clean_env</span> <span class="p">{</span> <span class="nb">system</span> <span class="s2">&quot;git push origin </span><span class="si">#{</span><span class="n">deploy_branch</span><span class="si">}</span><span class="s2">&quot;</span> <span class="p">}</span>
-</span><span class='line'><span class="nb">puts</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">## Github Pages deploy complete&quot;</span>
-</span><span class='line'><span class="nb">puts</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">## Pushing generated </span><span class="si">#{</span><span class="n">deploy_dir</span><span class="si">}</span><span class="s2"> website&quot;</span> <span class="c1"># 此行为新增代码</span>
-</span><span class='line'><span class="no">Bundler</span><span class="o">.</span><span class="n">with_clean_env</span> <span class="p">{</span> <span class="nb">system</span> <span class="s2">&quot;git push gitcafe </span><span class="si">#{</span><span class="n">deploy_branch</span><span class="si">}</span><span class="s2">:gitcafe-pages&quot;</span> <span class="p">}</span> <span class="c1"># 此行为新增代码</span>
-</span><span class='line'><span class="nb">puts</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">## GitCafe Pages deploy complete&quot;</span> <span class="c1"># 此行为新增代码</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">NS_CLASS_AVAILABLE_IOS</span><span class="p">(</span><span class="mi">2</span><span class="n">_0</span><span class="p">)</span> <span class="k">@interface</span> <span class="bp">UINavigationController</span> : <span class="bp">UIViewController</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>细心的你也许会有所发现，我们 <code>push</code> 到 GitCafe 上的远程分支名与 <code>push</code> 到 GitHub 上的远程分支名是不一样的。这是因为 GitHub 使用的是 <code>master</code> 分支来存放页面内容，而 GitCafe 则使用的是 <code>gitcafe-pages</code> 分支。不过，对这个我们不需要太过关心，知道是怎么回事就可以了，换汤不换药。</p>
+<p>下面，我们会结合 Reveal 清楚地看到 <code>self.navigationController.view</code> 到底是什么东西，稍安勿躁。</p>
 
-<p>接下来，运行一下发布命令试试效果吧！</p>
+<h2>显示 MBProgressHUD</h2>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">rake</span> <span class="n">deploy</span>
-</span></code></pre></td></tr></table></div></figure>
+<p>初始化 MBProgressHUD 时需要我们传入一个 <code>UIView</code> 类型的参数 <code>view</code>，而显示 MBProgressHUD 的原理其实就是用 <code>addSubview</code> 方法将 MBProgressHUD 添加为这个 <code>view</code> 的子视图。</p>
 
+<p>我们先来看看未显示 MBProgressHUD 时，应用的视图层次结构。其中 1 为 <code>UIWindow</code> ，即 <code>self.view.window</code>，2 是 <code>UINavigationController</code> 的 <code>view</code> ，即我们前面提到的 <code>self.navigationController.view</code> ，3 为 <code>self.view</code> ，4 为导航栏 <code>UINavigationBar</code> ，即 <code>self.navigationController.navigationBar</code> 。</p>
 
-<h2>自定义域名</h2>
+<p><img src="/images/show-mbprogresshud.jpg" title="应用的视图层次结构" alt="应用的视图层次结构"></p>
 
-<p>GitCafe 的自定义域名设置要比 GitHub 的友好得多，它不仅提供了图形界面，而且支持给一个项目设置多个域名。进入<code>项目设置</code>界面，然后在<code>Pages 服务</code>栏目中添加你自己的域名。</p>
+<p>通过这张图，我们清楚地看到了 <code>self.view.window</code> 、<code>self.navigationController.view</code> 、<code>self.view</code> 和 <code>self.navigationController.navigationBar</code> 在应用的视图层次中所处的位置，以及它们之间的层次关系。</p>
 
-<p><img src="/images/gitcafe-custom-domains-new.jpg" title="GitCafe 自定义域名" alt="GitCafe 自定义域名"></p>
+<p>下面，我们就对比一下 MBProgressHUD 分别在 <code>self.view.window</code> 、<code>self.navigationController.view</code> 和 <code>self.view</code> 上显示时应用的视图层次结构，以及导航栏上按钮的可用情况。</p>
 
-<p>同样的，你需要登陆你的域名注册商的管理平台，在你的域名下新增相应的 <code>A</code> 或 <code>CNAME</code> 解析记录。如果你需要将域名指向一个 <code>IPv4</code> 地址（例如：<code>leichunfeng.com</code> -> <code>207.226.141.135</code> ），则需要增加 <code>A</code> 记录；而如果你需要将域名指向另一个域名（例如：<code>blog.leichunfeng.com</code> -> <code>leichunfeng.gitcafe.io</code> ），实现与被指向域名相同的访问效果，则需要增加 <code>CNAME</code> 记录。</p>
+<h3>方式 1 - On self.view.window</h3>
 
-<p><img src="/images/net-resolve-record-new.jpg" title="万网解析记录" alt="万网解析记录"></p>
+<p>使用这种方式时，MBProgressHUD 被添加到了 <code>self.view.window</code> 上，它与 <code>self.navigationController.view</code> 在视图层次上是平级的，同为 <code>self.view.window</code> 的子视图。但是由于 MBProgressHUD 是后添加的，所以它处于 <code>self.navigationController.view</code> 的上方，因此导航栏上的按钮均不可点击。</p>
 
-<h2>添加对 GitCafe 的感谢</h2>
+<p><img src="/images/on-self.view.window.jpg" title="应用的视图层次结构" alt="应用的视图层次结构"></p>
 
-<p>GitCafe 是国内为数不多的做得不错的代码托管网站，目前还处于创业阶段。如果你也想跟我一样，在博客底部添加对 GitCafe 的感谢，可以通过修改 <code>source/_includes/custom/footer.html</code> 文件来实现。<strong>注意</strong>，记得将 <code>http://gitcafe.com/signup?invited_by=leichunfeng</code> 中的 <code>leichunfeng</code> 替换成你的 GitCafe 用户名。</p>
+<h3>方式 2 - On self.navigationController.view</h3>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='html'><span class='line'><span class="nt">&lt;p&gt;</span>
-</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2015-12-06 15:56:39 +0800 - 雷纯锋 -
-</span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span>Powered by <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://octopress.org&quot;</span><span class="nt">&gt;</span>Octopress<span class="nt">&lt;/a&gt;&lt;/span&gt;</span>
-</span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span> - 感谢 <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://gitcafe.com/signup?invited_by=leichunfeng&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;</span>GitCafe<span class="nt">&lt;/a&gt;</span> 为本站提供存储空间<span class="nt">&lt;/span&gt;</span>
-</span><span class='line'><span class="nt">&lt;/p&gt;</span>
-</span></code></pre></td></tr></table></div></figure>
+<p>使用这种方式时，MBProgressHUD 被添加到了 <code>self.navigationController.view</code> 上，它与 <code>self.navigationController.navigationBar</code> 在视图层次上是平级的，同为 <code>self.navigationController.view</code> 的子视图。但是由于 MBProgressHUD 是后添加的，所以它处于 <code>self.navigationController.navigationBar</code> 的上方，因此导航栏上的按钮也均不可点击。</p>
 
+<p><img src="/images/on-self.navigationController.view.jpg" title="应用的视图层次结构" alt="应用的视图层次结构"></p>
 
-<p>至此，迁移工作就全部完成了。Enjoy ！</p>
+<h3>方式 3 - On self.view</h3>
+
+<p>使用这种方式时，MBProgressHUD 被添加到了 <code>self.view</code> 上，不管 <code>self.view</code> 或 MBProgressHUD 是否占满整个屏幕，<code>self.navigationController.navigationBar</code> 永远处于 MBProgressHUD 的上方。因此，导航栏上的按钮一直是可点击的。</p>
+
+<p><img src="/images/on-self.view.jpg" title="应用的视图层次结构" alt="应用的视图层次结构"></p>
+
+<h2>总结</h2>
+
+<p>当你需要让导航栏上的按钮不可点击的时候，可以选择使用 <code>方式 1</code> 或 <code>方式 2</code> 显示 MBProgressHUD 。反之，可以选择 <code>方式 3</code> 。</p>
 </div>
   
   
@@ -195,6 +170,10 @@
     <section>
   <h1>Recent Posts</h1>
   <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/12/25/reactivecocoa-v2-dot-5-yuan-ma-jie-xi-zhi-jia-gou-zong-lan/">ReactiveCocoa v2.5 源码解析之架构总览</a>
+      </li>
     
       <li class="post">
         <a href="/blog/2015/11/08/functor-applicative-and-monad/">Functor、Applicative 和 Monad</a>
@@ -230,10 +209,6 @@
     
       <li class="post">
         <a href="/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal/">结合 Reveal 谈谈 MBProgressHUD 的用法</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/">将 Octopress 博客从 GitHub 迁移到 GitCafe</a>
       </li>
     
   </ul>

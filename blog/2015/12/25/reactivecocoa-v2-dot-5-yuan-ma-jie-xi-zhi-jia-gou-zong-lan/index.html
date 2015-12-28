@@ -5,13 +5,13 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>雷纯锋的技术博客</title>
+  <title>ReactiveCocoa v2.5 源码解析之架构总览 - 雷纯锋的技术博客</title>
   <meta name="author" content="雷纯锋">
 
   
   <meta name="description" content="ReactiveCocoa 是一个 iOS 中的函数式响应式编程框架，它受 Functional Reactive Programming 的启发，是 Justin Spahr-Summers 和 Josh Abernathy 在开发 GitHub for Mac 过程中的一个副产品， &hellip;">
   
-    <meta name="keywords" content="雷纯锋的技术博客, 雷纯锋, 技术博客, 博客, iOS, Objective-C, Android, Java, HTML5, CSS3, JavaScript, Octopress, GitHub Pages, GitHub, Pages, GitCafe, RAC, ReactiveCocoa, Git">
+    <meta name="keywords" content="ReactiveCocoa, RAC, Functional Reactive Programming, FRP, RACSignal, 信号, Monad">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -20,7 +20,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   
-  <link rel="canonical" href="http://leichunfeng.github.io">
+  <link rel="canonical" href="http://leichunfeng.github.io/blog/2015/12/25/reactivecocoa-v2-dot-5-yuan-ma-jie-xi-zhi-jia-gou-zong-lan">
   <link href="/favicon.png" rel="icon">
   <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <link href="/atom.xml" rel="alternate" title="雷纯锋的技术博客" type="application/atom+xml">
@@ -65,15 +65,12 @@
 </nav>
   <div id="main">
     <div id="content">
-      <div class="blog-index">
+      <div>
+<article class="hentry" role="article">
   
-  
-  
-    <article>
-      
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2015/12/25/reactivecocoa-v2-dot-5-yuan-ma-jie-xi-zhi-jia-gou-zong-lan/">ReactiveCocoa v2.5 源码解析之架构总览</a></h1>
+      <h1 class="entry-title">ReactiveCocoa v2.5 源码解析之架构总览</h1>
     
     
       <p class="meta">
@@ -89,7 +86,7 @@
   </header>
 
 
-  <div class="entry-content"><p><code>ReactiveCocoa</code> 是一个 <code>iOS</code> 中的函数式响应式编程框架，它受 <a href="https://en.wikipedia.org/wiki/Functional_reactive_programming">Functional Reactive Programming</a> 的启发，是 <a href="https://github.com/jspahrsummers">Justin Spahr-Summers</a> 和 <a href="https://github.com/joshaber">Josh Abernathy</a> 在开发 <a href="https://desktop.github.com/">GitHub for Mac</a> 过程中的一个副产品，它提供了一系列用来组合和转换值流的 <code>API</code> 。</p>
+<div class="entry-content"><p><code>ReactiveCocoa</code> 是一个 <code>iOS</code> 中的函数式响应式编程框架，它受 <a href="https://en.wikipedia.org/wiki/Functional_reactive_programming">Functional Reactive Programming</a> 的启发，是 <a href="https://github.com/jspahrsummers">Justin Spahr-Summers</a> 和 <a href="https://github.com/joshaber">Josh Abernathy</a> 在开发 <a href="https://desktop.github.com/">GitHub for Mac</a> 过程中的一个副产品，它提供了一系列用来组合和转换值流的 <code>API</code> 。</p>
 
 <p><a href="https://github.com/mattt">Mattt Thompson</a> 大神是这样评价 <code>ReactiveCocoa</code> 的：</p>
 
@@ -776,20 +773,66 @@
 
 <p><img src="http://blog.leichunfeng.com/images/wechat_pay.jpg" width="260" /></p>
 </div>
-  
-  
 
 
-    </article>
+  <footer>
+    <p class="meta">
+      
   
-  <div class="pagination">
+
+<span class="byline author vcard">Posted by <span class="fn">雷纯锋</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2015-12-25T20:44:27+08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>8:44 pm</span></time>
+      
+
+
+      <br>原文链接：<a href="http://blog.leichunfeng.com/blog/2015/12/25/reactivecocoa-v2-dot-5-yuan-ma-jie-xi-zhi-jia-gou-zong-lan/">http://blog.leichunfeng.com/blog/2015/12/25/reactivecocoa-v2-dot-5-yuan-ma-jie-xi-zhi-jia-gou-zong-lan/</a> <!-- 添加原文链接需要增加这一行代码 -->
+    </p>
     
-      <a class="prev" href="/posts/2">&larr; Older</a>
-    
-    <a href="/blog/archives">Blog Archives</a>
-    
-  </div>
+      <div class="sharing">
+  
+  
+  
+  
+	<!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+	<span class="jiathis_txt">分享到：</span>
+	<a class="jiathis_button_tools_1"></a>
+	<a class="jiathis_button_tools_2"></a>
+	<a class="jiathis_button_tools_3"></a>
+	<a class="jiathis_button_tools_4"></a>
+	<a href="http://www.jiathis.com/share?uid=1983651" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank">更多</a>
+	<a class="jiathis_counter_style"></a>
 </div>
+<script type="text/javascript">
+var jiathis_config = {data_track_clickback:'true'};
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js?uid=1401863435807252" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+<!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" src="http://v2.uyan.cc/code/uyan.js?uid=1983651"></script>
+<!-- UY END -->
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2015/11/08/functor-applicative-and-monad/" title="Previous Post: Functor、Applicative 和 Monad">&laquo; Functor、Applicative 和 Monad</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
 <aside class="sidebar">
   
     <section>
@@ -882,6 +925,7 @@
 
   
 </aside>
+
 
     </div>
   </div>
