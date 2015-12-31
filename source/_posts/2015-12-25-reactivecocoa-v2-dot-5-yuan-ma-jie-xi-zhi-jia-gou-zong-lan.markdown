@@ -117,7 +117,7 @@ keywords: ReactiveCocoa, RAC, Functional Reactive Programming, FRP, RACSignal, �
 
 `RACStream` 是 `ReactiveCocoa` 中最核心的类，代表的是任意的值流，它是整个 `ReactiveCocoa` 得以建立的基石，下面是它的继承结构图：
 
-<img src="http://blog.leichunfeng.com/images/RACStream.png" width="600" />
+![RACStream](http://blog.leichunfeng.com/images/RACStream.png)
 
 事实上，`RACStream` 是一个抽象类，通常情况下，我们并不会去实例化它，而是直接使用它的两个子类 `RACSignal` 和 `RACSequence` 。那么，问题来了，为什么 `RACStream` 会被设计成一个抽象类？或者说它的抽象过程是以什么作为依据的呢？
 
