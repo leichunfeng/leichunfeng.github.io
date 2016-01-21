@@ -70,7 +70,7 @@ keywords: ReactiveCocoa, RAC, Functional Reactive Programming, FRP, RACSignal, �
     rac_signalForControlEvents:UIControlEventTouchUpInside]
     subscribeNext:^(UIButton *avatarButton) {
         // avatarButton 被点击了
-    }
+    }];
     
 // 通知
 [[[NSNotificationCenter defaultCenter]
