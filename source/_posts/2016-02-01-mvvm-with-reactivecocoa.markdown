@@ -26,15 +26,15 @@ categories:
 
 <img src="http://localhost:4000/images/M-VC.png" width="409" />
 
-因此，`M-VC` 可能是对 `iOS` 中的 `MVC` 模式更为准确的描述。在一个典型的 `MVC` 应用中，有非常多的逻辑被放置在 `controller` 中。其中，有一部分逻辑确实是属于 `controller` 的，但是也有一些逻辑不应该被放置在 `controller` 中，比如将 `model` 中的值转换成 `view` 可以展示的值，举例来说，像将 `NSDate` 转换成格式化的 `NSString` 等，而在 `MVVM` 中，我们称之为展示逻辑。
+事实上，`M-VC` 可能是对 `iOS` 中的 `MVC` 模式更为准确的描述。在一个典型的 `MVC` 应用中，有非常多的逻辑被放置在 `controller` 中。其中，有一部分逻辑确实是属于 `controller` 的，但是也有一些逻辑不应该被放置在 `controller` 中，比如将 `model` 中的值转换成 `view` 可以展示的值，举例来说，像将 `NSDate` 转换成格式化的 `NSString` 等，而在 `MVVM` 中，我们称之为展示逻辑。
 
-也正是因为如此，承载了过多逻辑的 `controller` 很快就会变得臃肿不堪，难以维护和扩展。所以，`iOS` 中的 `MVC` 模式还有另外一种非常形象的解读，即 [Massive View Controller](https://twitter.com/Colin_Campbell/status/293167951132098560) ：
+也正是因为如此，承载了过多逻辑的 `controller` 很快就会变得臃肿不堪，难以维护和扩展。所以，`iOS` 中的 `MVC` 模式还有另外一种非常形象的解读，那就是 [Massive View Controller](https://twitter.com/Colin_Campbell/status/293167951132098560) ：
 
 > iOS architecture, where MVC stands for Massive View Controller.
 
 ## MVVM
 
-正如前面所说的，一种可以很好地解决 `Massive View Controller` 的办法就是将 `controller` 中的展示逻辑抽取出来，放置到一个专门的地方，而这个地方就是 `viewModel` 。事实上，我们在上图中的 `M-VC` 之间放入 `VM` ，就可以得到 `MVVM` 模式的结构图：
+正如前面所说的，一种可以很好地解决 `Massive View Controller` 的办法就是将 `controller` 中的展示逻辑抽取出来，放置到一个专门的地方，而这个地方就是 `viewModel` 。事实上，我们只要在上图中的 `M-VC` 之间放入 `VM` ，就可以得到 `MVVM` 模式的结构图：
 
 <img src="http://localhost:4000/images/M-V-VM.png" width="409" />
 
@@ -175,13 +175,103 @@ SpecBegin(Person)
 SpecEnd
 ```
 
-对于 `MVVM` 模式来说，我们可以把 `view` 看作是 `viewModel` 的可视化形式，`viewModel` 提供了 `view` 所需的数据和命令。因此，`viewModel` 的可测试性可以极大地提高我们应用的正确性与质量。
+对于 `MVVM` 模式来说，我们可以把 `view` 看作是 `viewModel` 的可视化形式，`viewModel` 提供了 `view` 所需的所有数据和命令。因此，`viewModel` 的可测试性可以极大地提高我们应用的正确性与质量。
 
 ## MVVMReactiveCocoa
 
+接下来，我们进入本文的第二部分，重点介绍一个使用 `MVVM` 和 `ReactiveCocoa` 开发的真实应用，`MVVMReactiveCocoa` 。说明，本文将主要介绍这个应用的架构和设计思路，希望可以为你实践 `MVVM` 提供一个真实的参考案例，有些架构并非是 `MVVM` 模式所必须的，而是我们为了更好更顺畅地使用 `MVVM` 而引入的，尤其是 `ViewModel-Based Navigation` ，所以请你在实践的时候能够结合自身应用的实际情况做出相应的取舍，灵活处理，活学活用。最后，我们将以登录界面为具体的例子，一起探讨一下 `MVVM` 的实践过程。
+
+**说明**，以下内容均基于 `MVVMReactiveCocoa` 的 [v2.1.1](https://github.com/leichunfeng/MVVMReactiveCocoa/tree/v2.1.1) 标签进行展开。
+
 ### 类图
 
+为了方便我们从宏观上了解 `MVVMReactiveCocoa` 的整体结构，我们先来看看它的类图：
+
+![MVVMReactiveCocoa-v2.1.1](http://localhost:4000/images/MVVMReactiveCocoa-v2.1.1.png)
+
+从上面的类图中，我们可以看到，在 `MVVMReactiveCocoa` 中主要有两大继承体系：
+
+- 用蓝色标识出来的 `viewModel` 的继承体系，基类为 `MRCViewModel` ；
+- 用红色标识出来的 `view` 的继承体系，基类为 `MRCViewController` 。
+
+除了提供与系统基类 `UIViewController` 相对应的基类 `MRCViewModel/MRCViewController` 外，还提供了与系统基类 `UITableViewController` 和 `UITabBarController` 相对应的基类 `MRCTableViewModel/MRCTableViewController` 和 `MRCTabBarViewModel/MRCTabBarController` ，其中基类 `MRCTableViewModel/MRCTableViewController` 的使用最为普遍。
+
+**说明**，之所以通过基类的方式来组织 `MVVMReactiveCocoa` ，一方面是因为这个应用的主要开发者只有我一个人，这个方案非常容易实施；另一方面，也是因为通过基类的方式可以尽可能简单地实现代码重用，提高开发效率。
+
 ### 服务总线
+
+经过前面的探讨，我们已经知道了 `MVVM` 中的 `viewModel` 的主要职责就是从 `model` 层获取 `view` 所需的数据，并且将这些数据转换成 `view` 能够展示的形式。因此，为了方便 `viewModel` 层调用 `model` 层中的所有服务，并且统一管理这些服务的创建，我使用抽象工厂模式将 `model` 层的所有服务集中管理起来，结构图如下所示：
+
+<img src="http://localhost:4000/images/service-bus.png" width="652" />
+
+从上图中，我们可以看出，在服务总线类 `MRCViewModelServices/MRCViewModelServicesImpl` 中，主要包括以下三个方面的内容：
+
+- 应用自有的服务类，用柚黄色进行了标识，包括 `MRCAppStoreService/MRCAppStoreServiceImpl` 和 `MRCRepositoryService/MRCRepositoryServiceImpl` 两个服务类；
+- 第三方 `GitHub` 提供的官方 `API` 框架，用天蓝色进行了标识，主要包括 `OCTClient` 服务类；
+- 应用的导航服务，用藻绿色进行了标识，包括 `MRCNavigationProtocol` 协议、虚拟实现类 `MRCViewModelServicesImpl` 等。
+
+其中，前面两者都是以信号的形式对 `viewModel` 层提供服务，代表异步的网络请求等数据获取操作，而我们在 `viewModel` 则可以通过订阅信号的形式获取到所需的数据。此外，服务总线还实现了 `MRCNavigationProtocol` 协议，协议的内容如下：
+
+``` objc
+@protocol MRCNavigationProtocol <NSObject>
+
+/// Pushes the corresponding view controller.
+///
+/// Uses a horizontal slide transition.
+/// Has no effect if the corresponding view controller is already in the stack.
+///
+/// viewModel - the view model
+/// animated  - use animation or not
+- (void)pushViewModel:(MRCViewModel *)viewModel animated:(BOOL)animated;
+
+/// Pops the top view controller in the stack.
+///
+/// animated - use animation or not
+- (void)popViewModelAnimated:(BOOL)animated;
+
+/// Pops until there's only a single view controller left on the stack.
+///
+/// animated - use animation or not
+- (void)popToRootViewModelAnimated:(BOOL)animated;
+
+/// Present the corresponding view controller.
+///
+/// viewModel  - the view model
+/// animated   - use animation or not
+/// completion - the completion handler
+- (void)presentViewModel:(MRCViewModel *)viewModel animated:(BOOL)animated completion:(VoidBlock)completion;
+
+/// Dismiss the presented view controller.
+///
+/// animated   - use animation or not
+/// completion - the completion handler
+- (void)dismissViewModelAnimated:(BOOL)animated completion:(VoidBlock)completion;
+
+/// Reset the corresponding view controller as the root view controller of the application's window.
+///
+/// viewModel - the view model
+- (void)resetRootViewModel:(MRCViewModel *)viewModel;
+
+@end
+```
+
+看上去是不是非常眼熟呢？是的，`MRCNavigationProtocol` 协议其实就是参照系统的 `UINavigationController` 中的导航操作定义出来的，用来实现以 `viewModel` 为基础的导航服务。事实上，服务总线类 `MRCViewModelServicesImpl` 并没有真正地实现 `MRCNavigationProtocol` 协议中定义的操作，只不过是实现了一些空操作而已。
+
+``` objc
+- (void)pushViewModel:(MRCViewModel *)viewModel animated:(BOOL)animated {}
+
+- (void)popViewModelAnimated:(BOOL)animated {}
+
+- (void)popToRootViewModelAnimated:(BOOL)animated {}
+
+- (void)presentViewModel:(MRCViewModel *)viewModel animated:(BOOL)animated completion:(VoidBlock)completion {}
+
+- (void)dismissViewModelAnimated:(BOOL)animated completion:(VoidBlock)completion {}
+
+- (void)resetRootViewModel:(MRCViewModel *)viewModel {}
+```
+
+那么，我们是怎么实现以 `viewModel` 为基础的导航操作的呢？用 `MRCViewModelServicesImpl` 来实现这些空操作到底有什么用意？为什么要这么做，目的是为了什么？兄台，莫急，请看下一小节的内容。
 
 ### ViewModel-Based Navigation
 
