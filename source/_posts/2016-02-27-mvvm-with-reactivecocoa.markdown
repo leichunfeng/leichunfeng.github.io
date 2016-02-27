@@ -1,9 +1,10 @@
 ---
 layout: post
 title: "MVVM with ReactiveCocoa"
-date: 2016-02-01 22:17:12 +0800
+date: 2016-02-27 22:17:12 +0800
 comments: true
 categories: 
+keywords: MVVMReactiveCocoa, MVVM, ReactiveCocoa, RAC, MVC, ViewModel
 ---
 
 [MVVM](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93viewmodel) 是一种软件架构模式，它是 [Martin Fowler](https://en.wikipedia.org/wiki/Martin_Fowler) 的 [Presentation Model](http://martinfowler.com/eaaDev/PresentationModel.html) 的一种变体，最先由微软的架构师 John Gossman 在 2005 年提出，并应用在微软的 [WPF](https://en.wikipedia.org/wiki/Windows_Presentation_Foundation) 和 [Silverlight](https://en.wikipedia.org/wiki/Microsoft_Silverlight) 软件开发中。`MVVM` 衍生于 [MVC](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller) ，是对 `MVC` 的一种演进，它促进了 `UI` 代码与业务逻辑的分离。
@@ -591,6 +592,8 @@ SpecEnd
 - `MVVM + ReactiveCocoa` ，适用于现有的 `MVC` 项目，想转换成 `MVVM` 并且打算引入 `ReactiveCocoa` 作为 `binder` 的团队；
 - `MVVM + ReactiveCocoa + ViewModel-Based Navigation` ，适用于全新的项目，想实践 `MVVM` 并且打算引入 `ReactiveCocoa` 作为 `binder` ，然后也想实践 `ViewModel-Based Navigation` 的团队。
 
+最后，希望这篇文章能够打消你对 `MVVM` 模式的顾虑，还等什么，赶紧行动起来吧。
+
 ## 参考链接
 
 [https://www.objc.io/issues/13-architecture/mvvm/](https://www.objc.io/issues/13-architecture/mvvm/)
@@ -605,4 +608,4 @@ SpecEnd
 <br>
 [http://www.sprynthesis.com/2014/12/06/reactivecocoa-mvvm-introduction/](http://www.sprynthesis.com/2014/12/06/reactivecocoa-mvvm-introduction/)
 
-
+<img src="http://blog.leichunfeng.com/images/wechat_pay.jpg" width="260" />
