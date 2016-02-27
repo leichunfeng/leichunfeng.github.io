@@ -423,7 +423,7 @@ SpecEnd
 
 ### 登录界面
 
-接下来，我们一起来看一下 `MVVMReactiveCocoa` 中的登录界面用 `MVVM` 的方式是怎样实现的，下面是登录界面的截图：
+接下来，我们一起来看一下 `MVVMReactiveCocoa` 中登录界面的 `viewModel` 和 `view` 的部分关键代码，探讨一下 `MVVM` 模式的具体实践过程。**说明**，我们将会尽可能地避开具体的业务逻辑，重点关注 `MVVM` 模式的实践思路。下面是登录界面的截图：
 
 <img src="http://localhost:4000/images/login.jpg" width="320" />
 
@@ -433,7 +433,7 @@ SpecEnd
 - 用于输入账号和密码的输入框 `usernameTextField` 和 `passwordTextField` ；
 - 一个直接登录的按钮 `loginButton` 和一个跳转到浏览器授权登录的按钮 `browserLoginButton` 。
 
-根据我们前面对 `MVVM` 的探讨，`viewModel` 需要提供 `view` 所需的全部数据和命令。因此，可得 `MRCLoginViewModel` 的头文件如下：
+**分析**：根据我们前面对 `MVVM` 的探讨，`viewModel` 需要提供 `view` 所需的全部数据和命令。因此，`MRCLoginViewModel.h` 头文件的内容大致如下：
 
 ``` objc
 @interface MRCLoginViewModel : MRCViewModel
@@ -461,44 +461,148 @@ SpecEnd
 非常直观，其中需要特别说明的是 `validLoginSignal` 属性代表的是登录按钮是否可用，它将会与 `view` 中登录按钮的 `enabled` 属性进行绑定。 接着，我们再来看看 `MRCLoginViewModel` 的实现文件中的部分关键代码：
 
 ``` objc
-RAC(self, avatarURL) = [[RACObserve(self, username)
-    map:^(NSString *username) {
-        return [[OCTUser mrc_fetchUserWithRawLogin:username] avatarURL];
-    }]
-    distinctUntilChanged];
-```
+@implementation MRCLoginViewModel
 
-当用户输入的用户名发生变化时，调用 `model` 层的方法查询本地数据库中缓存的用户表数据，然后返回 `avatarURL` 属性。
-
-``` objc
-self.validLoginSignal = [[RACSignal
-    combineLatest:@[ RACObserve(self, username), RACObserve(self, password) ]
-    reduce:^(NSString *username, NSString *password) {
-        return @(username.length > 0 && password.length > 0);
-    }]
-    distinctUntilChanged]; 
-```
+- (void)initialize {
+    [super initialize];
     
-当用户输入的用户名或者密码发生变化时，判断用户名和密码的长度是否均大于 `0` ，如果是则登录按钮可用，否则不可用。
+    RAC(self, avatarURL) = [[RACObserve(self, username)
+        map:^(NSString *username) {
+            return [[OCTUser mrc_fetchUserWithRawLogin:username] avatarURL];
+        }]
+        distinctUntilChanged];
+    
+    self.validLoginSignal = [[RACSignal
+    	combineLatest:@[ RACObserve(self, username), RACObserve(self, password) ]
+        reduce:^(NSString *username, NSString *password) {
+        	return @(username.length > 0 && password.length > 0);
+        }]
+        distinctUntilChanged];
+    
+    @weakify(self)
+    void (^doNext)(OCTClient *) = ^(OCTClient *authenticatedClient) {
+        @strongify(self)
+        [[MRCMemoryCache sharedInstance] setObject:authenticatedClient.user forKey:@"currentUser"];
 
-``` objc
-self.loginCommand = [[RACCommand alloc] initWithSignalBlock:^(NSString *oneTimePassword) {
-    @strongify(self)
-    OCTUser *user = [OCTUser userWithRawLogin:self.username server:OCTServer.dotComServer];
-    return [[OCTClient
-        signInAsUser:user password:self.password oneTimePassword:oneTimePassword scopes:OCTClientAuthorizationScopesUser | OCTClientAuthorizationScopesRepository note:nil noteURL:nil fingerprint:nil]
-        doNext:doNext];
-}];
+        self.services.client = authenticatedClient;
+
+        [authenticatedClient.user mrc_saveOrUpdate];
+        [authenticatedClient.user mrc_updateRawLogin]; // The only place to update rawLogin, I hate the logic of rawLogin.
+        
+        SSKeychain.rawLogin = authenticatedClient.user.rawLogin;
+        SSKeychain.password = self.password;
+        SSKeychain.accessToken = authenticatedClient.token;
+        
+        MRCHomepageViewModel *viewModel = [[MRCHomepageViewModel alloc] initWithServices:self.services params:nil];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.services resetRootViewModel:viewModel];
+        });
+    };
+    
+    [OCTClient setClientID:MRC_CLIENT_ID clientSecret:MRC_CLIENT_SECRET];
+    
+    self.loginCommand = [[RACCommand alloc] initWithSignalBlock:^(NSString *oneTimePassword) {
+    	@strongify(self)
+        OCTUser *user = [OCTUser userWithRawLogin:self.username server:OCTServer.dotComServer];
+        return [[OCTClient
+        	signInAsUser:user password:self.password oneTimePassword:oneTimePassword scopes:OCTClientAuthorizationScopesUser | OCTClientAuthorizationScopesRepository note:nil noteURL:nil fingerprint:nil]
+            doNext:doNext];
+    }];
+
+    self.browserLoginCommand = [[RACCommand alloc] initWithSignalBlock:^(id input) {
+        return [[OCTClient
+        	signInToServerUsingWebBrowser:OCTServer.dotComServer scopes:OCTClientAuthorizationScopesUser | OCTClientAuthorizationScopesRepository]
+            doNext:doNext];
+    }];    
+}
+
+- (void)setUsername:(NSString *)username {
+    _username = [username stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+}
+
+@end
 ```
 
-因为 `GitHub` 的登录支持 `2FA` ，所以 `loginCommand` 可能会在以下两种情况下进行调用：
+- 当用户输入的用户名发生变化时，调用 `model` 层的方法查询本地数据库中缓存的用户表数据，然后返回 `avatarURL` 属性;
+- 当用户输入的用户名或者密码发生变化时，判断用户名和密码的长度是否均大于 `0` ，如果是则登录按钮可用，否则不可用;
+- 当 `loginCommand` 或者 `browserLoginCommand` 命令执行成功时，调用 `doNext` 代码块，调用服务总线中的方法 `resetRootViewModel`: 进入首页。
 
-- 用户没有在 `GitHub` 上设置登录需要 `2FA` 校验，此时，传入的 `oneTimePassword` 参数为 `nil` ；
-- 用户需要 `2FA` 校验，此时，传入的 `oneTimePassword` 参数不为 `nil` 。
+接下来，我们来看看 `MRCLoginViewController` 中的部分关键代码：
 
-当 `loginCommand` 命令第一次被执行时，外部传入的 `oneTimePassword` 参数为 `nil` ，它会调用 model 层中的方法执行登录请求，如果用户需要 `2FA` 校验，则会登录失败，返回 error ，
- 
+``` objc
+@implementation MRCLoginViewController
+
+- (void)bindViewModel {
+    [super bindViewModel];
+    
+    @weakify(self)
+    [RACObserve(self.viewModel, avatarURL) subscribeNext:^(NSURL *avatarURL) {
+    	@strongify(self)
+        [self.avatarButton sd_setImageWithURL:avatarURL forState:UIControlStateNormal placeholderImage:[UIImage imageNamed:@"default-avatar"]];
+    }];
+    
+    RAC(self.viewModel, username) = self.usernameTextField.rac_textSignal;
+    RAC(self.viewModel, password) = self.passwordTextField.rac_textSignal;
+    
+    RAC(self.loginButton, enabled) = self.viewModel.validLoginSignal;
+    
+    [[self.loginButton
+        rac_signalForControlEvents:UIControlEventTouchUpInside]
+        subscribeNext:^(id x) {
+            @strongify(self)
+            [self.viewModel.loginCommand execute:nil];
+        }];
+    
+    [[self.browserLoginButton
+        rac_signalForControlEvents:UIControlEventTouchUpInside]
+        subscribeNext:^(id x) {
+            @strongify(self)
+            NSString *message = [NSString stringWithFormat:@"“%@” wants to open “Safari”", MRC_APP_NAME];
+            
+            UIAlertController *alertController = [UIAlertController alertControllerWithTitle:nil
+                                                                                     message:message
+                                                                              preferredStyle:UIAlertControllerStyleAlert];
+            
+            [alertController addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:NULL]];
+            [alertController addAction:[UIAlertAction actionWithTitle:@"Open" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+                @strongify(self)
+                [self.viewModel.browserLoginCommand execute:nil];
+            }]];
+            
+            [self presentViewController:alertController animated:YES completion:NULL];
+        }];
+}
+
+@end
+```
+
+- 观察 `viewModel` 中 `avatarURL` 属性的变化，然后设置 `avatarButton` 中的图片；
+- 将 `viewModel` 中的 `username` 和 `password` 属性分别与 `usernameTextField` 和 `passwordTextField` 输入框中的内容进行绑定；
+- 将 `loginButton` 的 `enabled` 属性与 `viewModel` 的 `validLoginSignal` 属性进行绑定；
+- 在 `loginButton` 和 `browserLoginButton` 按钮被点击时分别执行 `loginCommand` 和 `browserLoginCommand` 命令。
+
+综上所述，我们将 `MRCLoginViewController` 中的展示逻辑抽取到 `MRCLoginViewModel` 中后，使得 `MRCLoginViewController` 中的代码更加简洁和清晰。其中，实践 `MVVM` 的关键点在于，我们需要分析清楚 `viewModel` 需要暴露给 `view` 的数据和命令，这些数据和命令要能足够用来表示 `view` 当前的状态。
+
 ## 总结
 
+我们从理论出发介绍了 `MVC` 和 `MVVM` 各自的概念以及从 `MVC` 到 `MVVM` 的演进过程，接着介绍了 `ReactiveCocoa` 在 `MVVM` 中的两个使用场景，最后，我们从实践的角度，重点介绍了一个使用 `MVVM` 和 `ReactiveCocoa` 开发的开源项目 `MVVMReactiveCocoa` 。总得来说，我认为 `iOS` 中的 `MVVM` 模式可以分为以下三种不同的实践程度，它们分别对应不同的适用场景：
+
+- `MVVM + KVO` ，适用于现有的 `MVC` 项目，想转换成 `MVVM` 但是不打算引入 `ReactiveCocoa` 作为 `bivder` 的团队；
+- `MVVM + ReactiveCocoa` ，适用于现有的 `MVC` 项目，想转换成 `MVVM` 并且打算引入 `ReactiveCocoa` 作为 `binder` 的团队；
+- `MVVM + ReactiveCocoa + ViewModel-Based Navigation` ，适用于全新的项目，想实践 `MVVM` 并且打算引入 `ReactiveCocoa` 作为 `binder` ，然后也想实践 `ViewModel-Based Navigation` 的团队。
+
 ## 参考链接
+
+[https://www.objc.io/issues/13-architecture/mvvm/](https://www.objc.io/issues/13-architecture/mvvm/)
+<br>
+[https://msdn.microsoft.com/en-us/library/hh848246.aspx](https://msdn.microsoft.com/en-us/library/hh848246.aspx)
+<br>
+[https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93viewmodel](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93viewmodel)
+<br>
+[https://medium.com/ios-os-x-development/ios-architecture-patterns-ecba4c38de52#.p6n56kyc4](https://medium.com/ios-os-x-development/ios-architecture-patterns-ecba4c38de52#.p6n56kyc4)
+<br>
+[http://cocoasamurai.blogspot.ru/2013/03/basic-mvvm-with-reactivecocoa.html](http://cocoasamurai.blogspot.ru/2013/03/basic-mvvm-with-reactivecocoa.html)
+<br>
+[http://www.sprynthesis.com/2014/12/06/reactivecocoa-mvvm-introduction/](http://www.sprynthesis.com/2014/12/06/reactivecocoa-mvvm-introduction/)
+
 
