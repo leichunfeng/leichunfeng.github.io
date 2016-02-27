@@ -202,7 +202,7 @@ SpecEnd
 
 经过前面的探讨，我们已经知道了 `MVVM` 中的 `viewModel` 的主要职责就是从 `model` 层获取 `view` 所需的数据，并且将这些数据转换成 `view` 能够展示的形式。因此，为了方便 `viewModel` 层调用 `model` 层中的所有服务，并且统一管理这些服务的创建，我使用抽象工厂模式将 `model` 层的所有服务集中管理起来，结构图如下所示：
 
-<img src="http://localhost:4000/images/service-bus.png" width="652" />
+<img src="http://localhost:4000/images/service-bus.png" width="558" />
 
 从上图中，我们可以看出，在服务总线类 `MRCViewModelServices/MRCViewModelServicesImpl` 中，主要包括以下三个方面的内容：
 
@@ -271,12 +271,233 @@ SpecEnd
 - (void)resetRootViewModel:(MRCViewModel *)viewModel {}
 ```
 
-那么，我们是怎么实现以 `viewModel` 为基础的导航操作的呢？用 `MRCViewModelServicesImpl` 来实现这些空操作到底有什么用意？为什么要这么做，目的是为了什么？兄台，莫急，请看下一小节的内容。
+那么，我们是怎么实现以 `viewModel` 为基础的导航操作的呢？用 `MRCViewModelServicesImpl` 来实现这些空操作到底有什么用意？为什么要这么做，目的是为了什么？兄台，莫急，请接着看下一小节的内容。
 
 ### ViewModel-Based Navigation
 
+首先，我们先来思考一个问题，就是我们为什么要实现 `ViewModel-Based` 的导航操作呢？直接在 `view` 层使用系统的 `push/present` 等操作来完成导航不就好了么？我总结了一下这么做的理由，主要有以下三点：
+
+- 从理论上来说，`MVVM` 模式的应用应该是以 `viewModel` 为驱动来运转的；
+- 根据我们前面对 `MVVM` 的探讨，`viewModel` 提供了 `view` 所需的全部数据和命令。因此，通常来说，我们可以直接在命令执行成功后使用 `doNext` 顺带就把导航操作给做了，一气呵成；
+- 使 `view` 更加轻量级，只需要绑定 `viewModel` 提供的数据和命令即可。
+
+既然如此，那我们究竟要如何实现 `ViewModel-Based` 的导航操作呢？我们都知道 `iOS` 中的导航操作无外乎两种，`push/pop` 和 `present/dismiss` ，前者是 `UINavigationController` 特有的功能，而后者是所有 `UIViewController` 都具备的功能。另外，值得一提的是 `UINavigationController` 也是 `UIViewController` 的子类，所以它也同样具备 `present/dismiss` 的功能。因此，从本质上来说，不管我们要实现什么样的导航操作，最终都是离不开 `push/pop` 和 `present/dismiss` 的。
+
+事实上，目前的做法是在 `view` 层维护了一个 `NavigationController` 的堆栈 `MRCNavigationControllerStack` ，不管是 `push/pop` 还是 `present/dismiss` ，都是使用栈顶的 `NavigationController` 来执行操作的。
+
+接下来，我们一起来看看 `MVVMReactiveCocoa` 在执行了 `push/pop` 或 `present/dismiss` 操作后视图层次结构的变化过程。首先，我们来看看用户在登录成功后进入到首页时的视图层次结构图：
+
+<img src="http://localhost:4000/images/view-model-based1.png" width="671" />
+
+此时，应用展示的界面是 `NewsViewController` 。同时，在 `MRCNavigationControllerStack` 堆栈中只有 `NavigationController0` 一个元素；而 `NavigationController1` 并没有在 `MRCNavigationControllerStack` 堆栈中，这是因为需要支持 `TabBarController` 的滑动切换而设计的视图层次结构，是首页比较特殊的一个地方。更多信息可以查看 `GitHub` 开源库 [WXTabBarController](https://github.com/leichunfeng/WXTabBarController) ，在这里，我们并不需要太过于关心这个问题，因为真正重要的是原理。
+
+接下来，当用户在 `NewsViewController` 界面，点击了某一个 `cell` ，通过 `push` 的方式，进入到仓库详情界面时，应用的视图层次结构图如下：
+
+<img src="http://localhost:4000/images/view-model-based2.png" width="184" />
+
+应用通过 `MRCNavigationControllerStack` 栈顶的元素 `NavigationController0` ，将仓库详情界面 `push` 到自身的内部堆栈中。此时，应用展示的界面是被 `push` 进来的仓库详情界面 `RepoDetailViewController` 。最后，当用户在仓库详情界面，点击左下角的分支按钮，通过 `present` 的方式，弹出分支选择界面时，应用的视图层次结构图如下：
+
+<img src="http://localhost:4000/images/view-model-based3.png" width="454" />
+
+另外，`pop` 和 `dismiss` 为 `push` 和 `present` 的逆操作，只要反过来看上面的视图层次构图变化过程即可，这里不再赘述。
+
+等等，如果我没有记错的话，你现在说的 `MRCNavigationControllerStack` 堆栈是在 `view` 层，而服务总线类 `MRCViewModelServicesImpl` 是在 `viewModel` 的。据我所知，`MVVM` 中的 `viewModel` 层是不能引入 `view` 层的任何东西的，更严格的说，是不能引入任何 `UIKit` 中的东西的，不然就违背了 `MVVM` 模式的基本原则，并且 `viewModel` 的可测试性也将随之散失。
+
+是的，这里就是 `MRCViewModelServicesImpl` 中之所以实现那些空的导航操作的真正目的所在了。`viewModel` 通过调用 `MRCViewModelServicesImpl` 中的空操作来表明需要执行相应的导航操作，而 `MRCNavigationControllerStack` 中则通过 `Hook` 来捕获这些空操作，然后使用栈顶的 `NavigationController` 来执行真正的导航操作：
+
+``` objc
+- (void)registerNavigationHooks {
+    @weakify(self)
+    [[(NSObject *)self.services
+        rac_signalForSelector:@selector(pushViewModel:animated:)]
+        subscribeNext:^(RACTuple *tuple) {
+            @strongify(self)
+            MRCViewController *topViewController = (MRCViewController *)[self.navigationControllers.lastObject topViewController];
+            if (topViewController.snapshot == nil) {
+                topViewController.snapshot = [[self.navigationControllers.lastObject view] snapshotViewAfterScreenUpdates:NO];
+            }
+            
+            UIViewController *viewController = (UIViewController *)[MRCRouter.sharedInstance viewControllerForViewModel:tuple.first];
+            viewController.hidesBottomBarWhenPushed = YES;
+            [self.navigationControllers.lastObject pushViewController:viewController animated:[tuple.second boolValue]];
+        }];
+
+    [[(NSObject *)self.services
+        rac_signalForSelector:@selector(popViewModelAnimated:)]
+        subscribeNext:^(RACTuple *tuple) {
+        	@strongify(self)
+            [self.navigationControllers.lastObject popViewControllerAnimated:[tuple.first boolValue]];
+        }];
+
+    [[(NSObject *)self.services
+        rac_signalForSelector:@selector(popToRootViewModelAnimated:)]
+        subscribeNext:^(RACTuple *tuple) {
+            @strongify(self)
+            [self.navigationControllers.lastObject popToRootViewControllerAnimated:[tuple.first boolValue]];
+        }];
+
+    [[(NSObject *)self.services
+        rac_signalForSelector:@selector(presentViewModel:animated:completion:)]
+        subscribeNext:^(RACTuple *tuple) {
+        	@strongify(self)
+            UIViewController *viewController = (UIViewController *)[MRCRouter.sharedInstance viewControllerForViewModel:tuple.first];
+
+            UINavigationController *presentingViewController = self.navigationControllers.lastObject;
+            if (![viewController isKindOfClass:UINavigationController.class]) {
+                viewController = [[MRCNavigationController alloc] initWithRootViewController:viewController];
+            }
+            [self pushNavigationController:(UINavigationController *)viewController];
+
+            [presentingViewController presentViewController:viewController animated:[tuple.second boolValue] completion:tuple.third];
+        }];
+
+    [[(NSObject *)self.services
+        rac_signalForSelector:@selector(dismissViewModelAnimated:completion:)]
+        subscribeNext:^(RACTuple *tuple) {
+            @strongify(self)
+            [self popNavigationController];
+            [self.navigationControllers.lastObject dismissViewControllerAnimated:[tuple.first boolValue] completion:tuple.second];
+        }];
+
+    [[(NSObject *)self.services
+        rac_signalForSelector:@selector(resetRootViewModel:)]
+        subscribeNext:^(RACTuple *tuple) {
+            @strongify(self)
+            [self.navigationControllers removeAllObjects];
+
+            UIViewController *viewController = (UIViewController *)[MRCRouter.sharedInstance viewControllerForViewModel:tuple.first];
+
+            if (![viewController isKindOfClass:[UINavigationController class]]/* && ![viewController isKindOfClass:[MRCTabBarController class]]*/) {
+                viewController = [[MRCNavigationController alloc] initWithRootViewController:viewController];
+                ((UINavigationController *)viewController).delegate = self;
+                [self pushNavigationController:(UINavigationController *)viewController];
+            }
+
+            MRCSharedAppDelegate.window.rootViewController = viewController;
+        }];
+}
+```
+
+通过 `Hook` 的方式，我们最终实现了 `viewModel-based` 的导航操作，并且在 `viewModel` 中也没有引入 `view` 层的任意东西，实现了解耦合。
+
+#### Router
+
+另外，还有一点值得一提的是，我们在 `viewModel` 层调用导航操作的时候，只传入了 `viewModel` 的实例作为参数，那么在 `MRCNavigationControllerStack` 堆栈中去真正执行导航操作的时候，我们怎么才能知道要跳转到哪个界面呢？因此，我们就需要配置 `viewModel` 到 `view` 的映射了，并且约定好一个统一的初始化 `view` 的方法 `initWithViewModel:` ，这些也是必不可少的条件：
+
+``` objc
+- (MRCViewController *)viewControllerForViewModel:(MRCViewModel *)viewModel {
+    NSString *viewController = self.viewModelViewMappings[NSStringFromClass(viewModel.class)];
+    
+    NSParameterAssert([NSClassFromString(viewController) isSubclassOfClass:[MRCViewController class]]);
+    NSParameterAssert([NSClassFromString(viewController) instancesRespondToSelector:@selector(initWithViewModel:)]);
+    
+    return [[NSClassFromString(viewController) alloc] initWithViewModel:viewModel];
+}
+
+- (NSDictionary *)viewModelViewMappings {
+    return @{
+    	@"MRCLoginViewModel": @"MRCLoginViewController",
+        @"MRCHomepageViewModel": @"MRCHomepageViewController",
+        @"MRCRepoDetailViewModel": @"MRCRepoDetailViewController",
+        @"MRCWebViewModel": @"MRCWebViewController",
+        @"MRCRepoReadmeViewModel": @"MRCRepoReadmeController",
+        @"MRCSelectBranchOrTagViewModel": @"MRCSelectBranchOrTagViewController",
+        @"MRCGitTreeViewModel": @"MRCGitTreeViewController",
+        @"MRCSourceEditorViewModel": @"MRCSourceEditorViewController",
+        @"MRCSettingsViewModel": @"MRCSettingsViewController",
+        @"MRCAboutViewModel": @"MRCAboutViewController",
+        @"MRCFeedbackViewModel": @"MRCFeedbackViewController",
+        @"MRCRepoSettingsViewModel": @"MRCRepoSettingsViewController",
+        @"MRCUserListViewModel": @"MRCUserListViewController",
+        @"MRCUserDetailViewModel": @"MRCUserDetailViewController",
+        @"MRCOwnedReposViewModel": @"MRCOwnedReposViewController",
+        @"MRCStarredReposViewModel": @"MRCStarredReposViewController",
+        @"MRCPublicReposViewModel": @"MRCPublicReposViewController",
+        @"MRCNewsViewModel": @"MRCNewsViewController",
+        @"MRCSearchViewModel": @"MRCSearchViewController",
+        @"MRCTrendingViewModel": @"MRCTrendingViewController",
+        @"MRCTrendingSettingsViewModel": @"MRCTrendingSettingsViewController",
+    };
+}
+```
+
 ### 登录界面
 
+接下来，我们一起来看一下 `MVVMReactiveCocoa` 中的登录界面用 `MVVM` 的方式是怎样实现的，下面是登录界面的截图：
+
+<img src="http://localhost:4000/images/login.jpg" width="320" />
+
+其中，主要的界面元素有：
+
+- 一个用于展示用户头像的按钮 `avatarButton` ，因为需要点击查看大图，所以直接用的按钮；
+- 用于输入账号和密码的输入框 `usernameTextField` 和 `passwordTextField` ；
+- 一个直接登录的按钮 `loginButton` 和一个跳转到浏览器授权登录的按钮 `browserLoginButton` 。
+
+根据我们前面对 `MVVM` 的探讨，`viewModel` 需要提供 `view` 所需的全部数据和命令。因此，可得 `MRCLoginViewModel` 的头文件如下：
+
+``` objc
+@interface MRCLoginViewModel : MRCViewModel
+
+/// The avatar URL of the user.
+@property (nonatomic, copy, readonly) NSURL *avatarURL;
+
+/// The username entered by the user.
+@property (nonatomic, copy) NSString *username;
+
+/// The password entered by the user.
+@property (nonatomic, copy) NSString *password;
+
+@property (nonatomic, strong, readonly) RACSignal *validLoginSignal;
+
+/// The command of login button.
+@property (nonatomic, strong, readonly) RACCommand *loginCommand;
+
+/// The command of uses browser to login button.
+@property (nonatomic, strong, readonly) RACCommand *browserLoginCommand;
+
+@end
+```
+
+非常直观，其中需要特别说明的是 `validLoginSignal` 属性代表的是登录按钮是否可用，它将会与 `view` 中登录按钮的 `enabled` 属性进行绑定。 接着，我们再来看看 `MRCLoginViewModel` 的实现文件中的部分关键代码：
+
+``` objc
+RAC(self, avatarURL) = [[RACObserve(self, username)
+    map:^(NSString *username) {
+        return [[OCTUser mrc_fetchUserWithRawLogin:username] avatarURL];
+    }]
+    distinctUntilChanged];
+```
+
+当用户输入的用户名发生变化时，调用 `model` 层的方法查询本地数据库中缓存的用户表数据，然后返回 `avatarURL` 属性。
+
+``` objc
+self.validLoginSignal = [[RACSignal
+    combineLatest:@[ RACObserve(self, username), RACObserve(self, password) ]
+    reduce:^(NSString *username, NSString *password) {
+        return @(username.length > 0 && password.length > 0);
+    }]
+    distinctUntilChanged]; 
+```
+    
+当用户输入的用户名或者密码发生变化时，判断用户名和密码的长度是否均大于 `0` ，如果是则登录按钮可用，否则不可用。
+
+``` objc
+self.loginCommand = [[RACCommand alloc] initWithSignalBlock:^(NSString *oneTimePassword) {
+    @strongify(self)
+    OCTUser *user = [OCTUser userWithRawLogin:self.username server:OCTServer.dotComServer];
+    return [[OCTClient
+        signInAsUser:user password:self.password oneTimePassword:oneTimePassword scopes:OCTClientAuthorizationScopesUser | OCTClientAuthorizationScopesRepository note:nil noteURL:nil fingerprint:nil]
+        doNext:doNext];
+}];
+```
+
+因为 `GitHub` 的登录支持 `2FA` ，所以 `loginCommand` 可能会在以下两种情况下进行调用：
+
+- 用户没有在 `GitHub` 上设置登录需要 `2FA` 校验，此时，传入的 `oneTimePassword` 参数为 `nil` ；
+- 用户需要 `2FA` 校验，此时，传入的 `oneTimePassword` 参数不为 `nil` 。
+
+当 `loginCommand` 命令第一次被执行时，外部传入的 `oneTimePassword` 参数为 `nil` ，它会调用 model 层中的方法执行登录请求，如果用户需要 `2FA` 校验，则会登录失败，返回 error ，
+ 
 ## 总结
 
 ## 参考链接
