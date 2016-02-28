@@ -9,13 +9,13 @@ keywords: MVVMReactiveCocoa, MVVM, ReactiveCocoa, RAC, MVC, ViewModel
 
 [MVVM](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93viewmodel) 是一种软件架构模式，它是 [Martin Fowler](https://en.wikipedia.org/wiki/Martin_Fowler) 的 [Presentation Model](http://martinfowler.com/eaaDev/PresentationModel.html) 的一种变体，最先由微软的架构师 John Gossman 在 2005 年提出，并应用在微软的 [WPF](https://en.wikipedia.org/wiki/Windows_Presentation_Foundation) 和 [Silverlight](https://en.wikipedia.org/wiki/Microsoft_Silverlight) 软件开发中。`MVVM` 衍生于 [MVC](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller) ，是对 `MVC` 的一种演进，它促进了 `UI` 代码与业务逻辑的分离。
 
-本文将采取理论与实践相结合的方式，介绍一个使用 `MVVM` 和 `ReactiveCocoa` 开发的 `iOS` 开源项目 [MVVMReactiveCocoa](https://github.com/leichunfeng/MVVMReactiveCocoa) 。在正式开始阅读正文之前，请你先思考以下三个问题：
+**说明**：本文将采用理论与实践相结合的方式，重点介绍一个使用 `MVVM` 和 `ReactiveCocoa` 开发的 `iOS` 开源项目 [MVVMReactiveCocoa](https://github.com/leichunfeng/MVVMReactiveCocoa) 。在正式开始阅读正文之前，请你先思考以下三个问题：
 
 - `MVC` 与 `MVVM` 有什么异同点，`MVC` 到 `MVVM` 是怎样演进的；
-- `ReactiveCocoa` 在 `MVVM` 中扮演什么样的角色，`MVVM` 是否一定要用 `ReactiveCocoa` ；
+- `ReactiveCocoa` 在 `MVVM` 中扮演什么样的角色，`MVVM` 是否一定要结合 `ReactiveCocoa` 使用；
 - 一个现有的 `MVC` 应用如何转变成一个 `MVVM` 应用，有什么需要注意的地方。
 
-带着以上问题，我们一起进入正文。
+带着上面的问题，我们一起进入正文。
 
 ## MVC
 
@@ -144,8 +144,8 @@ keywords: MVVMReactiveCocoa, MVVM, ReactiveCocoa, RAC, MVC, ViewModel
 怎么样，是不是非常简单呢？其实 `MVVM` 并没有我们想像中的那么难吧，而且更重要的是它也没有颠覆 `MVC` 的现有结构，只不过是移动了一些代码，仅此而已。好了，说了这么多，那么 `iOS` 中的 `MVVM` 相对于 `MVC` 来说到底有哪些杀手级的好处呢？主要可以归纳为以下三点：
 
 - 由于展示逻辑被抽取到了 `viewModel` 中，所以 `view` 中的代码将会变得非常轻量级；
-- 由于 `viewModel` 中的代码是与 UI 无关的，所以它可以非常容易被测试；
-- 对于一个封装了大量业务逻辑的 `model` 来说，改变它可能会比较困难，并且存在一定的风险。在这种场景下，viewModel 则可以作为 `model` 的适配器来使用，从而避免对 `model` 进行大的改动。
+- 由于 `viewModel` 中的代码是与 `UI` 无关的，所以它可以非常容易被测试；
+- 对于一个封装了大量业务逻辑的 `model` 来说，改变它可能会比较困难，并且存在一定的风险。在这种场景下，`viewModel` 则可以作为 `model` 的适配器来使用，从而避免对 `model` 进行大的改动。
 
 对于第一点，我们通过前面的代码，已经有了一定的感触；至于第三点，可能对于一个复杂的大型应用来说，才会比较明显；那么，接下来，我们还是用前面的例子代码，来直观地感受一下 `MVVM` 的第二点好处，即 `viewModel` 的可测试性：
 
