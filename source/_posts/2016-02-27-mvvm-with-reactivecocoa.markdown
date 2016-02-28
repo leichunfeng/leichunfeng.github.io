@@ -181,9 +181,9 @@ SpecEnd
 
 ## MVVMReactiveCocoa
 
-接下来，我们进入本文的第二部分，重点介绍一个使用 `MVVM` 和 `RAC` 开发的真实应用，`MVVMReactiveCocoa` 。说明，本文将主要介绍这个应用的架构和设计思路，希望可以为你实践 `MVVM` 提供一个真实的参考案例，有些架构并非是 `MVVM` 模式所必须的，而是我们为了更好更顺畅地使用 `MVVM` 而引入的，尤其是 `ViewModel-Based Navigation` ，所以请你在实践的时候能够结合自身应用的实际情况做出相应的取舍，灵活处理，活学活用。最后，我们将以登录界面为具体的例子，一起探讨一下 `MVVM` 的实践过程。
+接下来，我们进入本文的第二部分，重点介绍一个使用 `MVVM` 和 `RAC` 开发的开源项目 `MVVMReactiveCocoa` 。**说明**，本文将主要介绍这个应用的架构和设计思路，希望可以为你实践 `MVVM` 提供一个真实的参考案例，有些架构并非是 `MVVM` 所必须的，而是我们为了更顺畅地使用 `MVVM` 而引入的，特别是 `ViewModel-Based Navigation` 。所以，请你在实践的过程中能够结合自身应用的实际情况做出相应的取舍，灵活处理。最后，我们将以登录界面为例，一起探讨下 `MVVM` 的实践思路。
 
-**说明**，以下内容均基于 `MVVMReactiveCocoa` 的 [v2.1.1](https://github.com/leichunfeng/MVVMReactiveCocoa/tree/v2.1.1) 标签进行展开，部分代码有删减。
+**说明**，以下内容均基于 `MVVMReactiveCocoa` 的 [v2.1.1](https://github.com/leichunfeng/MVVMReactiveCocoa/tree/v2.1.1) 标签进行展开，并且对部分无关代码做了删减。
 
 ### 类图
 
