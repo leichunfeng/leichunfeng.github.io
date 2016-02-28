@@ -4,7 +4,7 @@
   <title><![CDATA[雷纯锋的技术博客]]></title>
   <link href="http://leichunfeng.github.io/atom.xml" rel="self"/>
   <link href="http://leichunfeng.github.io/"/>
-  <updated>2016-01-25T21:15:21+08:00</updated>
+  <updated>2016-02-28T23:19:24+08:00</updated>
   <id>http://leichunfeng.github.io/</id>
   <author>
     <name><![CDATA[雷纯锋]]></name>
@@ -12,6 +12,864 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[MVVM With ReactiveCocoa]]></title>
+    <link href="http://leichunfeng.github.io/blog/2016/02/27/mvvm-with-reactivecocoa/"/>
+    <updated>2016-02-27T22:17:12+08:00</updated>
+    <id>http://leichunfeng.github.io/blog/2016/02/27/mvvm-with-reactivecocoa</id>
+    <content type="html"><![CDATA[<p><a href="https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93viewmodel">MVVM</a> 是一种软件架构模式，它是 <a href="https://en.wikipedia.org/wiki/Martin_Fowler">Martin Fowler</a> 的 <a href="http://martinfowler.com/eaaDev/PresentationModel.html">Presentation Model</a> 的一种变体，最先由微软的架构师 John Gossman 在 2005 年提出，并应用在微软的 <a href="https://en.wikipedia.org/wiki/Windows_Presentation_Foundation">WPF</a> 和 <a href="https://en.wikipedia.org/wiki/Microsoft_Silverlight">Silverlight</a> 软件开发中。<code>MVVM</code> 衍生于 <a href="https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller">MVC</a> ，是对 <code>MVC</code> 的一种演进，它促进了 <code>UI</code> 代码与业务逻辑的分离。</p>
+
+<p><strong>说明</strong>：本文将采用理论与实践相结合的方式，重点介绍一个使用 <code>MVVM</code> 和 <code>RAC</code> 开发的 <code>iOS</code> 开源项目 <a href="https://github.com/leichunfeng/MVVMReactiveCocoa">MVVMReactiveCocoa</a> ，目的是希望能为你实践 <code>MVVM</code> 提供帮助。不过，在正式开始介绍正文之前，请你先思考以下三个问题：</p>
+
+<ul>
+<li><code>MVC</code> 与 <code>MVVM</code> 有什么异同点，<code>MVC</code> 到 <code>MVVM</code> 是怎样演进的；</li>
+<li><code>RAC</code> 在 <code>MVVM</code> 中扮演什么样的角色，<code>MVVM</code> 是否一定要结合 <code>RAC</code> 使用；</li>
+<li>如何将一个现有的 <code>MVC</code> 应用转变成一个 <code>MVVM</code> 应用，有哪些需要注意的地方。</li>
+</ul>
+
+
+<p>带着以上问题，我们一起进入正文。</p>
+
+<p><strong>名词解释</strong>：本文中的 <code>RAC</code> 为 <code>ReactiveCocoa</code> 的缩写。</p>
+
+<h2>MVC</h2>
+
+<p><code>MVC</code> 是 <code>iOS</code> 开发中使用最普遍的架构模式，同时也是苹果官方推荐的架构模式。<code>MVC</code> 代表的是 <code>Model–view–controller</code> ，它们之间的关系如下：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/M-V-C.png" width="409" /></p>
+
+<p>是的，<code>MVC</code> 看上去棒极了，<code>model</code> 代表数据，<code>view</code> 代表 <code>UI</code> ，而 <code>controller</code> 则负责协调它们两者之间的关系。然而，尽管从技术上看 <code>view</code> 和 <code>controller</code> 是相互独立的，但事实上它们几乎总是结对出现，一个 <code>view</code> 只能与一个 <code>controller</code> 进行匹配，反之亦然。既然如此，那我们为何不将它们看作一个整体呢：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/M-VC.png" width="409" /></p>
+
+<p>因此，<code>M-VC</code> 可能是对 <code>iOS</code> 中的 <code>MVC</code> 模式更为准确的解读。在一个典型的 <code>MVC</code> 应用中，<code>controller</code> 由于承载了过多的逻辑，往往会变得臃肿不堪，所以 <code>MVC</code> 也经常被人调侃成 <a href="https://twitter.com/Colin_Campbell/status/293167951132098560">Massive View Controller</a> ：</p>
+
+<blockquote><p>iOS architecture, where MVC stands for Massive View Controller.</p></blockquote>
+
+<p>坦白说，有一部分逻辑确实是属于 <code>controller</code> 的，但是也有一部分逻辑是不应该被放置在 <code>controller</code> 中的。比如，将 <code>model</code> 中的 <code>NSDate</code> 转换成 <code>view</code> 可以展示的 <code>NSString</code> 等。在 <code>MVVM</code> 中，我们将这些逻辑统称为展示逻辑。</p>
+
+<h2>MVVM</h2>
+
+<p>因此，一种可以很好地解决 <code>Massive View Controller</code> 问题的办法就是将 <code>controller</code> 中的展示逻辑抽取出来，放置到一个专门的地方，而这个地方就是 <code>viewModel</code> 。其实，我们只要在上图中的 <code>M-VC</code> 之间放入 <code>VM</code> ，就可以得到 <code>MVVM</code> 模式的结构图：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/M-V-VM.png" width="409" /></p>
+
+<p>从上图中，我们可以非常清楚地看到 <code>MVVM</code> 中四个组件之间的关系。<strong>注</strong>：除了 <code>view</code> 、<code>viewModel</code> 和 <code>model</code> 之外，<code>MVVM</code> 中还有一个非常重要的隐含组件 <code>binder</code> ：</p>
+
+<ul>
+<li><code>view</code> ：由 <code>MVC</code> 中的 <code>view</code> 和 <code>controller</code> 组成，负责 <code>UI</code> 的展示，绑定 <code>viewModel</code> 中的属性，触发 <code>viewModel</code> 中的命令；</li>
+<li><code>viewModel</code> ：从 <code>MVC</code> 的 <code>controller</code> 中抽取出来的展示逻辑，负责从 <code>model</code> 中获取 <code>view</code> 所需的数据，转换成 <code>view</code> 可以展示的数据，并暴露公开的属性和命令供 <code>view</code> 进行绑定；</li>
+<li><code>model</code> ：与 <code>MVC</code> 中的 <code>model</code> 一致，包括数据模型、访问数据库的操作和网络请求等；</li>
+<li><code>binder</code> ：在 <code>MVVM</code> 中，声明式的数据和命令绑定是一个隐含的约定，它可以让开发者非常方便地实现 <code>view</code> 和 <code>viewModel</code> 的同步，避免编写大量繁杂的样板化代码。在微软的 <code>MVVM</code> 实现中，使用的是一种被称为 <a href="https://en.wikipedia.org/wiki/Extensible_Application_Markup_Language">XAML</a> 的标记语言。</li>
+</ul>
+
+
+<h2>ReactiveCocoa</h2>
+
+<p>尽管，在 <code>iOS</code> 开发中，系统并没有提供类似的框架可以让我们方便地实现 <code>binder</code> 功能，不过，值得庆幸的是，<code>GitHub</code> 开源的 <code>RAC</code> ，给了我们一个非常不错的选择。</p>
+
+<p><code>RAC</code> 是一个 <code>iOS</code> 中的函数式响应式编程框架，它受 <a href="https://en.wikipedia.org/wiki/Functional_reactive_programming">Functional Reactive Programming</a> 的启发，是 <a href="https://github.com/jspahrsummers">Justin Spahr-Summers</a> 和 <a href="https://github.com/joshaber">Josh Abernathy</a> 在开发 <a href="https://desktop.github.com/">GitHub for Mac</a> 过程中的一个副产品，它提供了一系列用来组合和转换值流的 <code>API</code> 。如需了解更多关于 <code>RAC</code> 的信息，可以阅读我的上一篇文章<a href="http://blog.leichunfeng.com/blog/2015/12/25/reactivecocoa-v2-dot-5-yuan-ma-jie-xi-zhi-jia-gou-zong-lan/">《ReactiveCocoa v2.5 源码解析之架构总览》</a>。</p>
+
+<p>在 <code>iOS</code> 的 <code>MVVM</code> 实现中，我们可以使用 <code>RAC</code> 来在 <code>view</code> 和 <code>viewModel</code> 之间充当 <code>binder</code> 的角色，优雅地实现两者之间的同步。此外，我们还可以把 <code>RAC</code> 用在 <code>model</code> 层，使用 <code>Signal</code> 来代表异步的数据获取操作，比如读取文件、访问数据库和网络请求等。<strong>说明</strong>，<code>RAC</code> 的后一个应用场景是与 <code>MVVM</code> 无关的，也就是说，我们同样可以在 <code>MVC</code> 的 <code>model</code> 层这么用。</p>
+
+<h2>小结</h2>
+
+<p>综上所述，我们只要将 <code>MVC</code> 中的 <code>controller</code> 中的展示逻辑抽取出来，放置到 <code>viewModel</code> 中，然后通过一定的技术手段，比如 <code>RAC</code> 来同步 <code>view</code> 和 <code>viewModel</code> ，就完成了 <code>MVC</code> 到 <code>MVVM</code> 的转变。</p>
+
+<blockquote><p>Talk is cheap. Show me the code.</p></blockquote>
+
+<p>下面，我们直接上代码，一起来看一个 <code>MVC</code> 模式转换成 <code>MVVM</code> 模式的示例。首先是 <code>model</code> 层的代码 <code>Person</code> ：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@interface</span> <span class="nc">Person</span> : <span class="bp">NSObject</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">instancetype</span><span class="p">)</span><span class="nf">initwithSalutation:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">salutation</span> <span class="nf">firstName:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">firstName</span> <span class="nf">lastName:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">lastName</span> <span class="nf">birthdate:</span><span class="p">(</span><span class="bp">NSDate</span> <span class="o">*</span><span class="p">)</span><span class="nv">birthdate</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">salutation</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">firstName</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">lastName</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="bp">NSDate</span> <span class="o">*</span><span class="n">birthdate</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>然后是 <code>view</code> 层的代码 <code>PersonViewController</code> ，在 <code>viewDidLoad</code> 方法中，我们将 <code>Person</code> 中的属性进行一定的转换后，赋值给相应的 <code>view</code> 进行展示：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidLoad</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="n">viewDidLoad</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">model</span><span class="p">.</span><span class="n">salutation</span><span class="p">.</span><span class="n">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="nb">self</span><span class="p">.</span><span class="n">nameLabel</span><span class="p">.</span><span class="n">text</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&quot;%@ %@ %@&quot;</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">model</span><span class="p">.</span><span class="n">salutation</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">model</span><span class="p">.</span><span class="n">firstName</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">model</span><span class="p">.</span><span class="n">lastName</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>        <span class="nb">self</span><span class="p">.</span><span class="n">nameLabel</span><span class="p">.</span><span class="n">text</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&quot;%@ %@&quot;</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">model</span><span class="p">.</span><span class="n">firstName</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">model</span><span class="p">.</span><span class="n">lastName</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="bp">NSDateFormatter</span> <span class="o">*</span><span class="n">dateFormatter</span> <span class="o">=</span> <span class="p">[[</span><span class="bp">NSDateFormatter</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">setDateFormat</span><span class="p">:</span><span class="s">@&quot;EEEE MMMM d, yyyy&quot;</span><span class="p">];</span>
+</span><span class='line'>    <span class="nb">self</span><span class="p">.</span><span class="n">birthdateLabel</span><span class="p">.</span><span class="n">text</span> <span class="o">=</span> <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">stringFromDate</span><span class="p">:</span><span class="n">model</span><span class="p">.</span><span class="n">birthdate</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>接下来，我们引入一个 <code>viewModel</code> ，将 <code>PersonViewController</code> 中的展示逻辑抽取到这个 <code>PersonViewModel</code> 中：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@interface</span> <span class="nc">PersonViewModel</span> : <span class="bp">NSObject</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">instancetype</span><span class="p">)</span><span class="nf">initWithPerson:</span><span class="p">(</span><span class="n">Person</span> <span class="o">*</span><span class="p">)</span><span class="nv">person</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">strong</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">Person</span> <span class="o">*</span><span class="n">person</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">nameText</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">birthdateText</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@implementation</span> <span class="nc">PersonViewModel</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">instancetype</span><span class="p">)</span><span class="nf">initWithPerson:</span><span class="p">(</span><span class="n">Person</span> <span class="o">*</span><span class="p">)</span><span class="nv">person</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nb">self</span> <span class="o">=</span> <span class="p">[</span><span class="nb">super</span> <span class="n">init</span><span class="p">];</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>       <span class="n">_person</span> <span class="o">=</span> <span class="n">person</span><span class="p">;</span>
+</span><span class='line'>  
+</span><span class='line'>      <span class="k">if</span> <span class="p">(</span><span class="n">person</span><span class="p">.</span><span class="n">salutation</span><span class="p">.</span><span class="n">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="n">_nameText</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&quot;%@ %@ %@&quot;</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">person</span><span class="p">.</span><span class="n">salutation</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">person</span><span class="p">.</span><span class="n">firstName</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">person</span><span class="p">.</span><span class="n">lastName</span><span class="p">];</span>
+</span><span class='line'>      <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>          <span class="n">_nameText</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&quot;%@ %@&quot;</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">person</span><span class="p">.</span><span class="n">firstName</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">person</span><span class="p">.</span><span class="n">lastName</span><span class="p">];</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  
+</span><span class='line'>      <span class="bp">NSDateFormatter</span> <span class="o">*</span><span class="n">dateFormatter</span> <span class="o">=</span> <span class="p">[[</span><span class="bp">NSDateFormatter</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+</span><span class='line'>      <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">setDateFormat</span><span class="p">:</span><span class="s">@&quot;EEEE MMMM d, yyyy&quot;</span><span class="p">];</span>
+</span><span class='line'>      <span class="n">_birthdateText</span> <span class="o">=</span> <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">stringFromDate</span><span class="p">:</span><span class="n">person</span><span class="p">.</span><span class="n">birthdate</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="k">return</span> <span class="nb">self</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>最终，<code>PersonViewController</code> 将会变得非常轻量级：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidLoad</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="n">viewDidLoad</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nb">self</span><span class="p">.</span><span class="n">nameLabel</span><span class="p">.</span><span class="n">text</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">viewModel</span><span class="p">.</span><span class="n">nameText</span><span class="p">;</span>
+</span><span class='line'>    <span class="nb">self</span><span class="p">.</span><span class="n">birthdateLabel</span><span class="p">.</span><span class="n">text</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">viewModel</span><span class="p">.</span><span class="n">birthdateText</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>怎么样？其实 <code>MVVM</code> 并没有想像中的那么难吧，而且更重要的是它也没有破坏 <code>MVC</code> 的现有结构，只不过是移动了一些代码，仅此而已。好了，说了这么多，那 <code>MVVM</code> 相比 <code>MVC</code> 到底有哪些好处呢？我想，主要可以归纳为以下三点：</p>
+
+<ul>
+<li>由于展示逻辑被抽取到了 <code>viewModel</code> 中，所以 <code>view</code> 中的代码将会变得非常轻量级；</li>
+<li>由于 <code>viewModel</code> 中的代码是与 <code>UI</code> 无关的，所以它具有良好的可测试性；</li>
+<li>对于一个封装了大量业务逻辑的 <code>model</code> 来说，改变它可能会比较困难，并且存在一定的风险。在这种场景下，<code>viewModel</code> 可以作为 <code>model</code> 的适配器使用，从而避免对 <code>model</code> 进行较大的改动。</li>
+</ul>
+
+
+<p>通过前面的示例，我们对第一点已经有了一定的感触；至于第三点，可能对于一个复杂的大型应用来说，才会比较明显；下面，我们还是使用前面的示例，来直观地感受下第二点好处：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">SpecBegin</span><span class="p">(</span><span class="n">Person</span><span class="p">)</span>
+</span><span class='line'>    <span class="bp">NSString</span> <span class="o">*</span><span class="n">salutation</span> <span class="o">=</span> <span class="s">@&quot;Dr.&quot;</span><span class="p">;</span>
+</span><span class='line'>    <span class="bp">NSString</span> <span class="o">*</span><span class="n">firstName</span> <span class="o">=</span> <span class="s">@&quot;first&quot;</span><span class="p">;</span>
+</span><span class='line'>    <span class="bp">NSString</span> <span class="o">*</span><span class="n">lastName</span> <span class="o">=</span> <span class="s">@&quot;last&quot;</span><span class="p">;</span>
+</span><span class='line'>    <span class="bp">NSDate</span> <span class="o">*</span><span class="n">birthdate</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSDate</span> <span class="nl">dateWithTimeIntervalSince1970</span><span class="p">:</span><span class="mi">0</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">it</span> <span class="p">(</span><span class="s">@&quot;should use the salutation available. &quot;</span><span class="p">,</span> <span class="o">^</span><span class="p">{</span>
+</span><span class='line'>        <span class="n">Person</span> <span class="o">*</span><span class="n">person</span> <span class="o">=</span> <span class="p">[[</span><span class="n">Person</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithSalutation</span><span class="p">:</span><span class="n">salutation</span> <span class="nl">firstName</span><span class="p">:</span><span class="n">firstName</span> <span class="nl">lastName</span><span class="p">:</span><span class="n">lastName</span> <span class="nl">birthdate</span><span class="p">:</span><span class="n">birthdate</span><span class="p">];</span>
+</span><span class='line'>        <span class="n">PersonViewModel</span> <span class="o">*</span><span class="n">viewModel</span> <span class="o">=</span> <span class="p">[[</span><span class="n">PersonViewModel</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithPerson</span><span class="p">:</span><span class="n">person</span><span class="p">];</span>
+</span><span class='line'>        <span class="n">expect</span><span class="p">(</span><span class="n">viewModel</span><span class="p">.</span><span class="n">nameText</span><span class="p">).</span><span class="n">to</span><span class="p">.</span><span class="n">equal</span><span class="p">(</span><span class="s">@&quot;Dr. first last&quot;</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">it</span> <span class="p">(</span><span class="s">@&quot;should not use an unavailable salutation. &quot;</span><span class="p">,</span> <span class="o">^</span><span class="p">{</span>
+</span><span class='line'>        <span class="n">Person</span> <span class="o">*</span><span class="n">person</span> <span class="o">=</span> <span class="p">[[</span><span class="n">Person</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithSalutation</span><span class="p">:</span><span class="nb">nil</span> <span class="nl">firstName</span><span class="p">:</span><span class="n">firstName</span> <span class="nl">lastName</span><span class="p">:</span><span class="n">lastName</span> <span class="nl">birthdate</span><span class="p">:</span><span class="n">birthdate</span><span class="p">];</span>
+</span><span class='line'>        <span class="n">PersonViewModel</span> <span class="o">*</span><span class="n">viewModel</span> <span class="o">=</span> <span class="p">[[</span><span class="n">PersonViewModel</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithPerson</span><span class="p">:</span><span class="n">person</span><span class="p">];</span>
+</span><span class='line'>        <span class="n">expect</span><span class="p">(</span><span class="n">viewModel</span><span class="p">.</span><span class="n">nameText</span><span class="p">).</span><span class="n">to</span><span class="p">.</span><span class="n">equal</span><span class="p">(</span><span class="s">@&quot;first last&quot;</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">it</span> <span class="p">(</span><span class="s">@&quot;should use the correct date format. &quot;</span><span class="p">,</span> <span class="o">^</span><span class="p">{</span>
+</span><span class='line'>        <span class="n">Person</span> <span class="o">*</span><span class="n">person</span> <span class="o">=</span> <span class="p">[[</span><span class="n">Person</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithSalutation</span><span class="p">:</span><span class="nb">nil</span> <span class="nl">firstName</span><span class="p">:</span><span class="n">firstName</span> <span class="nl">lastName</span><span class="p">:</span><span class="n">lastName</span> <span class="nl">birthdate</span><span class="p">:</span><span class="n">birthdate</span><span class="p">];</span>
+</span><span class='line'>        <span class="n">PersonViewModel</span> <span class="o">*</span><span class="n">viewModel</span> <span class="o">=</span> <span class="p">[[</span><span class="n">PersonViewModel</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithPerson</span><span class="p">:</span><span class="n">person</span><span class="p">];</span>
+</span><span class='line'>        <span class="n">expect</span><span class="p">(</span><span class="n">viewModel</span><span class="p">.</span><span class="n">birthdateText</span><span class="p">).</span><span class="n">to</span><span class="p">.</span><span class="n">equal</span><span class="p">(</span><span class="s">@&quot;Thursday January 1, 1970&quot;</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'><span class="n">SpecEnd</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>对于 <code>MVVM</code> 来说，我们可以把 <code>view</code> 看作是 <code>viewModel</code> 的可视化形式，<code>viewModel</code> 提供了 <code>view</code> 所需的数据和命令。因此，<code>viewModel</code> 的可测试性可以帮助我们极大地提高应用的质量。</p>
+
+<h2>MVVMReactiveCocoa</h2>
+
+<p>接下来，我们进入本文的第二部分，重点介绍一个使用 <code>MVVM</code> 和 <code>RAC</code> 开发的开源项目 <code>MVVMReactiveCocoa</code> 。<strong>说明</strong>，本文将主要介绍这个应用的架构和设计思路，希望可以为你实践 <code>MVVM</code> 提供一个真实的参考案例，有些架构并非是 <code>MVVM</code> 所必须的，而是我们为了更顺畅地使用 <code>MVVM</code> 而引入的，特别是 <code>ViewModel-Based Navigation</code> 。所以，请你在实践的过程中能够结合自身应用的实际情况做出相应的取舍，灵活处理。最后，我们将以登录界面为例，一起探讨下 <code>MVVM</code> 的实践思路。</p>
+
+<p><strong>说明</strong>，以下内容均基于 <code>MVVMReactiveCocoa</code> 的 <a href="https://github.com/leichunfeng/MVVMReactiveCocoa/tree/v2.1.1">v2.1.1</a> 标签进行展开，并且对部分无关代码做了删减。</p>
+
+<h3>类图</h3>
+
+<p>为了方便我们从宏观上了解 <code>MVVMReactiveCocoa</code> 的整体结构，我们先来看看它的类图：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/MVVMReactiveCocoa-v2.1.1.png" alt="MVVMReactiveCocoa-v2.1.1" /></p>
+
+<p>从上图中，我们可以看到，在 <code>MVVMReactiveCocoa</code> 中主要有两大继承体系：</p>
+
+<ul>
+<li>用蓝色标识出来的 <code>viewModel</code> 的继承体系，基类为 <code>MRCViewModel</code> ；</li>
+<li>用红色标识出来的 <code>view</code> 的继承体系，基类为 <code>MRCViewController</code> 。</li>
+</ul>
+
+
+<p>除了提供与系统基类 <code>UIViewController</code> 相对应的基类 <code>MRCViewModel/MRCViewController</code> 外，还提供了与系统基类 <code>UITableViewController</code> 和 <code>UITabBarController</code> 相对应的基类 <code>MRCTableViewModel/MRCTableViewController</code> 和 <code>MRCTabBarViewModel/MRCTabBarController</code> ，其中基类 <code>MRCTableViewModel/MRCTableViewController</code> 的使用最为普遍。</p>
+
+<p><strong>说明</strong>，之所以通过基类的方式来组织 <code>MVVMReactiveCocoa</code> ，一方面是因为主要开发者只有我一个人，这个方案非常容易实施；另一方面是因为通过基类的方式可以尽可能简单地实现代码重用，提高开发效率。</p>
+
+<h3>服务总线</h3>
+
+<p>经过前面的探讨，我们已经知道了 <code>MVVM</code> 中的 <code>viewModel</code> 的主要职责就是从 <code>model</code> 层获取 <code>view</code> 所需的数据，并且将这些数据转换成 <code>view</code> 能够展示的形式。因此，为了方便 <code>viewModel</code> 层调用 <code>model</code> 层中的所有服务，并且统一管理这些服务的创建，我使用抽象工厂模式将 <code>model</code> 层的所有服务集中管理了起来，结构图如下：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/service-bus.png" width="558" /></p>
+
+<p>从上图中，我们可以看出，在服务总线类 <code>MRCViewModelServices/MRCViewModelServicesImpl</code> 中，主要包括以下三个方面的内容：</p>
+
+<ul>
+<li>应用自有的服务类，用柚黄色进行了标识，包括 <code>MRCAppStoreService/MRCAppStoreServiceImpl</code> 和 <code>MRCRepositoryService/MRCRepositoryServiceImpl</code> 两个服务类；</li>
+<li>第三方 <code>GitHub</code> 提供的 <code>API</code> 框架，用天蓝色进行了标识，主要包括 <code>OCTClient</code> 服务类；</li>
+<li>应用的导航服务，用藻绿色进行了标识，包括 <code>MRCNavigationProtocol</code> 协议和实现类 <code>MRCViewModelServicesImpl</code> 等。</li>
+</ul>
+
+
+<p>其中，前两者都是以信号的形式对 <code>viewModel</code> 层提供服务，代表异步的网络请求等数据获取操作，而我们在 <code>viewModel</code> 层则可以通过订阅信号的形式获取到所需的数据。此外，服务总线还实现了 <code>MRCNavigationProtocol</code> 协议，它的内容如下：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@protocol</span> <span class="nc">MRCNavigationProtocol</span> <span class="o">&lt;</span><span class="bp">NSObject</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nl">pushViewModel</span><span class="p">:(</span><span class="n">MRCViewModel</span> <span class="o">*</span><span class="p">)</span><span class="n">viewModel</span> <span class="nl">animated</span><span class="p">:(</span><span class="kt">BOOL</span><span class="p">)</span><span class="n">animated</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">popViewModelAnimated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">popToRootViewModelAnimated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">presentViewModel:</span><span class="p">(</span><span class="n">MRCViewModel</span> <span class="o">*</span><span class="p">)</span><span class="nv">viewModel</span> <span class="nf">animated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="nf">completion:</span><span class="p">(</span><span class="n">VoidBlock</span><span class="p">)</span><span class="nv">completion</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">dismissViewModelAnimated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="nf">completion:</span><span class="p">(</span><span class="n">VoidBlock</span><span class="p">)</span><span class="nv">completion</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">resetRootViewModel:</span><span class="p">(</span><span class="n">MRCViewModel</span> <span class="o">*</span><span class="p">)</span><span class="nv">viewModel</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>看上去是不是有点眼熟？是的，<code>MRCNavigationProtocol</code> 协议其实就是参照系统的导航操作定义出来的，用来实现 <code>ViewModel-Based</code> 的导航服务。<strong>注意</strong>，服务总线类 <code>MRCViewModelServicesImpl</code> 其实并没有真正实现 <code>MRCNavigationProtocol</code> 协议中声明的操作，只不过是实现了一些空操作而已：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">pushViewModel:</span><span class="p">(</span><span class="n">MRCViewModel</span> <span class="o">*</span><span class="p">)</span><span class="nv">viewModel</span> <span class="nf">animated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">popViewModelAnimated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">popToRootViewModelAnimated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">presentViewModel:</span><span class="p">(</span><span class="n">MRCViewModel</span> <span class="o">*</span><span class="p">)</span><span class="nv">viewModel</span> <span class="nf">animated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="nf">completion:</span><span class="p">(</span><span class="n">VoidBlock</span><span class="p">)</span><span class="nv">completion</span> <span class="p">{}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">dismissViewModelAnimated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="nf">completion:</span><span class="p">(</span><span class="n">VoidBlock</span><span class="p">)</span><span class="nv">completion</span> <span class="p">{}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">resetRootViewModel:</span><span class="p">(</span><span class="n">MRCViewModel</span> <span class="o">*</span><span class="p">)</span><span class="nv">viewModel</span> <span class="p">{}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>那么，我们是怎么实现 <code>ViewModel-Based</code> 的导航操作的呢？用 <code>MRCViewModelServicesImpl</code> 来实现这些空操作到底有什么用意？为什么要这么做，目的是为了什么？兄台，莫急，请接着看下一小节的内容。</p>
+
+<h3>ViewModel-Based Navigation</h3>
+
+<p>我们先来思考一个问题，就是我们为什么要实现 <code>ViewModel-Based</code> 的导航操作呢？直接在 <code>view</code> 层使用系统的 <code>push/present</code> 等操作来完成导航不就好了么？我总结了一下这么做的理由，主要有以下三点：</p>
+
+<ul>
+<li>从理论上来说，<code>MVVM</code> 模式的应用应该是以 <code>viewModel</code> 为驱动来运转的；</li>
+<li>根据我们前面对 <code>MVVM</code> 的探讨，<code>viewModel</code> 提供了 <code>view</code> 所需的数据和命令。因此，我们往往可以直接在命令执行成功后使用 <code>doNext</code> 顺带就把导航操作给做了，一气呵成；</li>
+<li>这样可以使 <code>view</code> 更加轻量级，只需要绑定 <code>viewModel</code> 提供的数据和命令即可。</li>
+</ul>
+
+
+<p>既然如此，那我们究竟要如何实现 <code>ViewModel-Based</code> 的导航操作呢？我们都知道 <code>iOS</code> 中的导航操作无外乎两种，<code>push/pop</code> 和 <code>present/dismiss</code> ，前者是 <code>UINavigationController</code> 特有的功能，而后者是所有 <code>UIViewController</code> 都具备的功能。<strong>注意</strong>，<code>UINavigationController</code> 也是 <code>UIViewController</code> 的子类，所以它也同样具备 <code>present/dismiss</code> 的功能。因此，从本质上来说，不管我们要实现什么样的导航操作，最终都是离不开 <code>push/pop</code> 和 <code>present/dismiss</code> 的。</p>
+
+<p>目前，<code>MVVMReactiveCocoa</code> 的做法是在 <code>view</code> 层维护一个 <code>NavigationController</code> 的堆栈 <code>MRCNavigationControllerStack</code> ，不管是 <code>push/pop</code> 还是 <code>present/dismiss</code> ，都使用栈顶的 <code>NavigationController</code> 来执行导航操作，并且保证 <code>present</code> 出来的是一个 <code>NavigationController</code> 。</p>
+
+<p>接下来，我们一起来看看 <code>MVVMReactiveCocoa</code> 在执行了 <code>push/pop</code> 或 <code>present/dismiss</code> 操作后视图层次结构的变化过程。首先，我们来看看用户在登录成功后进入到首页时应用的视图层次结构图：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/view-model-based1.png" width="671" /></p>
+
+<p>此时，应用展示的界面是 <code>NewsViewController</code> 。在 <code>MRCNavigationControllerStack</code> 堆栈中只有 <code>NavigationController0</code> 一个元素；而 <code>NavigationController1</code> 并没有在 <code>MRCNavigationControllerStack</code> 堆栈中，这是因为需要支持 <code>TabBarController</code> 的滑动切换而设计的视图层次结构，是首页比较特殊的一个地方。更多信息可以查看 <code>GitHub</code> 开源库 <a href="https://github.com/leichunfeng/WXTabBarController">WXTabBarController</a> ，在这里，我们不用太过于关心这个问题，只需要理解原理就好了。</p>
+
+<p>接下来，当用户在 <code>NewsViewController</code> 界面，点击了某一个 <code>cell</code> ，通过 <code>push</code> 的方式，进入到仓库详情界面时，应用的视图层次结构图如下：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/view-model-based2.png" width="184" /></p>
+
+<p>应用通过 <code>MRCNavigationControllerStack</code> 栈顶的元素 <code>NavigationController0</code> ，将仓库详情界面 <code>push</code> 到了自身的堆栈中。此时，应用展示的界面是被 <code>push</code> 进来的仓库详情界面 <code>RepoDetailViewController</code> 。最后，当用户在仓库详情界面，点击左下角的切换分支按钮，通过 <code>present</code> 的方式，弹出分支选择界面时，应用的视图层次结构图如下：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/view-model-based3.png" width="454" /></p>
+
+<p>应用通过 <code>MRCNavigationControllerStack</code> 栈顶的元素 <code>NavigationController0</code> ，将 <code>NavigationController5</code> 以 <code>present</code> 的方式弹出来。此时，应用展示的是 <code>NavigationController5</code> 的根视图 <code>SelectBranchOrTagViewController</code> 。<strong>说明</strong>，由于 <code>pop</code> 和 <code>dismiss</code> 与 <code>push</code> 和 <code>present</code> 互为逆操作，所以只要按照从下到上的顺序看上面的视图层次结构图即可，这里不再赘述。</p>
+
+<p>等等，如果我没有记错的话，<code>MRCNavigationControllerStack</code> 堆栈是在 <code>view</code> 层，而服务总线类 <code>MRCViewModelServicesImpl</code> 是在 <code>viewModel</code> 层的。据我所知，<code>viewModel</code> 层是不能引入 <code>view</code> 层的任何东西的，更严格的说，是不能引入任何 <code>UIKit</code> 中的东西的，否则就违背了 <code>MVVM</code> 的基本原则，并且也会散失 <code>viewModel</code> 的可测试性。在这个前提下，你要如何让这两者产生关联呢？</p>
+
+<p>没错，这就是 <code>MRCViewModelServicesImpl</code> 中之所以实现那些空操作的目的所在了。<code>viewModel</code> 通过调用 <code>MRCViewModelServicesImpl</code> 中的空操作来表明需要执行相应的导航操作，而 <code>MRCNavigationControllerStack</code> 则通过 <code>Hook</code> 来捕获这些空操作，然后使用栈顶的 <code>NavigationController</code> 来执行真正的导航操作：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">registerNavigationHooks</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">@</span><span class="n">weakify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>    <span class="p">[[(</span><span class="bp">NSObject</span> <span class="o">*</span><span class="p">)</span><span class="nb">self</span><span class="p">.</span><span class="n">services</span>
+</span><span class='line'>        <span class="nl">rac_signalForSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">pushViewModel</span><span class="p">:</span><span class="nl">animated</span><span class="p">:)]</span>
+</span><span class='line'>        <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="n">RACTuple</span> <span class="o">*</span><span class="n">tuple</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="p">@</span><span class="n">strongify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>            <span class="bp">UIViewController</span> <span class="o">*</span><span class="n">viewController</span> <span class="o">=</span> <span class="p">(</span><span class="bp">UIViewController</span> <span class="o">*</span><span class="p">)[</span><span class="n">MRCRouter</span><span class="p">.</span><span class="n">sharedInstance</span> <span class="nl">viewControllerForViewModel</span><span class="p">:</span><span class="n">tuple</span><span class="p">.</span><span class="n">first</span><span class="p">];</span>
+</span><span class='line'>            <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">navigationControllers</span><span class="p">.</span><span class="n">lastObject</span> <span class="nl">pushViewController</span><span class="p">:</span><span class="n">viewController</span> <span class="nl">animated</span><span class="p">:[</span><span class="n">tuple</span><span class="p">.</span><span class="n">second</span> <span class="n">boolValue</span><span class="p">]];</span>
+</span><span class='line'>        <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[[(</span><span class="bp">NSObject</span> <span class="o">*</span><span class="p">)</span><span class="nb">self</span><span class="p">.</span><span class="n">services</span>
+</span><span class='line'>        <span class="nl">rac_signalForSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">popViewModelAnimated</span><span class="p">:)]</span>
+</span><span class='line'>        <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="n">RACTuple</span> <span class="o">*</span><span class="n">tuple</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="p">@</span><span class="n">strongify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>            <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">navigationControllers</span><span class="p">.</span><span class="n">lastObject</span> <span class="nl">popViewControllerAnimated</span><span class="p">:[</span><span class="n">tuple</span><span class="p">.</span><span class="n">first</span> <span class="n">boolValue</span><span class="p">]];</span>
+</span><span class='line'>        <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[[(</span><span class="bp">NSObject</span> <span class="o">*</span><span class="p">)</span><span class="nb">self</span><span class="p">.</span><span class="n">services</span>
+</span><span class='line'>        <span class="nl">rac_signalForSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">popToRootViewModelAnimated</span><span class="p">:)]</span>
+</span><span class='line'>        <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="n">RACTuple</span> <span class="o">*</span><span class="n">tuple</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="p">@</span><span class="n">strongify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>            <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">navigationControllers</span><span class="p">.</span><span class="n">lastObject</span> <span class="nl">popToRootViewControllerAnimated</span><span class="p">:[</span><span class="n">tuple</span><span class="p">.</span><span class="n">first</span> <span class="n">boolValue</span><span class="p">]];</span>
+</span><span class='line'>        <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[[(</span><span class="bp">NSObject</span> <span class="o">*</span><span class="p">)</span><span class="nb">self</span><span class="p">.</span><span class="n">services</span>
+</span><span class='line'>        <span class="nl">rac_signalForSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">presentViewModel</span><span class="p">:</span><span class="nl">animated</span><span class="p">:</span><span class="nl">completion</span><span class="p">:)]</span>
+</span><span class='line'>        <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="n">RACTuple</span> <span class="o">*</span><span class="n">tuple</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="p">@</span><span class="n">strongify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>            <span class="bp">UIViewController</span> <span class="o">*</span><span class="n">viewController</span> <span class="o">=</span> <span class="p">(</span><span class="bp">UIViewController</span> <span class="o">*</span><span class="p">)[</span><span class="n">MRCRouter</span><span class="p">.</span><span class="n">sharedInstance</span> <span class="nl">viewControllerForViewModel</span><span class="p">:</span><span class="n">tuple</span><span class="p">.</span><span class="n">first</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="bp">UINavigationController</span> <span class="o">*</span><span class="n">presentingViewController</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">navigationControllers</span><span class="p">.</span><span class="n">lastObject</span><span class="p">;</span>
+</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="n">viewController</span> <span class="nl">isKindOfClass</span><span class="p">:</span><span class="bp">UINavigationController</span><span class="p">.</span><span class="k">class</span><span class="p">])</span> <span class="p">{</span>
+</span><span class='line'>                <span class="n">viewController</span> <span class="o">=</span> <span class="p">[[</span><span class="n">MRCNavigationController</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithRootViewController</span><span class="p">:</span><span class="n">viewController</span><span class="p">];</span>
+</span><span class='line'>            <span class="p">}</span>
+</span><span class='line'>            <span class="p">[</span><span class="nb">self</span> <span class="nl">pushNavigationController</span><span class="p">:(</span><span class="bp">UINavigationController</span> <span class="o">*</span><span class="p">)</span><span class="n">viewController</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="p">[</span><span class="n">presentingViewController</span> <span class="nl">presentViewController</span><span class="p">:</span><span class="n">viewController</span> <span class="nl">animated</span><span class="p">:[</span><span class="n">tuple</span><span class="p">.</span><span class="n">second</span> <span class="n">boolValue</span><span class="p">]</span> <span class="nl">completion</span><span class="p">:</span><span class="n">tuple</span><span class="p">.</span><span class="n">third</span><span class="p">];</span>
+</span><span class='line'>        <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[[(</span><span class="bp">NSObject</span> <span class="o">*</span><span class="p">)</span><span class="nb">self</span><span class="p">.</span><span class="n">services</span>
+</span><span class='line'>        <span class="nl">rac_signalForSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">dismissViewModelAnimated</span><span class="p">:</span><span class="nl">completion</span><span class="p">:)]</span>
+</span><span class='line'>        <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="n">RACTuple</span> <span class="o">*</span><span class="n">tuple</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="p">@</span><span class="n">strongify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>            <span class="p">[</span><span class="nb">self</span> <span class="n">popNavigationController</span><span class="p">];</span>
+</span><span class='line'>            <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">navigationControllers</span><span class="p">.</span><span class="n">lastObject</span> <span class="nl">dismissViewControllerAnimated</span><span class="p">:[</span><span class="n">tuple</span><span class="p">.</span><span class="n">first</span> <span class="n">boolValue</span><span class="p">]</span> <span class="nl">completion</span><span class="p">:</span><span class="n">tuple</span><span class="p">.</span><span class="n">second</span><span class="p">];</span>
+</span><span class='line'>        <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[[(</span><span class="bp">NSObject</span> <span class="o">*</span><span class="p">)</span><span class="nb">self</span><span class="p">.</span><span class="n">services</span>
+</span><span class='line'>        <span class="nl">rac_signalForSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">resetRootViewModel</span><span class="p">:)]</span>
+</span><span class='line'>        <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="n">RACTuple</span> <span class="o">*</span><span class="n">tuple</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="p">@</span><span class="n">strongify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>            <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">navigationControllers</span> <span class="n">removeAllObjects</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="bp">UIViewController</span> <span class="o">*</span><span class="n">viewController</span> <span class="o">=</span> <span class="p">(</span><span class="bp">UIViewController</span> <span class="o">*</span><span class="p">)[</span><span class="n">MRCRouter</span><span class="p">.</span><span class="n">sharedInstance</span> <span class="nl">viewControllerForViewModel</span><span class="p">:</span><span class="n">tuple</span><span class="p">.</span><span class="n">first</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="n">viewController</span> <span class="nl">isKindOfClass</span><span class="p">:[</span><span class="bp">UINavigationController</span> <span class="k">class</span><span class="p">]])</span> <span class="p">{</span>
+</span><span class='line'>                <span class="n">viewController</span> <span class="o">=</span> <span class="p">[[</span><span class="n">MRCNavigationController</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithRootViewController</span><span class="p">:</span><span class="n">viewController</span><span class="p">];</span>
+</span><span class='line'>                <span class="p">((</span><span class="bp">UINavigationController</span> <span class="o">*</span><span class="p">)</span><span class="n">viewController</span><span class="p">).</span><span class="n">delegate</span> <span class="o">=</span> <span class="nb">self</span><span class="p">;</span>
+</span><span class='line'>                <span class="p">[</span><span class="nb">self</span> <span class="nl">pushNavigationController</span><span class="p">:(</span><span class="bp">UINavigationController</span> <span class="o">*</span><span class="p">)</span><span class="n">viewController</span><span class="p">];</span>
+</span><span class='line'>            <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="n">MRCSharedAppDelegate</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">rootViewController</span> <span class="o">=</span> <span class="n">viewController</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">}];</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>通过 <code>Hook</code> 的方式，我们最终实现了 <code>ViewModel-Based</code> 的导航操作，并且在 <code>viewModel</code> 层中也没有引入 <code>view</code> 层的任意东西，实现了解耦合。</p>
+
+<h4>Router</h4>
+
+<p>还有一点值得一提的是，我们在 <code>viewModel</code> 中调用导航操作的时候，只传入了 <code>viewModel</code> 的实例作为参数，那么我们在 <code>MRCNavigationControllerStack</code> 中执行真正的导航操作时，怎么才能知道要跳转到哪个界面呢？为此，我们配置了一个从 <code>viewModel</code> 到 <code>view</code> 的映射，并且约定了一个统一的初始化 <code>view</code> 的方法 <code>initWithViewModel:</code> ：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="n">MRCViewController</span> <span class="o">*</span><span class="p">)</span><span class="nf">viewControllerForViewModel:</span><span class="p">(</span><span class="n">MRCViewModel</span> <span class="o">*</span><span class="p">)</span><span class="nv">viewModel</span> <span class="p">{</span>
+</span><span class='line'>    <span class="bp">NSString</span> <span class="o">*</span><span class="n">viewController</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">viewModelViewMappings</span><span class="p">[</span><span class="n">NSStringFromClass</span><span class="p">(</span><span class="n">viewModel</span><span class="p">.</span><span class="k">class</span><span class="p">)];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">NSParameterAssert</span><span class="p">([</span><span class="n">NSClassFromString</span><span class="p">(</span><span class="n">viewController</span><span class="p">)</span> <span class="nl">isSubclassOfClass</span><span class="p">:[</span><span class="n">MRCViewController</span> <span class="k">class</span><span class="p">]]);</span>
+</span><span class='line'>    <span class="n">NSParameterAssert</span><span class="p">([</span><span class="n">NSClassFromString</span><span class="p">(</span><span class="n">viewController</span><span class="p">)</span> <span class="nl">instancesRespondToSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">initWithViewModel</span><span class="p">:)]);</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="p">[[</span><span class="n">NSClassFromString</span><span class="p">(</span><span class="n">viewController</span><span class="p">)</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithViewModel</span><span class="p">:</span><span class="n">viewModel</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="bp">NSDictionary</span> <span class="o">*</span><span class="p">)</span><span class="nf">viewModelViewMappings</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="l">@{</span>
+</span><span class='line'>      <span class="s">@&quot;MRCLoginViewModel&quot;</span><span class="o">:</span> <span class="s">@&quot;MRCLoginViewController&quot;</span><span class="p">,</span>
+</span><span class='line'>        <span class="s">@&quot;MRCHomepageViewModel&quot;</span><span class="o">:</span> <span class="s">@&quot;MRCHomepageViewController&quot;</span><span class="p">,</span>
+</span><span class='line'>        <span class="s">@&quot;MRCRepoDetailViewModel&quot;</span><span class="o">:</span> <span class="s">@&quot;MRCRepoDetailViewController&quot;</span><span class="p">,</span>
+</span><span class='line'>        <span class="p">...</span>
+</span><span class='line'>    <span class="l">}</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>登录界面</h3>
+
+<p>最后，我们一起来看看登录界面中 <code>viewModel</code> 和 <code>view</code> 的部分关键代码，探讨一下 <code>MVVM</code> 的具体实践过程。<strong>说明</strong>，我们将会尽可能地回避具体的业务逻辑，重点关注 <code>MVVM</code> 的实践思路。下面是登录界面的截图：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/login.jpg" width="320" /></p>
+
+<p>其中，主要的界面元素有：</p>
+
+<ul>
+<li>一个用于展示用户头像的按钮 <code>avatarButton</code> ；</li>
+<li>用于输入账号和密码的输入框 <code>usernameTextField</code> 和 <code>passwordTextField</code> ；</li>
+<li>一个直接登录的按钮 <code>loginButton</code> 和一个跳转到浏览器授权登录的按钮 <code>browserLoginButton</code> 。</li>
+</ul>
+
+
+<p><strong>分析</strong>：根据我们前面对 <code>MVVM</code> 的探讨，<code>viewModel</code> 需要提供 <code>view</code> 所需的数据和命令。因此，<code>MRCLoginViewModel.h</code> 头文件的内容大致如下：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@interface</span> <span class="nc">MRCLoginViewModel</span> : <span class="nc">MRCViewModel</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="bp">NSURL</span> <span class="o">*</span><span class="n">avatarURL</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">username</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">password</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">strong</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">RACSignal</span> <span class="o">*</span><span class="n">validLoginSignal</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">strong</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">RACCommand</span> <span class="o">*</span><span class="n">loginCommand</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">strong</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">RACCommand</span> <span class="o">*</span><span class="n">browserLoginCommand</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>非常直观，其中需要特别说明的是 <code>validLoginSignal</code> 属性代表的是登录按钮是否可用，它将会与 <code>view</code> 中登录按钮的 <code>enabled</code> 属性进行绑定。接着，我们来看看 <code>MRCLoginViewModel.m</code> 的实现文件中的部分关键代码：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@implementation</span> <span class="nc">MRCLoginViewModel</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">initialize</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="n">initialize</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">RAC</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">avatarURL</span><span class="p">)</span> <span class="o">=</span> <span class="p">[[</span><span class="n">RACObserve</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">username</span><span class="p">)</span>
+</span><span class='line'>        <span class="nl">map</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="n">username</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="k">return</span> <span class="p">[[</span><span class="n">OCTUser</span> <span class="nl">mrc_fetchUserWithRawLogin</span><span class="p">:</span><span class="n">username</span><span class="p">]</span> <span class="n">avatarURL</span><span class="p">];</span>
+</span><span class='line'>        <span class="p">}]</span>
+</span><span class='line'>        <span class="n">distinctUntilChanged</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nb">self</span><span class="p">.</span><span class="n">validLoginSignal</span> <span class="o">=</span> <span class="p">[[</span><span class="n">RACSignal</span>
+</span><span class='line'>      <span class="nl">combineLatest</span><span class="p">:</span><span class="l">@[</span> <span class="n">RACObserve</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">username</span><span class="p">),</span> <span class="n">RACObserve</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span> <span class="l">]</span>
+</span><span class='line'>        <span class="nl">reduce</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="n">username</span><span class="p">,</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">password</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">return</span> <span class="l">@(</span><span class="n">username</span><span class="p">.</span><span class="n">length</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">password</span><span class="p">.</span><span class="n">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="l">)</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">}]</span>
+</span><span class='line'>        <span class="n">distinctUntilChanged</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">@</span><span class="n">weakify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>    <span class="kt">void</span> <span class="p">(</span><span class="o">^</span><span class="n">doNext</span><span class="p">)(</span><span class="n">OCTClient</span> <span class="o">*</span><span class="p">)</span> <span class="o">=</span> <span class="o">^</span><span class="p">(</span><span class="n">OCTClient</span> <span class="o">*</span><span class="n">authenticatedClient</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="p">@</span><span class="n">strongify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">MRCHomepageViewModel</span> <span class="o">*</span><span class="n">viewModel</span> <span class="o">=</span> <span class="p">[[</span><span class="n">MRCHomepageViewModel</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithServices</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">services</span> <span class="nl">params</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+</span><span class='line'>        <span class="n">dispatch_async</span><span class="p">(</span><span class="n">dispatch_get_main_queue</span><span class="p">(),</span> <span class="o">^</span><span class="p">{</span>
+</span><span class='line'>            <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">services</span> <span class="nl">resetRootViewModel</span><span class="p">:</span><span class="n">viewModel</span><span class="p">];</span>
+</span><span class='line'>        <span class="p">});</span>
+</span><span class='line'>    <span class="p">};</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[</span><span class="n">OCTClient</span> <span class="nl">setClientID</span><span class="p">:</span><span class="n">MRC_CLIENT_ID</span> <span class="nl">clientSecret</span><span class="p">:</span><span class="n">MRC_CLIENT_SECRET</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nb">self</span><span class="p">.</span><span class="n">loginCommand</span> <span class="o">=</span> <span class="p">[[</span><span class="n">RACCommand</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithSignalBlock</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="n">oneTimePassword</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="p">@</span><span class="n">strongify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">OCTUser</span> <span class="o">*</span><span class="n">user</span> <span class="o">=</span> <span class="p">[</span><span class="n">OCTUser</span> <span class="nl">userWithRawLogin</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">username</span> <span class="nl">server</span><span class="p">:</span><span class="n">OCTServer</span><span class="p">.</span><span class="n">dotComServer</span><span class="p">];</span>
+</span><span class='line'>        <span class="k">return</span> <span class="p">[[</span><span class="n">OCTClient</span>
+</span><span class='line'>          <span class="nl">signInAsUser</span><span class="p">:</span><span class="n">user</span> <span class="nl">password</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">password</span> <span class="nl">oneTimePassword</span><span class="p">:</span><span class="n">oneTimePassword</span> <span class="nl">scopes</span><span class="p">:</span><span class="n">OCTClientAuthorizationScopesUser</span> <span class="o">|</span> <span class="n">OCTClientAuthorizationScopesRepository</span> <span class="nl">note</span><span class="p">:</span><span class="nb">nil</span> <span class="nl">noteURL</span><span class="p">:</span><span class="nb">nil</span> <span class="nl">fingerprint</span><span class="p">:</span><span class="nb">nil</span><span class="p">]</span>
+</span><span class='line'>            <span class="nl">doNext</span><span class="p">:</span><span class="n">doNext</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nb">self</span><span class="p">.</span><span class="n">browserLoginCommand</span> <span class="o">=</span> <span class="p">[[</span><span class="n">RACCommand</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithSignalBlock</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="kt">id</span> <span class="n">input</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">return</span> <span class="p">[[</span><span class="n">OCTClient</span>
+</span><span class='line'>          <span class="nl">signInToServerUsingWebBrowser</span><span class="p">:</span><span class="n">OCTServer</span><span class="p">.</span><span class="n">dotComServer</span> <span class="nl">scopes</span><span class="p">:</span><span class="n">OCTClientAuthorizationScopesUser</span> <span class="o">|</span> <span class="n">OCTClientAuthorizationScopesRepository</span><span class="p">]</span>
+</span><span class='line'>            <span class="nl">doNext</span><span class="p">:</span><span class="n">doNext</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">}];</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<ul>
+<li>当用户输入的用户名发生变化时，调用 <code>model</code> 层的方法查询本地数据库中缓存的用户数据，并返回 <code>avatarURL</code> 属性;</li>
+<li>当用户输入的用户名或密码发生变化时，判断用户名和密码的长度是否均大于 <code>0</code> ，如果是则登录按钮可用，否则不可用;</li>
+<li>当 <code>loginCommand</code> 或 <code>browserLoginCommand</code> 命令执行成功时，调用 <code>doNext</code> 代码块，使用服务总线中的方法 <code>resetRootViewModel:</code> 进入首页。</li>
+</ul>
+
+
+<p>接下来，我们来看看 <code>MRCLoginViewController</code> 中的部分关键代码：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@implementation</span> <span class="nc">MRCLoginViewController</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">bindViewModel</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="n">bindViewModel</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">@</span><span class="n">weakify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>    <span class="p">[</span><span class="n">RACObserve</span><span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">viewModel</span><span class="p">,</span> <span class="n">avatarURL</span><span class="p">)</span> <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="bp">NSURL</span> <span class="o">*</span><span class="n">avatarURL</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="p">@</span><span class="n">strongify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>        <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">avatarButton</span> <span class="nl">sd_setImageWithURL</span><span class="p">:</span><span class="n">avatarURL</span> <span class="nl">forState</span><span class="p">:</span><span class="n">UIControlStateNormal</span> <span class="nl">placeholderImage</span><span class="p">:[</span><span class="bp">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&quot;default-avatar&quot;</span><span class="p">]];</span>
+</span><span class='line'>    <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">RAC</span><span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">viewModel</span><span class="p">,</span> <span class="n">username</span><span class="p">)</span>  <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">usernameTextField</span><span class="p">.</span><span class="n">rac_textSignal</span><span class="p">;</span>
+</span><span class='line'>    <span class="n">RAC</span><span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">viewModel</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span>  <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">passwordTextField</span><span class="p">.</span><span class="n">rac_textSignal</span><span class="p">;</span>
+</span><span class='line'>    <span class="n">RAC</span><span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">loginButton</span><span class="p">,</span> <span class="n">enabled</span><span class="p">)</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">viewModel</span><span class="p">.</span><span class="n">validLoginSignal</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[[</span><span class="nb">self</span><span class="p">.</span><span class="n">loginButton</span>
+</span><span class='line'>        <span class="nl">rac_signalForControlEvents</span><span class="p">:</span><span class="n">UIControlEventTouchUpInside</span><span class="p">]</span>
+</span><span class='line'>        <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="kt">id</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="p">@</span><span class="n">strongify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>            <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">viewModel</span><span class="p">.</span><span class="n">loginCommand</span> <span class="nl">execute</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+</span><span class='line'>        <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[[</span><span class="nb">self</span><span class="p">.</span><span class="n">browserLoginButton</span>
+</span><span class='line'>        <span class="nl">rac_signalForControlEvents</span><span class="p">:</span><span class="n">UIControlEventTouchUpInside</span><span class="p">]</span>
+</span><span class='line'>        <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="kt">id</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="p">@</span><span class="n">strongify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>            <span class="bp">NSString</span> <span class="o">*</span><span class="n">message</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&quot;“%@” wants to open “Safari”&quot;</span><span class="p">,</span> <span class="n">MRC_APP_NAME</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="n">UIAlertController</span> <span class="o">*</span><span class="n">alertController</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIAlertController</span> <span class="nl">alertControllerWithTitle</span><span class="p">:</span><span class="nb">nil</span>
+</span><span class='line'>                                                                                     <span class="nl">message</span><span class="p">:</span><span class="n">message</span>
+</span><span class='line'>                                                                              <span class="nl">preferredStyle</span><span class="p">:</span><span class="n">UIAlertControllerStyleAlert</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="p">[</span><span class="n">alertController</span> <span class="nl">addAction</span><span class="p">:[</span><span class="n">UIAlertAction</span> <span class="nl">actionWithTitle</span><span class="p">:</span><span class="s">@&quot;Cancel&quot;</span> <span class="nl">style</span><span class="p">:</span><span class="n">UIAlertActionStyleCancel</span> <span class="nl">handler</span><span class="p">:</span><span class="nb">NULL</span><span class="p">]];</span>
+</span><span class='line'>            <span class="p">[</span><span class="n">alertController</span> <span class="nl">addAction</span><span class="p">:[</span><span class="n">UIAlertAction</span> <span class="nl">actionWithTitle</span><span class="p">:</span><span class="s">@&quot;Open&quot;</span> <span class="nl">style</span><span class="p">:</span><span class="n">UIAlertActionStyleDefault</span> <span class="nl">handler</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="n">UIAlertAction</span> <span class="o">*</span><span class="n">action</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>                <span class="p">@</span><span class="n">strongify</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+</span><span class='line'>                <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">viewModel</span><span class="p">.</span><span class="n">browserLoginCommand</span> <span class="nl">execute</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+</span><span class='line'>            <span class="p">}]];</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="p">[</span><span class="nb">self</span> <span class="nl">presentViewController</span><span class="p">:</span><span class="n">alertController</span> <span class="nl">animated</span><span class="p">:</span><span class="nb">YES</span> <span class="nl">completion</span><span class="p">:</span><span class="nb">NULL</span><span class="p">];</span>
+</span><span class='line'>        <span class="p">}];</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<ul>
+<li>观察 <code>viewModel</code> 中 <code>avatarURL</code> 属性的变化，然后设置 <code>avatarButton</code> 中的图片；</li>
+<li>将 <code>viewModel</code> 中的 <code>username</code> 和 <code>password</code> 属性分别与 <code>usernameTextField</code> 和 <code>passwordTextField</code> 输入框中的内容进行绑定；</li>
+<li>将 <code>loginButton</code> 的 <code>enabled</code> 属性与 <code>viewModel</code> 的 <code>validLoginSignal</code> 属性进行绑定；</li>
+<li>在 <code>loginButton</code> 和 <code>browserLoginButton</code> 按钮被点击时分别执行 <code>loginCommand</code> 和 <code>browserLoginCommand</code> 命令。</li>
+</ul>
+
+
+<p>综上所述，我们将 <code>MRCLoginViewController</code> 中的展示逻辑抽取到 <code>MRCLoginViewModel</code> 中后，使得 <code>MRCLoginViewController</code> 中的代码更加简洁和清晰。实践 <code>MVVM</code> 的关键点在于，我们要能够分析清楚 <code>viewModel</code> 需要暴露给 <code>view</code> 的数据和命令，这些数据和命令能够代表 <code>view</code> 当前的状态。</p>
+
+<h2>总结</h2>
+
+<p>首先，我们从理论出发介绍了 <code>MVC</code> 和 <code>MVVM</code> 各自的概念以及从 <code>MVC</code> 到 <code>MVVM</code> 的演进过程；接着，介绍了 <code>RAC</code> 在 <code>MVVM</code> 中的两个使用场景；最后，我们从实践的角度，重点介绍了一个使用 <code>MVVM</code> 和 <code>RAC</code> 开发的开源项目 <code>MVVMReactiveCocoa</code> 。总的来说，我认为 <code>iOS</code> 中的 <code>MVVM</code> 可以分为以下三种不同的实践程度，它们分别对应不同的适用场景：</p>
+
+<ul>
+<li><code>MVVM + KVO</code> ，适用于现有的 <code>MVC</code> 项目，想转换成 <code>MVVM</code> 但是不打算引入 <code>RAC</code> 作为 <code>binder</code> 的团队；</li>
+<li><code>MVVM + RAC</code> ，适用于现有的 <code>MVC</code> 项目，想转换成 <code>MVVM</code> 并且打算引入 <code>RAC</code> 作为 <code>binder</code> 的团队；</li>
+<li><code>MVVM + RAC + ViewModel-Based Navigation</code> ，适用于全新的项目，想实践 <code>MVVM</code> 并且打算引入 <code>RAC</code> 作为 <code>binder</code> ，然后也想实践 <code>ViewModel-Based Navigation</code> 的团队。</li>
+</ul>
+
+
+<p>写在最后，希望这篇文章能够打消你对 <code>MVVM</code> 模式的顾虑，赶快行动起来吧。</p>
+
+<h2>参考链接</h2>
+
+<p><a href="https://www.objc.io/issues/13-architecture/mvvm/">https://www.objc.io/issues/13-architecture/mvvm/</a>
+<br>
+<a href="https://msdn.microsoft.com/en-us/library/hh848246.aspx">https://msdn.microsoft.com/en-us/library/hh848246.aspx</a>
+<br>
+<a href="https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93viewmodel">https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93viewmodel</a>
+<br>
+<a href="https://medium.com/ios-os-x-development/ios-architecture-patterns-ecba4c38de52#.p6n56kyc4">https://medium.com/ios-os-x-development/ios-architecture-patterns-ecba4c38de52#.p6n56kyc4</a>
+<br>
+<a href="http://cocoasamurai.blogspot.ru/2013/03/basic-mvvm-with-reactivecocoa.html">http://cocoasamurai.blogspot.ru/2013/03/basic-mvvm-with-reactivecocoa.html</a>
+<br>
+<a href="http://www.sprynthesis.com/2014/12/06/reactivecocoa-mvvm-introduction/">http://www.sprynthesis.com/2014/12/06/reactivecocoa-mvvm-introduction/</a></p>
+
+<p><img src="http://blog.leichunfeng.com/images/wechat_pay.jpg" width="260" /></p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[ReactiveCocoa v2.5 源码解析之架构总览]]></title>
@@ -4347,7 +5205,7 @@
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 </pre></td><td class='code'><pre><code class='html'><span class='line'><span class="nt">&lt;p&gt;</span>
-</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2016-01-25 21:15:21 +0800 - 雷纯锋 -
+</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2016-02-28 23:19:24 +0800 - 雷纯锋 -
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span>Powered by <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://octopress.org&quot;</span><span class="nt">&gt;</span>Octopress<span class="nt">&lt;/a&gt;&lt;/span&gt;</span>
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span> - 感谢 <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://gitcafe.com/signup?invited_by=leichunfeng&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;</span>GitCafe<span class="nt">&lt;/a&gt;</span> 为本站提供存储空间<span class="nt">&lt;/span&gt;</span>
 </span><span class='line'><span class="nt">&lt;/p&gt;</span>

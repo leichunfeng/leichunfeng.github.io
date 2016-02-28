@@ -9,7 +9,7 @@
   <meta name="author" content="雷纯锋">
 
   
-  <meta name="description" content="我们知道，在 Objective-C 中可以通过 Category 给一个现有的类添加属性，但是却不能添加实例变量，这似乎成为了 Objective-C 的一个明显短板。然而值得庆幸的是，我们可以通过 Associated Objects 来弥补这一不足。本文将结合 runtime 源码深入探究 &hellip;">
+  <meta name="description" content="现如今移动设备也早已经进入了多核心 CPU 时代，并且随着时间的推移，CPU 的核心数只会增加不会减少。而作为软件开发者，我们需要做的就是尽可能地提高应用的并发性，来充分利用这些多核心 CPU 的性能。在 iOS 开发中，我们主要可以通过 Operation Queues、Dispatch &hellip;">
   
     <meta name="keywords" content="雷纯锋的技术博客, 雷纯锋, 技术博客, 博客, iOS, Objective-C, Android, Java, HTML5, CSS3, JavaScript, Octopress, GitHub Pages, GitHub, Pages, GitCafe, RAC, ReactiveCocoa, Git">
   
@@ -38,7 +38,7 @@
   <header role="banner"><hgroup>
   <h1><a href="/">雷纯锋的技术博客</a></h1>
   
-    <h2>闻道有先后，术业有专攻</h2>
+    <h2>努力的人运气都不会太差</h2>
   
 </hgroup>
 
@@ -73,7 +73,7 @@
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2015/06/26/objective-c-associated-objects-implementation-principle/">Objective-C Associated Objects 的实现原理</a></h1>
+      <h1 class="entry-title"><a href="/blog/2015/07/29/ios-concurrency-programming-operation-queues/">iOS 并发编程之 Operation Queues</a></h1>
     
     
       <p class="meta">
@@ -82,133 +82,300 @@
 
 
 
-<time class='entry-date' datetime='2015-06-26T22:35:58+08:00'><span class='date'><span class='date-month'>Jun</span> <span class='date-day'>26</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>10:35 pm</span></time>
+<time class='entry-date' datetime='2015-07-29T22:06:33+08:00'><span class='date'><span class='date-month'>Jul</span> <span class='date-day'>29</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>10:06 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>我们知道，在 Objective-C 中可以通过 Category 给一个现有的类添加属性，但是却不能添加实例变量，这似乎成为了 Objective-C 的一个明显短板。然而值得庆幸的是，我们可以通过 Associated Objects 来弥补这一不足。本文将结合 <a href="http://opensource.apple.com/tarballs/objc4/">runtime</a> 源码深入探究 Objective-C 中 Associated Objects 的实现原理。</p>
+  <div class="entry-content"><p>现如今移动设备也早已经进入了多核心 <code>CPU</code> 时代，并且随着时间的推移，<code>CPU</code> 的核心数只会增加不会减少。而作为软件开发者，我们需要做的就是尽可能地提高应用的并发性，来充分利用这些多核心 <code>CPU</code> 的性能。在 iOS 开发中，我们主要可以通过 Operation Queues、Dispatch Queues 和 Dispatch Sources 来提高应用的并发性。本文将主要介绍 Operation Queues 的相关知识，另外两个属于 Grand Central Dispatch（以下正文简称 <code>GCD</code> ）的范畴，将会在后续的文章中进行介绍。</p>
 
-<p>在阅读本文的过程中，读者需要着重关注以下三个问题：</p>
+<p>由于本文涉及的内容较多，所以建议读者先提前了解一下本文的目录结构，以便对本文有一个宏观的认识：</p>
 
-<ol>
-<li>关联对象被存储在什么地方，是不是存放在被关联对象本身的内存中？</li>
-<li>关联对象的五种关联策略有什么区别，有什么坑？</li>
-<li>关联对象的生命周期是怎样的，什么时候被释放，什么时候被移除？</li>
-</ol>
+<ul>
+<li>基本概念
+
+<ul>
+<li>术语</li>
+<li>串行 vs. 并发</li>
+<li>同步 vs. 异步</li>
+<li>队列 vs. 线程</li>
+</ul>
+</li>
+<li>iOS 的并发编程模型</li>
+<li>Operation Queues vs. Grand Central Dispatch (GCD)</li>
+<li>关于 Operation 对象
+
+<ul>
+<li>并发 vs. 非并发 Operation</li>
+<li>创建 NSInvocationOperation 对象</li>
+<li>创建 NSBlockOperation 对象</li>
+</ul>
+</li>
+<li>自定义 Operation 对象
+
+<ul>
+<li>执行主任务</li>
+<li>响应取消事件</li>
+<li>配置并发执行的 Operation</li>
+<li>维护 KVO 通知</li>
+</ul>
+</li>
+<li>定制 Operation 对象的执行行为
+
+<ul>
+<li>配置依赖关系</li>
+<li>修改 Operation 在队列中的优先级</li>
+<li>修改 Operation 执行任务线程的优先级</li>
+<li>设置 Completion Block</li>
+</ul>
+</li>
+<li>执行 Operation 对象
+
+<ul>
+<li>添加 Operation 到 Operation Queue 中</li>
+<li>手动执行 Operation</li>
+<li>取消 Operation</li>
+<li>等待 Operation 执行完成</li>
+<li>暂停和恢复 Operation Queue</li>
+</ul>
+</li>
+<li>总结</li>
+</ul>
 
 
-<p></p>
+<h2>基本概念</h2>
+
+<p>在正式开始介绍 Operation Queues 的相关知识前，我想先介绍几个在 iOS 并发编程中非常容易混淆的基本概念，以帮助读者更好地理解本文。<strong>注</strong>，本文中的 Operation Queues 指的是 NSOperation 和 NSOperationQueue 的统称。</p>
+
+<h3>术语</h3>
+
+<p>首先，我们先来了解一下在 iOS 并发编程中非常重要的三个术语，这是我们理解 iOS 并发编程的基础：</p>
+
+<ul>
+<li>进程（process），指的是一个正在运行中的可执行文件。每一个进程都拥有独立的虚拟内存空间和系统资源，包括端口权限等，且至少包含一个主线程和任意数量的辅助线程。另外，当一个进程的主线程退出时，这个进程就结束了；</li>
+<li>线程（thread），指的是一个独立的代码执行路径，也就是说线程是代码执行路径的最小分支。在 iOS 中，线程的底层实现是基于 <a href="https://developer.apple.com/library/ios/documentation/Cocoa/Conceptual/Multithreading/Introduction/Introduction.html">POSIX threads API</a> 的，也就是我们常说的 pthreads ；</li>
+<li>任务（task），指的是我们需要执行的工作，是一个抽象的概念，用通俗的话说，就是一段代码。</li>
+</ul>
 
 
-<p>这是我写这篇文章的初衷，也是本文的价值所在。</p>
+<h3>串行 vs. 并发</h3>
 
-<h2>使用场景</h2>
+<p>从本质上来说，串行和并发的主要区别在于允许同时执行的任务数量。串行，指的是一次只能执行一个任务，必须等一个任务执行完成后才能执行下一个任务；并发，则指的是允许多个任务同时执行。</p>
 
-<p>按照 Mattt Thompson 大神的文章 <a href="http://nshipster.com/associated-objects/">Associated Objects</a> 中的说法，Associated Objects 主要有以下三个使用场景：</p>
+<h3>同步 vs. 异步</h3>
 
-<ol>
-<li>为现有的类添加私有变量以帮助实现细节；</li>
-<li>为现有的类添加公有属性；</li>
-<li>为 <code>KVO</code> 创建一个关联的观察者。</li>
-</ol>
+<p>同样的，同步和异步操作的主要区别在于是否等待操作执行完成，亦即是否阻塞当前线程。同步操作会等待操作执行完成后再继续执行接下来的代码，而异步操作则恰好相反，它会在调用后立即返回，不会等待操作的执行结果。</p>
+
+<h3>队列 vs. 线程</h3>
+
+<p>有一些对 iOS 并发编程模型不太了解的同学可能会对队列和线程产生混淆，不清楚它们之间的区别与联系，因此，我觉得非常有必要在这里简单地介绍一下。在 iOS 中，有两种不同类型的队列，分别是串行队列和并发队列。正如我们上面所说的，串行队列一次只能执行一个任务，而并发队列则可以允许多个任务同时执行。iOS 系统就是使用这些队列来进行任务调度的，它会根据调度任务的需要和系统当前的负载情况动态地创建和销毁线程，而不需要我们手动地管理。</p>
+
+<h2>iOS 的并发编程模型</h2>
+
+<p>在其他许多语言中，为了提高应用的并发性，我们往往需要自行创建一个或多个额外的线程，并且手动地管理这些线程的生命周期，这本身就已经是一项非常具有挑战性的任务了。此外，对于一个应用来说，最优的线程个数会随着系统当前的负载和低层硬件的情况发生动态变化。因此，一个单独的应用想要实现一套正确的多线程解决方案就变成了一件几乎不可能完成的事情。而更糟糕的是，线程的同步机制大幅度地增加了应用的复杂性，并且还存在着不一定能够提高应用性能的风险。</p>
+
+<p>然而，值得庆幸的是，在 iOS 中，苹果采用了一种比传统的基于线程的系统更加异步的方式来执行并发任务。与直接创建线程的方式不同，我们只需定义好要调度的任务，然后让系统帮我们去执行这些任务就可以了。我们可以完全不需要关心线程的创建与销毁、以及多线程之间的同步等问题，苹果已经在系统层面帮我们处理好了，并且比我们手动地管理这些线程要高效得多。</p>
+
+<p>因此，我们应该要听从苹果的劝告，珍爱生命，远离线程。不过话又说回来，尽管队列是执行并发任务的首先方式，但是毕竟它们也不是什么万能的灵丹妙药。所以，在以下三种场景下，我们还是应该直接使用线程的：</p>
+
+<ul>
+<li>用线程以外的其他任何方式都不能实现我们的特定任务；</li>
+<li>必须实时执行一个任务。因为虽然队列会尽可能快地执行我们提交的任务，但是并不能保证实时性；</li>
+<li>你需要对在后台执行的任务有更多的可预测行为。</li>
+</ul>
 
 
-<p></p>
+<h2>Operation Queues vs. Grand Central Dispatch (GCD)</h2>
+
+<p>简单来说，<code>GCD</code> 是苹果基于 <code>C</code> 语言开发的，一个用于多核编程的解决方案，主要用于优化应用程序以支持多核处理器以及其他对称多处理系统。而 Operation Queues 则是一个建立在 <code>GCD</code> 的基础之上的，面向对象的解决方案。它使用起来比 <code>GCD</code> 更加灵活，功能也更加强大。下面简单地介绍了 Operation Queues 和 <code>GCD</code> 各自的使用场景：</p>
+
+<ul>
+<li>Operation Queues ：相对 <code>GCD</code> 来说，使用 Operation Queues 会增加一点点额外的开销，但是我们却换来了非常强大的灵活性和功能，我们可以给 operation 之间添加依赖关系、取消一个正在执行的 operation 、暂停和恢复 operation queue 等；</li>
+<li><code>GCD</code> ：则是一种更轻量级的，以 <code>FIFO</code> 的顺序执行并发任务的方式，使用 <code>GCD</code> 时我们并不关心任务的调度情况，而让系统帮我们自动处理。但是 <code>GCD</code> 的短板也是非常明显的，比如我们想要给任务之间添加依赖关系、取消或者暂停一个正在执行的任务时就会变得非常棘手。</li>
+</ul>
 
 
-<p>从本质上看，第 <code>1</code> 、<code>2</code> 个场景其实是一个意思，唯一的区别就在于新添加的这个属性是公有的还是私有的而已。就目前来说，我在实际工作中使用得最多的是第 <code>2</code> 个场景，而第 <code>3</code> 个场景我还没有使用过。</p>
+<h2>关于 Operation 对象</h2>
 
-<h2>相关函数</h2>
+<p>在 iOS 开发中，我们可以使用 NSOperation 类来封装需要执行的任务，而一个 operation 对象（以下正文简称 operation ）指的就是 NSOperation 类的一个具体实例。NSOperation 本身是一个抽象类，不能直接实例化，因此，如果我们想要使用它来执行具体任务的话，就必须创建自己的子类或者使用系统预定义的两个子类，NSInvocationOperation 和 NSBlockOperation 。</p>
 
-<p>与 Associated Objects 相关的函数主要有三个，我们可以在 runtime 源码的 runtime.h 文件中找到它们的声明：</p>
+<p><strong>NSInvocationOperation</strong> ：我们可以通过一个 <code>object</code> 和 <code>selector</code> 非常方便地创建一个 NSInvocationOperation ，这是一种非常动态和灵活的方式。假设我们已经有了一个现成的方法，这个方法中的代码正好就是我们需要执行的任务，那么我们就可以在不修改任何现有代码的情况下，通过方法所在的对象和这个现有方法直接创建一个 NSInvocationOperation 。</p>
+
+<p><strong>NSBlockOperation</strong> ：我们可以使用 NSBlockOperation 来并发执行一个或多个 block ，只有当一个 NSBlockOperation 所关联的所有 block 都执行完毕时，这个 NSBlockOperation 才算执行完成，有点类似于 <code>dispatch_group</code> 的概念。</p>
+
+<p>另外，所有的 operation 都支持以下特性：</p>
+
+<ul>
+<li>支持在 operation 之间建立依赖关系，只有当一个 operation 所依赖的所有 operation 都执行完成时，这个 operation 才能开始执行；</li>
+<li>支持一个可选的 completion block ，这个 block 将会在 operation 的主任务执行完成时被调用；</li>
+<li>支持通过 <code>KVO</code> 来观察 operation 执行状态的变化；</li>
+<li>支持设置执行的优先级，从而影响 operation 之间的相对执行顺序；</li>
+<li>支持取消操作，可以允许我们停止正在执行的 operation 。</li>
+</ul>
+
+
+<h3>并发 vs. 非并发 Operation</h3>
+
+<p>通常来说，我们都是通过将 operation 添加到一个 operation queue 的方式来执行 operation 的，然而这并不是必须的。我们也可以直接通过调用 <code>start</code> 方法来执行一个 operation ，但是这种方式并不能保证 operation 是异步执行的。NSOperation 类的 <code>isConcurrent</code> 方法的返回值标识了一个 operation 相对于调用它的 <code>start</code> 方法的线程来说是否是异步执行的。在默认情况下，isConcurrent 方法的返回值是 <code>NO</code> ，也就是说会阻塞调用它的 <code>start</code> 方法的线程。</p>
+
+<p>如果我们想要自定义一个并发执行的 operation ，那么我们就必须要编写一些额外的代码来让这个 operation 异步执行。比如，为这个 operation 创建新的线程、调用系统的异步方法或者其他任何方式来确保 <code>start</code> 方法在开始执行任务后立即返回。</p>
+
+<p>在绝大多数情况下，我们都不需要去实现一个并发的 operation 。如果我们一直是通过将 operation 添加到 operation queue 的方式来执行 operation 的话，我们就完全没有必要去实现一个并发的 operation 。因为，当我们将一个非并发的 operation 添加到 operation queue 后，operation queue 会自动为这个 operation 创建一个线程。因此，只有当我们需要手动地执行一个 operation ，又想让它异步执行时，我们才有必要去实现一个并发的 operation 。</p>
+
+<h3>创建 NSInvocationOperation 对象</h3>
+
+<p>正如上面提到的，NSInvocationOperation 是 NSOperation 类的一个子类，当一个 NSInvocationOperation 开始执行时，它会调用我们指定的 <code>object</code> 的 <code>selector</code> 方法。通过使用 NSInvocationOperation 类，我们可以避免为每一个任务都创建一个自定义的子类，特别是当我们在修改一个已经存在的应用，并且这个应用中已经有了我们需要执行的任务所对应的 <code>object</code> 和 <code>selector</code> 时非常有用。</p>
+
+<p>下面的示例代码展示了如何通过 <code>object</code> 和 <code>selector</code> 创建一个 NSInvocationOperation 对象。<strong>说明</strong>，本文中的所有示例代码都可以在这里 <a href="https://github.com/leichunfeng/OperationQueues">OperationQueues</a> 找到，每一个类都有与之对应的测试类，充当 <code>client</code> 的角色，建议你在看完一个小节的代码时，运行一下相应的测试用例，观察打印的结果，以加深理解。</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="kt">void</span> <span class="nf">objc_setAssociatedObject</span><span class="p">(</span><span class="kt">id</span> <span class="n">object</span><span class="p">,</span> <span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">key</span><span class="p">,</span> <span class="kt">id</span> <span class="n">value</span><span class="p">,</span> <span class="n">objc_AssociationPolicy</span> <span class="n">policy</span><span class="p">);</span>
-</span><span class='line'><span class="kt">id</span> <span class="nf">objc_getAssociatedObject</span><span class="p">(</span><span class="kt">id</span> <span class="n">object</span><span class="p">,</span> <span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">key</span><span class="p">);</span>
-</span><span class='line'><span class="kt">void</span> <span class="nf">objc_removeAssociatedObjects</span><span class="p">(</span><span class="kt">id</span> <span class="n">object</span><span class="p">);</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@implementation</span> <span class="nc">OQCreateInvocationOperation</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="bp">NSInvocationOperation</span> <span class="o">*</span><span class="p">)</span><span class="nf">invocationOperationWithData:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">data</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="p">[[</span><span class="bp">NSInvocationOperation</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithTarget</span><span class="p">:</span><span class="nb">self</span> <span class="nl">selector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">myTaskMethod1</span><span class="p">:)</span> <span class="nl">object</span><span class="p">:</span><span class="n">data</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">myTaskMethod1:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">data</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Start executing %@ with data: %@, mainThread: %@, currentThread: %@&quot;</span><span class="p">,</span> <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">_cmd</span><span class="p">),</span> <span class="n">data</span><span class="p">,</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">mainThread</span><span class="p">],</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">currentThread</span><span class="p">]);</span>
+</span><span class='line'>    <span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Finish executing %@&quot;</span><span class="p">,</span> <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">_cmd</span><span class="p">));</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>这三个函数的命名对程序员非常友好，可以让我们一眼就看出函数的作用：</p>
+<p>另外，我们在前面也提到了，NSInvocationOperation 类的使用可以非常的动态和灵活，其中比较显著的一点就是我们可以根据上下文动态地调用 <code>object</code> 的不同 <code>selector</code> 。比如说，我们可以根据用户的输入动态地执行不同的 <code>selector</code> ：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="bp">NSInvocationOperation</span> <span class="o">*</span><span class="p">)</span><span class="nf">invocationOperationWithData:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">data</span> <span class="nf">userInput:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">userInput</span> <span class="p">{</span>
+</span><span class='line'>    <span class="bp">NSInvocationOperation</span> <span class="o">*</span><span class="n">invocationOperation</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="nl">invocationOperationWithData</span><span class="p">:</span><span class="n">data</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">userInput</span><span class="p">.</span><span class="n">length</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">invocationOperation</span><span class="p">.</span><span class="n">invocation</span><span class="p">.</span><span class="n">selector</span> <span class="o">=</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">myTaskMethod2</span><span class="p">:);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="n">invocationOperation</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">myTaskMethod2:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">data</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Start executing %@ with data: %@, mainThread: %@, currentThread: %@&quot;</span><span class="p">,</span> <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">_cmd</span><span class="p">),</span> <span class="n">data</span><span class="p">,</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">mainThread</span><span class="p">],</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">currentThread</span><span class="p">]);</span>
+</span><span class='line'>    <span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Finish executing %@&quot;</span><span class="p">,</span> <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">_cmd</span><span class="p">));</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>创建 NSBlockOperation 对象</h3>
+
+<p>NSBlockOperation 是 NSOperation 类的另外一个系统预定义的子类，我们可以用它来封装一个或多个 <code>block</code> 。我们知道 <code>GCD</code> 主要就是用来进行 <code>block</code> 调度的，那为什么我们还需要 NSBlockOperation 类呢？一般来说，有以下两个场景我们会优先使用 NSBlockOperation 类：</p>
 
 <ul>
-<li><code>objc_setAssociatedObject</code> 用于给对象添加关联对象，传入 <code>nil</code> 则可以移除已有的关联对象；</li>
-<li><code>objc_getAssociatedObject</code> 用于获取关联对象；</li>
-<li><code>objc_removeAssociatedObjects</code> 用于移除一个对象的所有关联对象。</li>
+<li>当我们在应用中已经使用了 Operation Queues 且不想创建 Dispatch Queues 时，NSBlockOperation 类可以为我们的应用提供一个面向对象的封装；</li>
+<li>我们需要用到 Dispatch Queues 不具备的功能时，比如需要设置 operation 之间的依赖关系、使用 <code>KVO</code> 观察 operation 的状态变化等。</li>
 </ul>
 
 
-<p></p>
+<p>下面的示例代码展示了创建一个 NSBlockOperation 对象的基本方法：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@implementation</span> <span class="nc">OQCreateBlockOperation</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="bp">NSBlockOperation</span> <span class="o">*</span><span class="p">)</span><span class="nf">blockOperation</span> <span class="p">{</span>
+</span><span class='line'>    <span class="bp">NSBlockOperation</span> <span class="o">*</span><span class="n">blockOperation</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSBlockOperation</span> <span class="nl">blockOperationWithBlock</span><span class="p">:</span><span class="o">^</span><span class="p">{</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Start executing block1, mainThread: %@, currentThread: %@&quot;</span><span class="p">,</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">mainThread</span><span class="p">],</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">currentThread</span><span class="p">]);</span>
+</span><span class='line'>        <span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Finish executing block1&quot;</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[</span><span class="n">blockOperation</span> <span class="nl">addExecutionBlock</span><span class="p">:</span><span class="o">^</span><span class="p">{</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Start executing block2, mainThread: %@, currentThread: %@&quot;</span><span class="p">,</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">mainThread</span><span class="p">],</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">currentThread</span><span class="p">]);</span>
+</span><span class='line'>        <span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Finish executing block2&quot;</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[</span><span class="n">blockOperation</span> <span class="nl">addExecutionBlock</span><span class="p">:</span><span class="o">^</span><span class="p">{</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Start executing block3, mainThread: %@, currentThread: %@&quot;</span><span class="p">,</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">mainThread</span><span class="p">],</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">currentThread</span><span class="p">]);</span>
+</span><span class='line'>        <span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Finish executing block3&quot;</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="n">blockOperation</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
-<p><strong>注</strong>：<code>objc_removeAssociatedObjects</code> 函数我们一般是用不上的，因为这个函数会移除一个对象的所有关联对象，将该对象恢复成“原始”状态。这样做就很有可能把别人添加的关联对象也一并移除，这并不是我们所希望的。所以一般的做法是通过给 <code>objc_setAssociatedObject</code> 函数传入 <code>nil</code> 来移除某个已有的关联对象。</p>
+<h2>自定义 Operation 对象</h2>
 
-<h3>key 值</h3>
+<p>当系统预定义的两个子类 NSInvocationOperation 和 NSBlockOperation 不能很好的满足我们的需求时，我们可以自定义自己的 NSOperation 子类，添加我们想要的功能。目前，我们可以自定义非并发和并发两种不同类型的 NSOperation 子类，而自定义一个前者要比后者简单得多。</p>
 
-<p>关于前两个函数中的 <code>key</code> 值是我们需要重点关注的一个点，这个 <code>key</code> 值必须保证是一个对象级别（为什么是对象级别？看完下面的章节你就会明白了）的唯一常量。一般来说，有以下三种推荐的 <code>key</code> 值：</p>
+<p>对于一个非并发的 operation ，我们需要做的就只是执行 <code>main</code> 方法中的任务以及能够正常响应取消事件就可以了，其它的复杂工作比如依赖配置、KVO 通知等 NSOperation 类都已经帮我们处理好了。而对于一个并发的 operation ，我们还需要重写 NSOperation 类中的一些现有方法。接下来，我们将会介绍如何自定义这两种不同类型的 NSOperation 子类。</p>
 
-<ol>
-<li>声明 <code>static char kAssociatedObjectKey;</code> ，使用 <code>&amp;kAssociatedObjectKey</code> 作为 <code>key</code> 值;</li>
-<li>声明 <code>static void *kAssociatedObjectKey = &amp;kAssociatedObjectKey;</code> ，使用 <code>kAssociatedObjectKey</code> 作为 <code>key</code> 值；</li>
-<li>用 <code>selector</code> ，使用 <code>getter</code> 方法的名称作为 <code>key</code> 值。</li>
-</ol>
+<h3>执行主任务</h3>
 
+<p>从最低限度上来说，每一个 operation 都应该至少实现以下两个方法：</p>
 
-<p></p>
-
-
-<p>我个人最喜欢的（没有之一）是第 <code>3</code> 种方式，因为它省掉了一个变量名，非常优雅地解决了计算科学中的两大世界难题之一（命名）。</p>
-
-<h3>关联策略</h3>
-
-<p>在给一个对象添加关联对象时有五种关联策略可供选择：</p>
-
-<p>
-    <table border="1" width="100%">
-        <tr>
-            <th>关联策略</th>        
-            <th>等价属性</th>        
-            <th>说明</th>        
-        </tr>
-        <tr>
-            <td>OBJC_ASSOCIATION_ASSIGN</td>        
-            <td>@property (assign) or @property (unsafe_unretained)</td>
-            <td>弱引用关联对象</td>        
-        </tr>
-        <tr>
-            <td>OBJC_ASSOCIATION_RETAIN_NONATOMIC</td>        
-            <td>@property (strong, nonatomic)</td>        
-            <td>强引用关联对象，且为非原子操作</td>        
-        </tr>
-        <tr>
-            <td>OBJC_ASSOCIATION_COPY_NONATOMIC</td>        
-            <td>@property (copy, nonatomic)</td>        
-            <td>复制关联对象，且为非原子操作</td>        
-        </tr>
-        <tr>
-            <td>OBJC_ASSOCIATION_RETAIN</td>        
-            <td>@property (strong, atomic)</td>        
-            <td>强引用关联对象，且为原子操作</td>        
-        </tr>
-        <tr>
-            <td>OBJC_ASSOCIATION_COPY</td>        
-            <td>@property (copy, atomic)</td>        
-            <td>复制关联对象，且为原子操作</td>        
-        </tr>
-    </table>
-</p>
+<ul>
+<li>一个自定义的初始化方法；</li>
+<li><code>main</code> 方法。</li>
+</ul>
 
 
-<p>其中，第 <code>2</code> 种与第 <code>4</code> 种、第 <code>3</code> 种与第 <code>5</code> 种关联策略的唯一差别就在于操作是否具有原子性。由于操作的原子性不在本文的讨论范围内，所以下面的实验和讨论就以前三种以例进行展开。</p>
-
-<h2>实现原理</h2>
-
-<p>在探究 Associated Objects 的实现原理前，我们还是先来动手做一个小实验，研究一下关联对象什么时候会被释放。本实验主要涉及 <code>ViewController</code> 类和它的分类 <code>ViewController+AssociatedObjects</code> 。<strong>注</strong>：本实验的完整代码可以在这里 <a href="https://github.com/leichunfeng/AssociatedObjects">AssociatedObjects</a> 找到，其中关键代码如下：</p>
+<p>我们需要用一个自定义的初始化方法来将创建的 operation 置于一个已知的状态，并且重写 <code>main</code> 方法来执行我们的任务。当然，我们也可以实现一些其他的额外方法，比如实现 <code>NSCoding</code> 协议来允许我们归档和解档 operation 等。下面的示例代码展示了如何自定义一个简单的 operation ：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -239,51 +406,113 @@
 <span class='line-number'>27</span>
 <span class='line-number'>28</span>
 <span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@interface</span> <span class="nc">ViewController</span> <span class="nl">(AssociatedObjects)</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@interface</span> <span class="nc">OQNonConcurrentOperation</span> <span class="p">()</span>
 </span><span class='line'>
-</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">assign</span><span class="p">,</span> <span class="k">nonatomic</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">associatedObject_assign</span><span class="p">;</span>
-</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">strong</span><span class="p">,</span> <span class="k">nonatomic</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">associatedObject_retain</span><span class="p">;</span>
-</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">copy</span><span class="p">,</span>   <span class="k">nonatomic</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">associatedObject_copy</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">strong</span><span class="p">,</span> <span class="k">nonatomic</span><span class="p">)</span> <span class="kt">id</span> <span class="n">data</span><span class="p">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">@end</span>
 </span><span class='line'>
-</span><span class='line'><span class="k">@implementation</span> <span class="nc">ViewController</span> <span class="nl">(AssociatedObjects)</span>
+</span><span class='line'><span class="k">@implementation</span> <span class="nc">OQNonConcurrentOperation</span>
 </span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">associatedObject_assign</span> <span class="p">{</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">objc_getAssociatedObject</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">_cmd</span><span class="p">);</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithData:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">data</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nb">self</span> <span class="o">=</span> <span class="p">[</span><span class="nb">super</span> <span class="n">init</span><span class="p">];</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="nb">self</span><span class="p">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="k">return</span> <span class="nb">self</span><span class="p">;</span>
 </span><span class='line'><span class="p">}</span>
 </span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setAssociatedObject_assign:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">associatedObject_assign</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">objc_setAssociatedObject</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="n">associatedObject_assign</span><span class="p">),</span> <span class="n">associatedObject_assign</span><span class="p">,</span> <span class="n">OBJC_ASSOCIATION_ASSIGN</span><span class="p">);</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">associatedObject_retain</span> <span class="p">{</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">objc_getAssociatedObject</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">_cmd</span><span class="p">);</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setAssociatedObject_retain:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">associatedObject_retain</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">objc_setAssociatedObject</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="n">associatedObject_retain</span><span class="p">),</span> <span class="n">associatedObject_retain</span><span class="p">,</span> <span class="n">OBJC_ASSOCIATION_RETAIN_NONATOMIC</span><span class="p">);</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">associatedObject_copy</span> <span class="p">{</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">objc_getAssociatedObject</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">_cmd</span><span class="p">);</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setAssociatedObject_copy:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">associatedObject_copy</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">objc_setAssociatedObject</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="n">associatedObject_copy</span><span class="p">),</span> <span class="n">associatedObject_copy</span><span class="p">,</span> <span class="n">OBJC_ASSOCIATION_COPY_NONATOMIC</span><span class="p">);</span>
+</span><span class='line'><span class="c1">///  不支持取消操作</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">main</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">@try</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Start executing %@ with data: %@, mainThread: %@, currentThread: %@&quot;</span><span class="p">,</span> <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">_cmd</span><span class="p">),</span> <span class="nb">self</span><span class="p">.</span><span class="n">data</span><span class="p">,</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">mainThread</span><span class="p">],</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">currentThread</span><span class="p">]);</span>
+</span><span class='line'>        <span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Finish executing %@&quot;</span><span class="p">,</span> <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">_cmd</span><span class="p">));</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="k">@catch</span><span class="p">(</span><span class="bp">NSException</span> <span class="o">*</span><span class="n">exception</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Exception: %@&quot;</span><span class="p">,</span> <span class="n">exception</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
 </span><span class='line'><span class="p">}</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">@end</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>在 <code>ViewController+AssociatedObjects.h</code> 中声明了三个属性，限定符分别为 <code>assign, nonatomic</code> 、<code>strong, nonatomic</code> 和 <code>copy, nonatomic</code> ，而在 <code>ViewController+AssociatedObjects.m</code> 中相应的分别用 <code>OBJC_ASSOCIATION_ASSIGN</code> 、<code>OBJC_ASSOCIATION_RETAIN_NONATOMIC</code> 、<code>OBJC_ASSOCIATION_COPY_NONATOMIC</code> 三种关联策略为这三个属性添加“实例变量”。</p>
+<h3>响应取消事件</h3>
+
+<p>当一个 operation 开始执行后，它会一直执行它的任务直到完成或被取消为止。我们可以在任意时间点取消一个 operation ，甚至是在它还未开始执行之前。为了让我们自定义的 operation 能够支持取消事件，我们需要在代码中定期地检查 <code>isCancelled</code> 方法的返回值，一旦检查到这个方法返回 <code>YES</code> ，我们就需要立即停止执行接下来的任务。根据苹果官方的说法，<code>isCancelled</code> 方法本身是足够轻量的，所以就算是频繁地调用它也不会给系统带来太大的负担。</p>
+
+<blockquote><p>The isCancelled method itself is very lightweight and can be called frequently without any significant performance penalty.</p></blockquote>
+
+<p>通常来说，当我们自定义一个 operation 类时，我们需要考虑在以下几个关键点检查 <code>isCancelled</code> 方法的返回值：</p>
+
+<ul>
+<li>在真正开始执行任务之前；</li>
+<li>至少在每次循环中检查一次，而如果一次循环的时间本身就比较长的话，则需要检查得更加频繁；</li>
+<li>在任何相对来说比较容易中止 operation 的地方。</li>
+</ul>
+
+
+<p>看到这里，我想你应该可以意识到一点，那就是尽管 operation 是支持取消操作的，但却并不是立即取消的，而是在你调用了 operation 的 <code>cancel</code> 方法之后的下一个 <code>isCancelled</code> 的检查点取消的。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="c1">///  支持取消操作</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">main</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">@try</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">isCancelled</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Start executing %@ with data: %@, mainThread: %@, currentThread: %@&quot;</span><span class="p">,</span> <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">_cmd</span><span class="p">),</span> <span class="nb">self</span><span class="p">.</span><span class="n">data</span><span class="p">,</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">mainThread</span><span class="p">],</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">currentThread</span><span class="p">]);</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">for</span> <span class="p">(</span><span class="bp">NSUInteger</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">isCancelled</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>            <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Loop %@&quot;</span><span class="p">,</span> <span class="l">@(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="l">)</span><span class="p">);</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Finish executing %@&quot;</span><span class="p">,</span> <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">_cmd</span><span class="p">));</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="k">@catch</span><span class="p">(</span><span class="bp">NSException</span> <span class="o">*</span><span class="n">exception</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Exception: %@&quot;</span><span class="p">,</span> <span class="n">exception</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>配置并发执行的 Operation</h3>
+
+<p>在默认情况下，operation 是同步执行的，也就是说在调用它的 <code>start</code> 方法的线程中执行它们的任务。而在 operation 和 operation queue 结合使用时，operation queue 可以为非并发的 operation 提供线程，因此，大部分的 operation 仍然可以异步执行。但是，如果你想要手动地执行一个 operation ，又想这个 operation 能够异步执行的话，你需要做一些额外的配置来让你的 operation 支持并发执行。下面列举了一些你可能需要重写的方法：</p>
+
+<ul>
+<li><code>start</code> ：必须的，所有并发执行的 operation 都必须要重写这个方法，替换掉 NSOperation 类中的默认实现。<code>start</code> 方法是一个 operation 的起点，我们可以在这里配置任务执行的线程或者一些其它的执行环境。另外，需要特别注意的是，在我们重写的 <code>start</code> 方法中一定不要调用父类的实现；</li>
+<li><code>main</code> ：可选的，通常这个方法就是专门用来实现与该 operation 相关联的任务的。尽管我们可以直接在 <code>start</code> 方法中执行我们的任务，但是用 <code>main</code> 方法来实现我们的任务可以使设置代码和任务代码得到分离，从而使 operation 的结构更清晰；</li>
+<li><code>isExecuting</code> 和 <code>isFinished</code> ：必须的，并发执行的 operation 需要负责配置它们的执行环境，并且向外界客户报告执行环境的状态。因此，一个并发执行的 operation 必须要维护一些状态信息，用来记录它的任务是否正在执行，是否已经完成执行等。此外，当这两个方法所代表的值发生变化时，我们需要生成相应的 <code>KVO</code> 通知，以便外界能够观察到这些状态的变化；</li>
+<li><code>isConcurrent</code> ：必须的，这个方法的返回值用来标识一个 operation 是否是并发的 operation ，我们需要重写这个方法并返回 <code>YES</code> 。</li>
+</ul>
+
+
+<p>下面我们将分三部分内容来介绍一下定义一个并发执行的 operation 所需的基本代码，主体部分的代码如下所示：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -310,75 +539,210 @@
 <span class='line-number'>23</span>
 <span class='line-number'>24</span>
 <span class='line-number'>25</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">__weak</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">string_weak_assign</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
-</span><span class='line'><span class="k">__weak</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">string_weak_retain</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
-</span><span class='line'><span class="k">__weak</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">string_weak_copy</span>   <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@implementation</span> <span class="nc">OQConcurrentOperation</span>
 </span><span class='line'>
-</span><span class='line'><span class="k">@implementation</span> <span class="nc">ViewController</span>
+</span><span class='line'><span class="k">@synthesize</span> <span class="n">executing</span> <span class="o">=</span> <span class="n">_executing</span><span class="p">;</span>
+</span><span class='line'><span class="k">@synthesize</span> <span class="n">finished</span>  <span class="o">=</span> <span class="n">_finished</span><span class="p">;</span>
 </span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidLoad</span> <span class="p">{</span>
-</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="n">viewDidLoad</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_assign</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&quot;leichunfeng1&quot;</span><span class="p">];</span>
-</span><span class='line'>    <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_retain</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&quot;leichunfeng2&quot;</span><span class="p">];</span>
-</span><span class='line'>    <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_copy</span>   <span class="o">=</span> <span class="p">[</span><span class="bp">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&quot;leichunfeng3&quot;</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">string_weak_assign</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_assign</span><span class="p">;</span>
-</span><span class='line'>    <span class="n">string_weak_retain</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_retain</span><span class="p">;</span>
-</span><span class='line'>    <span class="n">string_weak_copy</span>   <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_copy</span><span class="p">;</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">init</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nb">self</span> <span class="o">=</span> <span class="p">[</span><span class="nb">super</span> <span class="n">init</span><span class="p">];</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">_executing</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+</span><span class='line'>        <span class="n">_finished</span>  <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="k">return</span> <span class="nb">self</span><span class="p">;</span>
 </span><span class='line'><span class="p">}</span>
 </span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">touchesBegan:</span><span class="p">(</span><span class="bp">NSSet</span> <span class="o">*</span><span class="p">)</span><span class="nv">touches</span> <span class="nf">withEvent:</span><span class="p">(</span><span class="bp">UIEvent</span> <span class="o">*</span><span class="p">)</span><span class="nv">event</span> <span class="p">{</span>
-</span><span class='line'><span class="c1">//    NSLog(@&quot;self.associatedObject_assign: %@&quot;, self.associatedObject_assign); // Will Crash</span>
-</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;self.associatedObject_retain: %@&quot;</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_retain</span><span class="p">);</span>
-</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;self.associatedObject_copy:   %@&quot;</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_copy</span><span class="p">);</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nf">isConcurrent</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="nb">YES</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nf">isExecuting</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">_executing</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nf">isFinished</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">_finished</span><span class="p">;</span>
 </span><span class='line'><span class="p">}</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">@end</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>在 <code>ViewController</code> 的 <code>viewDidLoad</code> 方法中，我们对三个属性进行了赋值，并声明了三个全局的 <code>__weak</code> 变量来观察相应对象的释放时机。此外，我们重写了 <code>touchesBegan:withEvent:</code> 方法，在方法中分别打印了这三个属性的当前值。</p>
+<p>这一部分的代码看上去比较简单，但是却需要我们用心地去理解它。首先，我们用 <code>@synthesize</code> 关键字手动合成了两个实例变量 <code>_executing</code> 和 <code>_finished</code> ，然后分别在重写的 <code>isExecuting</code> 和 <code>isFinished</code> 方法中返回了这两个实例变量。另外，我们通过查看 NSOperation 类的头文件可以发现，<code>executing</code> 和 <code>finished</code> 属性都被声明成了只读的 <code>readonly</code> 。所以我们在 NSOperation 子类中就没有办法直接通过 <code>setter</code> 方法来自动触发 <code>KVO</code> 通知，这也是为什么我们需要在接下来的代码中手动触发 <code>KVO</code> 通知的原因。</p>
 
-<p>在继续阅读下面章节前，建议读者先自行思考一下 <code>self.associatedObject_assign</code> 、<code>self.associatedObject_retain</code> 和 <code>self.associatedObject_copy</code> 指向的对象分别会在什么时候被释放，以加深理解。</p>
+<p>接下来是 <code>start</code> 方法的代码，在这个方法中，我们最需要关注的部分就是为 <code>main</code> 方法分离了一个新的线程，这是 operation 能够并发执行的关键所在。此外，在真正开始执行任务前，我们通过检查 <code>isCancelled</code> 方法的返回值来判断 operation 是否已经被 <code>cancel</code> ，如果是就直接返回了。</p>
 
-<h3>实验</h3>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">start</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">isCancelled</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="p">[</span><span class="nb">self</span> <span class="nl">willChangeValueForKey</span><span class="p">:</span><span class="s">@&quot;isFinished&quot;</span><span class="p">];</span>
+</span><span class='line'>        <span class="n">_finished</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">[</span><span class="nb">self</span> <span class="nl">didChangeValueForKey</span><span class="p">:</span><span class="s">@&quot;isFinished&quot;</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">return</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[</span><span class="nb">self</span> <span class="nl">willChangeValueForKey</span><span class="p">:</span><span class="s">@&quot;isExecuting&quot;</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[</span><span class="bp">NSThread</span> <span class="nl">detachNewThreadSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">main</span><span class="p">)</span> <span class="nl">toTarget</span><span class="p">:</span><span class="nb">self</span> <span class="nl">withObject</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+</span><span class='line'>    <span class="n">_executing</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[</span><span class="nb">self</span> <span class="nl">didChangeValueForKey</span><span class="p">:</span><span class="s">@&quot;isExecuting&quot;</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
 
-<p>我们先在 <code>viewDidLoad</code> 方法的第 <code>28</code> 行打上断点，然后运行程序，点击导航栏右上角的按钮 <code>Push</code> 到 <code>ViewController</code> 界面，程序将停在断点处。接着，我们使用 <code>lldb</code> 的 <code>watchpoint</code> 命令来设置观察点，观察全局变量 <code>string_weak_assign</code> 、<code>string_weak_retain</code> 和 <code>string_weak_copy</code> 的值的变化。正确设置好观察点后，将会在 <code>console</code> 中看到如下的类似输出：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/AssociatedObjects1.jpg" title="设置观察点" alt="设置观察点" /></p>
+<p>最后，是真正执行任务的 <code>main</code> 方法，值得注意的是在任务执行完毕后，我们需要手动触动 <code>isExecuting</code> 和 <code>isFinished</code> 的 <code>KVO</code> 通知。</p>
 
-<p>点击继续运行按钮，有一个观察点将被命中。我们先查看 <code>console</code> 中的输出，通过将这一步打印的 <code>old value</code> 和上一步的 <code>new value</code> 进行对比，我们可以知道本次命中的观察点是 <code>string_weak_assign</code> ，<code>string_weak_assign</code> 的值变成了 <code>0x0000000000000000</code> ，也就是 <code>nil</code> 。换句话说 <code>self.associatedObject_assign</code> 指向的对象已经被释放了，而通过查看左侧调用栈我们可以知道，这个对象是由于其所在的 <code>autoreleasepool</code> 被 <code>drain</code> 而被释放的，这与我前面的文章<a href="http://blog.leichunfeng.com/blog/2015/05/31/objective-c-autorelease-pool-implementation-principle/">《Objective-C Autorelease Pool 的实现原理
-》</a>中的表述是一致的。<strong>提示</strong>，待会你也可以放开 <code>touchesBegan:withEvent:</code> 中第 <code>31</code> 行的注释，在 <code>ViewController</code> 出现后，点击一下它的 <code>view</code> ，进一步验证一下这个结论。</p>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">main</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">@try</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Start executing %@, mainThread: %@, currentThread: %@&quot;</span><span class="p">,</span> <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">_cmd</span><span class="p">),</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">mainThread</span><span class="p">],</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">currentThread</span><span class="p">]);</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="p">[</span><span class="nb">self</span> <span class="nl">willChangeValueForKey</span><span class="p">:</span><span class="s">@&quot;isExecuting&quot;</span><span class="p">];</span>
+</span><span class='line'>        <span class="n">_executing</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">[</span><span class="nb">self</span> <span class="nl">didChangeValueForKey</span><span class="p">:</span><span class="s">@&quot;isExecuting&quot;</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="p">[</span><span class="nb">self</span> <span class="nl">willChangeValueForKey</span><span class="p">:</span><span class="s">@&quot;isFinished&quot;</span><span class="p">];</span>
+</span><span class='line'>        <span class="n">_finished</span>  <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">[</span><span class="nb">self</span> <span class="nl">didChangeValueForKey</span><span class="p">:</span><span class="s">@&quot;isFinished&quot;</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Finish executing %@&quot;</span><span class="p">,</span> <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">_cmd</span><span class="p">));</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="k">@catch</span> <span class="p">(</span><span class="bp">NSException</span> <span class="o">*</span><span class="n">exception</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Exception: %@&quot;</span><span class="p">,</span> <span class="n">exception</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
 
-<p><img src="http://blog.leichunfeng.com/images/AssociatedObjects2.jpg" title="设置观察点" alt="设置观察点" /></p>
 
-<p>接下来，我们点击 <code>ViewController</code> 导航栏左上角的按钮，返回前一个界面，此时，又将有一个观察点被命中。同理，我们可以知道这个观察点是 <code>string_weak_retain</code> 。我们查看左侧的调用栈，将会发现一个非常敏感的函数调用 <code>_object_remove_assocations</code> ，调用这个函数后 <code>ViewController</code> 的所有关联对象被全部移除。最终，<code>self.associatedObject_retain</code> 指向的对象被释放。</p>
+<p><strong>注意</strong>，有一个非常重要的点需要引起我们的注意，那就是即使一个 operation 是被 <code>cancel</code> 掉了，我们仍然需要手动触发 <code>isFinished</code> 的 <code>KVO</code> 通知。因为当一个 operation 依赖其他 operation 时，它会观察所有其他 operation 的 <code>isFinished</code> 的值的变化，只有当它依赖的所有 operation 的 <code>isFinished</code> 的值为 <code>YES</code> 时，这个 operation 才能够开始执行。因此，如果一个我们自定义的 operation 被取消了但却没有手动触发 <code>isFinished</code> 的 <code>KVO</code> 通知的话，那么所有依赖它的 operation 都不会执行。</p>
 
-<p><img src="http://blog.leichunfeng.com/images/AssociatedObjects3.jpg" title="设置观察点" alt="设置观察点" /></p>
+<h3>维护 KVO 通知</h3>
 
-<p>点击继续运行按钮，最后一个观察点 <code>string_weak_copy</code> 被命中。同理，<code>self.associatedObject_copy</code> 指向的对象也由于关联对象的移除被最终释放。</p>
+<p>NSOperation 类的以下 <code>key paths</code> 支持 <code>KVO</code> 通知，我们可以通过观察这些 <code>key paths</code> 非常方便地监听到一个 operation 内部状态的变化：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/AssociatedObjects4.jpg" title="设置观察点" alt="设置观察点" /></p>
-
-<h3>结论</h3>
-
-<p>由这个实验，我们可以得出以下结论：</p>
-
-<ol>
-<li>关联对象的释放时机与被移除的时机并不总是一致的，比如上面的 <code>self.associatedObject_assign</code> 所指向的对象在 <code>ViewController</code> 出现后就被释放了，但是 <code>self.associatedObject_assign</code> 仍然有值，还是保存的原对象的地址。如果之后再使用 <code>self.associatedObject_assign</code> 就会造成 Crash ，所以我们在使用弱引用的关联对象时要非常小心；</li>
-<li>一个对象的所有关联对象是在这个对象被释放时调用的 <code>_object_remove_assocations</code> 函数中被移除的。</li>
-</ol>
-
-
-<p></p>
+<ul>
+<li>isCancelled</li>
+<li>isConcurrent</li>
+<li>isExecuting</li>
+<li>isFinished</li>
+<li>isReady</li>
+<li>dependencies</li>
+<li>queuePriority</li>
+<li>completionBlock</li>
+</ul>
 
 
-<p>接下来，我们就一起看看 runtime 中的源码，来验证下我们的实验结论。</p>
+<p>与重写 <code>main</code> 方法不同的是，如果我们重写了 <code>start</code> 方法或者对 NSOperation 类做了大量定制的话，我们需要保证自定义的 operation 在这些 <code>key paths</code> 上仍然支持 <code>KVO</code> 通知。比如，当我们重写了 <code>start</code> 方法时，我们需要特别关注的是 <code>isExecuting</code> 和 <code>isFinished</code> 这两个 <code>key paths</code> ，因为这两个 <code>key paths</code> 最可能受重写 <code>start</code> 方法的影响。</p>
 
-<h3>objc_setAssociatedObject</h3>
+<h2>定制 Operation 对象的执行行为</h2>
 
-<p>我们可以在 <code>objc-references.mm</code> 文件中找到 <code>objc_setAssociatedObject</code> 函数最终调用的函数：</p>
+<p>我们可以在创建一个 operation 后，添加到 operation queue 前，对 operation 的一些执行行为进行定制。下面介绍的所有定制均适用于所有的 operation ，与是否是自定义的 NSOperation 子类或系统预定义的 NSOperation 子类无关。</p>
+
+<h3>配置依赖关系</h3>
+
+<p>通过配置依赖关系，我们可以让不同的 operation 串行执行，正如我们前面提到的，一个 operation 只有在它依赖的所有 operation 都执行完成后才能开始执行。配置 operation 的依赖关系主要涉及到 NSOperation 类中的以下两个方法：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">addDependency:</span><span class="p">(</span><span class="bp">NSOperation</span> <span class="o">*</span><span class="p">)</span><span class="nv">op</span><span class="p">;</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">removeDependency:</span><span class="p">(</span><span class="bp">NSOperation</span> <span class="o">*</span><span class="p">)</span><span class="nv">op</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>顾名思义，第一个方法用于添加依赖，第二个方法则用于移除依赖。需要特别注意的是，用 <code>addDependency:</code> 方法添加的依赖关系是单向的，比如 <code>[A addDependency:B];</code> ，表示 A 依赖 B，B 并不依赖 A 。</p>
+
+<p>另外，这里的依赖关系并不局限于相同 operation queue 中的 operation 之间。其实，从上面两个配置依赖关系的方法是存在于 NSOperation 类中的，我们也可以看出来，operation 的依赖关系是它自己管理的，与它被添加到哪个 operation queue 无关。因此，我们完全可以给一些 operation 配置好依赖关系，然后将它们添加到不同的 operation queue 中。但是，有一点是需要我们特别注意的，就是不要在 operation 之间添加循环依赖，因为这样会导致这些 operation 都不会被执行。</p>
+
+<p><strong>注意</strong>，我们应该在手动执行一个 operation 或将它添加到 operation queue 前配置好依赖关系，因为在之后添加的依赖关系可能会失效。</p>
+
+<h3>修改 Operation 在队列中的优先级</h3>
+
+<p>对于被添加到 operation queue 中的 operation 来说，决定它们执行顺序的第一要素是它们的 <code>isReady</code> 状态，其次是它们在队列中的优先级。operation 的 <code>isReady</code> 状态取决于它的依赖关系，而在队列中的优先级则是 operation 本身的属性。默认情况下，所有新创建的 operation 的队列优先级都是 <code>normal</code> 的，但是我们可以根据需要通过 <code>setQueuePriority:</code> 方法来提高或降低 operation 的队列优先级。</p>
+
+<p>需要注意的是，队列优先级只应用于相同 operation queue 中的 operation 之间，不同 operation queue 中的 operation 不受此影响。另外，我们也需要清楚 operation 的队列优先级和依赖关系之间的区别。operation 的队列优先级只决定当前所有 <code>isReady</code> 状态为 <code>YES</code> 的 operation 的执行顺序。比如，在一个 operation queue 中，有一个高优先级和一个低优先级的 operation ，并且它们的 <code>isReady</code> 状态都为 <code>YES</code> ，那么高优先级的 operation 将会优先执行。而如果这个高优先级的 operation 的 <code>isReady</code> 状态为 <code>NO</code> ，而低优先级的 operation 的 <code>isReady</code> 状态为 <code>YES</code> 的话，那么这个低优先级的 operation 反而会优先执行。</p>
+
+<h3>修改 Operation 执行任务线程的优先级</h3>
+
+<p>从 iOS 4.0 开始，我们可以修改 operation 的执行任务线程的优先级。虽然 iOS 系统中的线程策略是由 <code>kernel</code> 内核管理的，但是一般来说，高优先级的线程相对于低优先级的线程来说能够得到更多的运行机会。我们可以给 operation 的线程优先级指定一个从 <code>0.0</code> 到 <code>1.0</code> 的浮点数值，<code>0.0</code> 表示最低的优先级，<code>1.0</code> 表示最高的优先级，默认值为 <code>0.5</code> 。</p>
+
+<p><strong>注意</strong>，我们只能够在执行一个 operation 或将其添加到 operation queue 前，通过 operation 的 <code>setThreadPriority:</code> 方法来修改它的线程优先级。当 operation 开始执行时，NSOperation 类中默认的 <code>start</code> 方法会使用我们指定的值来修改当前线程的优先级。另外，我们指定的这个线程优先级只会影响 <code>main</code> 方法执行时所在线程的优先级。所有其它的代码，包括 operation 的 completion block 所在的线程会一直以默认的线程优先级执行。因此，当我们自定义一个并发的 operation 类时，我们也需要在 <code>start</code> 方法中根据指定的值自行修改线程的优先级。</p>
+
+<h3>设置 Completion Block</h3>
+
+<p>从 iOS 4.0 开始，一个 operation 可以在它的主任务执行完成时回调一个 completion block 。我们可以用 completion block 来执行一些主任务之外的工作，比如，我们可以用它来通知一些客户 operation 已经执行完毕，而并发的 operation 也可以用这个 block 来生成最终的 <code>KVO</code> 通知。如果需要设置一个 operation 的 completion block ，直接调用 NSOperation 类的 <code>setCompletionBlock:</code> 方法即可。</p>
+
+<p><strong>注意</strong>，当一个 operation 被取消时，它的 completion block 仍然会执行，所以我们需要在真正执行代码前检查一下 <code>isCancelled</code> 方法的返回值。另外，我们也没有办法保证 completion block 被回调时一定是在主线程，理论上它应该是与触发 <code>isFinished</code> 的 <code>KVO</code> 通知所在的线程一致的，所以如果有必要的话我们可以在 completion block 中使用 <code>GCD</code> 来保证从主线程更新 <code>UI</code> 。</p>
+
+<h2>执行 Operation 对象</h2>
+
+<p>最终，我们需要执行 operation 来调度与其关联的任务。目前，主要有两种方式来执行一个 operation ：</p>
+
+<ul>
+<li>将 operation 添加到一个 operation queue 中，让 operation queue 来帮我们自动执行；</li>
+<li>直接调用 <code>start</code> 方法手动执行 operation 。</li>
+</ul>
+
+
+<h3>添加 Operation 到 Operation Queue 中</h3>
+
+<p>就目前来说，将 operation 添加到 operation queue 中是最简单的执行 operation 的方式。另外，这里的 operation queue 指的就是 NSOperationQueue 类的一个具体实例。就技术上而言，我们可以在应用中创建任意数量的 operation queue ，但是 operation queue 的数量越多并不意味着我们就能同时执行越多的 operation 。因为同时并发的 operation 数量是由系统决定的，系统会根据当前可用的核心数以及负载情况动态地调整最大的并发 operation 数量。创建一个 operation queue 非常简单，跟创建其他普通对象没有任何区别：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="bp">NSOperationQueue</span> <span class="o">*</span><span class="n">operationQueue</span> <span class="o">=</span> <span class="p">[[</span><span class="bp">NSOperationQueue</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>创建好 operation queue 后，我们可以使用下面三个方法添加 operation 到 operation queue 中：</p>
+
+<ul>
+<li><code>addOperation:</code> ，添加一个 operation 到 operation queue 中；</li>
+<li><code>addOperations:waitUntilFinished:</code> ，添加一组 operation 到 operation queue 中；</li>
+<li><code>addOperationWithBlock:</code> ，直接添加一个 block 到 operation queue 中，而不用创建一个 NSBlockOperation 对象。</li>
+</ul>
+
+
+<p>在大多数情况下，一个 operation 被添加到 operation queue 后不久就会执行，但是也有很多原因会使 operation queue 延迟执行入队的 operation 。比如，我们前面提到了的，如果一个 operation 所依赖的其他 operation 还没有执行完成时，这个 operation 就不能开始执行；再比如说 operation queue 被暂停执行或者已经达到了它最大可并发的 operation 数。下面的示例代码展示了这三种方法的基本用法：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -418,220 +782,135 @@
 <span class='line-number'>36</span>
 <span class='line-number'>37</span>
 <span class='line-number'>38</span>
-<span class='line-number'>39</span>
-<span class='line-number'>40</span>
-<span class='line-number'>41</span>
-<span class='line-number'>42</span>
-<span class='line-number'>43</span>
-<span class='line-number'>44</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="kt">void</span> <span class="nf">_object_set_associative_reference</span><span class="p">(</span><span class="kt">id</span> <span class="n">object</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">key</span><span class="p">,</span> <span class="kt">id</span> <span class="n">value</span><span class="p">,</span> <span class="kt">uintptr_t</span> <span class="n">policy</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>    <span class="c1">// retain the new value (if any) outside the lock.</span>
-</span><span class='line'>    <span class="n">ObjcAssociation</span> <span class="n">old_association</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">nil</span><span class="p">);</span>
-</span><span class='line'>    <span class="kt">id</span> <span class="n">new_value</span> <span class="o">=</span> <span class="n">value</span> <span class="o">?</span> <span class="n">acquireValue</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">policy</span><span class="p">)</span> <span class="o">:</span> <span class="nb">nil</span><span class="p">;</span>
-</span><span class='line'>    <span class="p">{</span>
-</span><span class='line'>        <span class="n">AssociationsManager</span> <span class="n">manager</span><span class="p">;</span>
-</span><span class='line'>        <span class="n">AssociationsHashMap</span> <span class="o">&amp;</span><span class="n">associations</span><span class="p">(</span><span class="n">manager</span><span class="p">.</span><span class="n">associations</span><span class="p">());</span>
-</span><span class='line'>        <span class="kt">disguised_ptr_t</span> <span class="n">disguised_object</span> <span class="o">=</span> <span class="n">DISGUISE</span><span class="p">(</span><span class="n">object</span><span class="p">);</span>
-</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">new_value</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>            <span class="c1">// break any existing association.</span>
-</span><span class='line'>            <span class="n">AssociationsHashMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">i</span> <span class="o">=</span> <span class="n">associations</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">disguised_object</span><span class="p">);</span>
-</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">associations</span><span class="p">.</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
-</span><span class='line'>                <span class="c1">// secondary table exists</span>
-</span><span class='line'>                <span class="n">ObjectAssociationMap</span> <span class="o">*</span><span class="n">refs</span> <span class="o">=</span> <span class="n">i</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
-</span><span class='line'>                <span class="n">ObjectAssociationMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">j</span> <span class="o">=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="n">key</span><span class="p">);</span>
-</span><span class='line'>                <span class="k">if</span> <span class="p">(</span><span class="n">j</span> <span class="o">!=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
-</span><span class='line'>                    <span class="n">old_association</span> <span class="o">=</span> <span class="n">j</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
-</span><span class='line'>                    <span class="n">j</span><span class="o">-&gt;</span><span class="n">second</span> <span class="o">=</span> <span class="n">ObjcAssociation</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span> <span class="n">new_value</span><span class="p">);</span>
-</span><span class='line'>                <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-</span><span class='line'>                    <span class="p">(</span><span class="o">*</span><span class="n">refs</span><span class="p">)[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">ObjcAssociation</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span> <span class="n">new_value</span><span class="p">);</span>
-</span><span class='line'>                <span class="p">}</span>
-</span><span class='line'>            <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-</span><span class='line'>                <span class="c1">// create the new association (first time).</span>
-</span><span class='line'>                <span class="n">ObjectAssociationMap</span> <span class="o">*</span><span class="n">refs</span> <span class="o">=</span> <span class="n">new</span> <span class="n">ObjectAssociationMap</span><span class="p">;</span>
-</span><span class='line'>                <span class="n">associations</span><span class="p">[</span><span class="n">disguised_object</span><span class="p">]</span> <span class="o">=</span> <span class="n">refs</span><span class="p">;</span>
-</span><span class='line'>                <span class="p">(</span><span class="o">*</span><span class="n">refs</span><span class="p">)[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">ObjcAssociation</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span> <span class="n">new_value</span><span class="p">);</span>
-</span><span class='line'>                <span class="n">object</span><span class="o">-&gt;</span><span class="n">setHasAssociatedObjects</span><span class="p">();</span>
-</span><span class='line'>            <span class="p">}</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@implementation</span> <span class="nc">OQUseOperationQueue</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">executeOperationUsingOperationQueue</span> <span class="p">{</span>
+</span><span class='line'>    <span class="bp">NSOperationQueue</span> <span class="o">*</span><span class="n">operationQueue</span> <span class="o">=</span> <span class="p">[[</span><span class="bp">NSOperationQueue</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="bp">NSInvocationOperation</span> <span class="o">*</span><span class="n">invocationOperation</span> <span class="o">=</span> <span class="p">[[</span><span class="bp">NSInvocationOperation</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithTarget</span><span class="p">:</span><span class="nb">self</span> <span class="nl">selector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">taskMethod</span><span class="p">)</span> <span class="nl">object</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">[</span><span class="n">operationQueue</span> <span class="nl">addOperation</span><span class="p">:</span><span class="n">invocationOperation</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="bp">NSBlockOperation</span> <span class="o">*</span><span class="n">blockOperation1</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSBlockOperation</span> <span class="nl">blockOperationWithBlock</span><span class="p">:</span><span class="o">^</span><span class="p">{</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Start executing blockOperation1, mainThread: %@, currentThread: %@&quot;</span><span class="p">,</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">mainThread</span><span class="p">],</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">currentThread</span><span class="p">]);</span>
+</span><span class='line'>        <span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Finish executing blockOperation1&quot;</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="bp">NSBlockOperation</span> <span class="o">*</span><span class="n">blockOperation2</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSBlockOperation</span> <span class="nl">blockOperationWithBlock</span><span class="p">:</span><span class="o">^</span><span class="p">{</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Start executing blockOperation2, mainThread: %@, currentThread: %@&quot;</span><span class="p">,</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">mainThread</span><span class="p">],</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">currentThread</span><span class="p">]);</span>
+</span><span class='line'>        <span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Finish executing blockOperation2&quot;</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[</span><span class="n">operationQueue</span> <span class="nl">addOperations</span><span class="p">:</span><span class="l">@[</span> <span class="n">blockOperation1</span><span class="p">,</span> <span class="n">blockOperation2</span> <span class="l">]</span> <span class="nl">waitUntilFinished</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[</span><span class="n">operationQueue</span> <span class="nl">addOperationWithBlock</span><span class="p">:</span><span class="o">^</span><span class="p">{</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Start executing block, mainThread: %@, currentThread: %@&quot;</span><span class="p">,</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">mainThread</span><span class="p">],</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">currentThread</span><span class="p">]);</span>
+</span><span class='line'>        <span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Finish executing block&quot;</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[</span><span class="n">operationQueue</span> <span class="n">waitUntilAllOperationsAreFinished</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">taskMethod</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Start executing %@, mainThread: %@, currentThread: %@&quot;</span><span class="p">,</span> <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">_cmd</span><span class="p">),</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">mainThread</span><span class="p">],</span> <span class="p">[</span><span class="bp">NSThread</span> <span class="n">currentThread</span><span class="p">]);</span>
+</span><span class='line'>    <span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Finish executing %@&quot;</span><span class="p">,</span> <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">_cmd</span><span class="p">));</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><strong>注意</strong>，在将一个 operation 添加到 operation queue 后就不要再修改这个 operation 了。因为 operation 被添加到 operation queue 后随时可能会执行，这个是由系统决定的，所以再修改它的依赖关系或者所包含的数据就很有可能会造成未知的影响。</p>
+
+<p>尽管 NSOperationQueue 类是被设计成用来并发执行 operation 的，但是我们也可以强制一个 operation queue 一次只执行一个 operation 。我们可以通过 <code>setMaxConcurrentoperationCount:</code> 方法来设置一个 operation queue 最大可并发的 operation 数，因此将这个值设置成 1 就可以实现让 operation queue 一次只执行一个 operation 的目的。但是需要注意的是，虽然这样可以让 operation queue 一次只执行一个 operation ，但是 operation 的执行顺序还是一样会受其他因素影响的，比如 operation 的 <code>isReady</code> 状态、operation 的队列优先级等。因此，一个串行的 operation queue 与一个串行的 dispatch queue 还是有本质区别的，因为 dispatch queue 的执行顺序一直是 <code>FIFO</code> 的。如果 operation 的执行顺序对我们来说非常重要，那么我们就应该在将 operation 添加到 operation queue 之前就建立好它的依赖关系。</p>
+
+<h3>手动执行 Operation</h3>
+
+<p>尽管使用 operation queue 是执行一个 operation 最方便的方式，但是我们也可以不用 operation queue 而选择手动地执行一个 operation 。从原理上来说，手动执行一个 operation 也是非常简单的，只需要调用它的 <code>start</code> 方法就可以了。但是从严格意义上来说，在调用 <code>start</code> 方法真正开始执行一个 operation 前，我们应该要做一些防范性的判断，比如检查 operation 的 <code>isReady</code> 状态是否为 <code>YES</code> ，这个取决于它所依赖的 operation 是否已经执行完成；又比如检查 operation 的 <code>isCancelled</code> 状态是否为 <code>YES</code> ，如果是，那么我们就根本不需要再花费不必要的开销去启动它。</p>
+
+<p>另外，我们应该一直通过 <code>start</code> 方法去手动执行一个 operation ，而不是 <code>main</code> 或其他的什么方法。因为默认的 <code>start</code> 方法会在真正开始执行任务前为我们做一些安全性的检查，比如检查 operation 是否已取消等。另外，正如我们前面说的，在默认的 <code>start</code> 方法中会生成一些必要的 <code>KVO</code> 通知，比如 <code>isExcuting</code> 和 <code>isFinished</code> ，而这些 <code>KVO</code> 通知正是 operation 能够正确处理好依赖关系的关键所在。</p>
+
+<p>更进一步说，如果我们需要实现的是一个并发的 operation ，我们也应该在启动 operation 前检查一下它的 <code>isConcurrent</code> 状态。如果它的 <code>isConcurrent</code> 状态为 <code>NO</code> ，那么我们就需要考虑一下是否可以在当前线程同步执行这个 operation ，或者是先为这个 operation 创建一个单独的线程，以供它异步执行。</p>
+
+<p>当然，如果你已经能够确定一个 operation 的可执行状态，那么你大可不必做这些略显啰嗦的防范性检查，直接调用 <code>start</code> 方法执行这个 operation 即可。下面的示例代码展示了手动执行一个 operation 的基本流程：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@implementation</span> <span class="nc">OQManualExecuteOperation</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nf">manualPerformOperation:</span><span class="p">(</span><span class="bp">NSOperation</span> <span class="o">*</span><span class="p">)</span><span class="nv">operation</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kt">BOOL</span> <span class="n">ranIt</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">operation</span><span class="p">.</span><span class="n">isCancelled</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">ranIt</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">operation</span><span class="p">.</span><span class="n">isReady</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">operation</span><span class="p">.</span><span class="n">isConcurrent</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="p">[</span><span class="n">operation</span> <span class="n">start</span><span class="p">];</span>
 </span><span class='line'>        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-</span><span class='line'>            <span class="c1">// setting the association to nil breaks the association.</span>
-</span><span class='line'>            <span class="n">AssociationsHashMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">i</span> <span class="o">=</span> <span class="n">associations</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">disguised_object</span><span class="p">);</span>
-</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span>  <span class="n">associations</span><span class="p">.</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
-</span><span class='line'>                <span class="n">ObjectAssociationMap</span> <span class="o">*</span><span class="n">refs</span> <span class="o">=</span> <span class="n">i</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
-</span><span class='line'>                <span class="n">ObjectAssociationMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">j</span> <span class="o">=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="n">key</span><span class="p">);</span>
-</span><span class='line'>                <span class="k">if</span> <span class="p">(</span><span class="n">j</span> <span class="o">!=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
-</span><span class='line'>                    <span class="n">old_association</span> <span class="o">=</span> <span class="n">j</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
-</span><span class='line'>                    <span class="n">refs</span><span class="o">-&gt;</span><span class="n">erase</span><span class="p">(</span><span class="n">j</span><span class="p">);</span>
-</span><span class='line'>                <span class="p">}</span>
-</span><span class='line'>            <span class="p">}</span>
+</span><span class='line'>            <span class="p">[</span><span class="bp">NSThread</span> <span class="nl">detachNewThreadSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">start</span><span class="p">)</span> <span class="nl">toTarget</span><span class="p">:</span><span class="n">operation</span> <span class="nl">withObject</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
 </span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>        <span class="n">ranIt</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
 </span><span class='line'>    <span class="p">}</span>
-</span><span class='line'>    <span class="c1">// release the old value (outside of the lock).</span>
-</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">old_association</span><span class="p">.</span><span class="n">hasValue</span><span class="p">())</span> <span class="n">ReleaseValue</span><span class="p">()(</span><span class="n">old_association</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="n">ranIt</span><span class="p">;</span>
 </span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>在看这段代码前，我们需要先了解一下几个数据结构以及它们之间的关系：</p>
+<h3>取消 Operation</h3>
 
-<ol>
-<li><code>AssociationsManager</code> 是顶级的对象，维护了一个从 <code>spinlock_t</code> 锁到 <code>AssociationsHashMap</code> 哈希表的单例键值对映射；</li>
-<li><code>AssociationsHashMap</code> 是一个无序的哈希表，维护了从对象地址到 <code>ObjectAssociationMap</code> 的映射；</li>
-<li><code>ObjectAssociationMap</code> 是一个 <code>C++</code> 中的 <code>map</code> ，维护了从 <code>key</code> 到 <code>ObjcAssociation</code> 的映射，即关联记录；</li>
-<li><code>ObjcAssociation</code> 是一个 <code>C++</code> 的类，表示一个具体的关联结构，主要包括两个实例变量，<code>_policy</code> 表示关联策略，<code>_value</code> 表示关联对象。</li>
-</ol>
+<p>从原则上来说，一旦一个 operation 被添加到 operation queue 后，这个 operation 的所有权就属于这个 operation queue 了，并且不能够被移除。唯一从 operation queue 中出队一个 operation 的方式就是调用它的 <code>cancel</code> 方法取消这个 operation ，或者直接调用 operation queue 的 <code>cancelAllOperations</code> 方法取消这个 operation queue 中所有的 operation 。另外，我们前面也提到了，当一个 operation 被取消后，这个 operation 的 <code>isFinished</code> 状态也会变成 <code>YES</code> ，这样处理的好处就是所有依赖它的 operation 能够接收到这个 <code>KVO</code> 通知，从而能够清除这个依赖关系正常执行。</p>
 
+<h3>等待 Operation 执行完成</h3>
 
-<p></p>
+<p>一般来说，为了让我们的应用拥有最佳的性能，我们应该尽可能地异步执行所有的 operation ，从而让我们的应用在执行这些异步 operation 的同时还能够快速地响应用户事件。当然，我们也可以调用 NSOperation 类的 <code>waitUntilFinished</code> 方法来阻塞当前线程，直到这个 operation 执行完成。虽然这种方式可以让我们非常方便地处理 operation 的执行结果，但是却给我们的应用引入了更多的串行，限制了应用的并发性，从而降低了我们应用的响应性。</p>
 
+<p><strong>注意</strong>，我们应该要坚决避免在主线程中去同步等待一个 operation 的执行结果，阻塞的方式只应该用在辅助线程或其他 operation 中。因为阻塞主线程会大大地降低我们应用的响应性，带来非常差的用户体验。</p>
 
-<p>每一个对象地址对应一个 <code>ObjectAssociationMap</code> 对象，而一个 <code>ObjectAssociationMap</code> 对象保存着这个对象的若干个关联记录。</p>
+<p>除了等待一个单独的 operation 执行完成外，我们也可以通过调用 NSOperationQueue 的 <code>waitUntilAlloperationsAreFinished</code> 方法来等待 operation queue 中的所有 operation 执行完成。有一点需要特别注意的是，当我们在等待一个 operation queue 中的所有 operation 执行完成时，其他的线程仍然可以向这个 operation queue 中添加 operation ，从而延长我们的等待时间。</p>
 
-<p>弄清楚这些数据结构之间的关系后，再回过头来看上面的代码就不难了。我们发现，在苹果的底层代码中一般都会充斥着各种 <code>if else</code> ，可见写好 <code>if else</code> 后我们就距离成为高手不远了。开个玩笑，我们来看下面的流程图，一图胜千言：</p>
+<h3>暂停和恢复 Operation Queue</h3>
 
-<p><img src="http://blog.leichunfeng.com/images/objc_setAssociatedObject.png" title="objc_setAssociatedObject" alt="objc_setAssociatedObject" /></p>
-
-<h3>objc_getAssociatedObject</h3>
-
-<p>同样的，我们也可以在 <code>objc-references.mm</code> 文件中找到 <code>objc_getAssociatedObject</code> 函数最终调用的函数：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="kt">id</span> <span class="nf">_object_get_associative_reference</span><span class="p">(</span><span class="kt">id</span> <span class="n">object</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">key</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>    <span class="kt">id</span> <span class="n">value</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
-</span><span class='line'>    <span class="kt">uintptr_t</span> <span class="n">policy</span> <span class="o">=</span> <span class="n">OBJC_ASSOCIATION_ASSIGN</span><span class="p">;</span>
-</span><span class='line'>    <span class="p">{</span>
-</span><span class='line'>        <span class="n">AssociationsManager</span> <span class="n">manager</span><span class="p">;</span>
-</span><span class='line'>        <span class="n">AssociationsHashMap</span> <span class="o">&amp;</span><span class="n">associations</span><span class="p">(</span><span class="n">manager</span><span class="p">.</span><span class="n">associations</span><span class="p">());</span>
-</span><span class='line'>        <span class="kt">disguised_ptr_t</span> <span class="n">disguised_object</span> <span class="o">=</span> <span class="n">DISGUISE</span><span class="p">(</span><span class="n">object</span><span class="p">);</span>
-</span><span class='line'>        <span class="n">AssociationsHashMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">i</span> <span class="o">=</span> <span class="n">associations</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">disguised_object</span><span class="p">);</span>
-</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">associations</span><span class="p">.</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
-</span><span class='line'>            <span class="n">ObjectAssociationMap</span> <span class="o">*</span><span class="n">refs</span> <span class="o">=</span> <span class="n">i</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
-</span><span class='line'>            <span class="n">ObjectAssociationMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">j</span> <span class="o">=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="n">key</span><span class="p">);</span>
-</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="n">j</span> <span class="o">!=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
-</span><span class='line'>                <span class="n">ObjcAssociation</span> <span class="o">&amp;</span><span class="n">entry</span> <span class="o">=</span> <span class="n">j</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
-</span><span class='line'>                <span class="n">value</span> <span class="o">=</span> <span class="n">entry</span><span class="p">.</span><span class="n">value</span><span class="p">();</span>
-</span><span class='line'>                <span class="n">policy</span> <span class="o">=</span> <span class="n">entry</span><span class="p">.</span><span class="n">policy</span><span class="p">();</span>
-</span><span class='line'>                <span class="k">if</span> <span class="p">(</span><span class="n">policy</span> <span class="o">&amp;</span> <span class="n">OBJC_ASSOCIATION_GETTER_RETAIN</span><span class="p">)</span> <span class="p">((</span><span class="kt">id</span><span class="p">(</span><span class="o">*</span><span class="p">)(</span><span class="kt">id</span><span class="p">,</span> <span class="kt">SEL</span><span class="p">))</span><span class="n">objc_msgSend</span><span class="p">)(</span><span class="n">value</span><span class="p">,</span> <span class="n">SEL_retain</span><span class="p">);</span>
-</span><span class='line'>            <span class="p">}</span>
-</span><span class='line'>        <span class="p">}</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">value</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">policy</span> <span class="o">&amp;</span> <span class="n">OBJC_ASSOCIATION_GETTER_AUTORELEASE</span><span class="p">))</span> <span class="p">{</span>
-</span><span class='line'>        <span class="p">((</span><span class="kt">id</span><span class="p">(</span><span class="o">*</span><span class="p">)(</span><span class="kt">id</span><span class="p">,</span> <span class="kt">SEL</span><span class="p">))</span><span class="n">objc_msgSend</span><span class="p">)(</span><span class="n">value</span><span class="p">,</span> <span class="n">SEL_autorelease</span><span class="p">);</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">value</span><span class="p">;</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>看懂了 <code>objc_setAssociatedObject</code> 函数后，<code>objc_getAssociatedObject</code> 函数对我们来说就是小菜一碟了。这个函数先根据对象地址在 <code>AssociationsHashMap</code> 中查找其对应的 <code>ObjectAssociationMap</code> 对象，如果能找到则进一步根据 <code>key</code> 在 <code>ObjectAssociationMap</code> 对象中查找这个 <code>key</code> 所对应的关联结构 <code>ObjcAssociation</code> ，如果能找到则返回 <code>ObjcAssociation</code> 对象的 <code>value</code> 值，否则返回 <code>nil</code> 。</p>
-
-<h3>objc_removeAssociatedObjects</h3>
-
-<p>同理，我们也可以在 <code>objc-references.mm</code> 文件中找到 <code>objc_removeAssociatedObjects</code> 函数最终调用的函数：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="kt">void</span> <span class="nf">_object_remove_assocations</span><span class="p">(</span><span class="kt">id</span> <span class="n">object</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">vector</span><span class="o">&lt;</span> <span class="n">ObjcAssociation</span><span class="p">,</span><span class="n">ObjcAllocator</span><span class="o">&lt;</span><span class="n">ObjcAssociation</span><span class="o">&gt;</span> <span class="o">&gt;</span> <span class="n">elements</span><span class="p">;</span>
-</span><span class='line'>    <span class="p">{</span>
-</span><span class='line'>        <span class="n">AssociationsManager</span> <span class="n">manager</span><span class="p">;</span>
-</span><span class='line'>        <span class="n">AssociationsHashMap</span> <span class="o">&amp;</span><span class="n">associations</span><span class="p">(</span><span class="n">manager</span><span class="p">.</span><span class="n">associations</span><span class="p">());</span>
-</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">associations</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
-</span><span class='line'>        <span class="kt">disguised_ptr_t</span> <span class="n">disguised_object</span> <span class="o">=</span> <span class="n">DISGUISE</span><span class="p">(</span><span class="n">object</span><span class="p">);</span>
-</span><span class='line'>        <span class="n">AssociationsHashMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">i</span> <span class="o">=</span> <span class="n">associations</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">disguised_object</span><span class="p">);</span>
-</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">associations</span><span class="p">.</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
-</span><span class='line'>            <span class="c1">// copy all of the associations that need to be removed.</span>
-</span><span class='line'>            <span class="n">ObjectAssociationMap</span> <span class="o">*</span><span class="n">refs</span> <span class="o">=</span> <span class="n">i</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
-</span><span class='line'>            <span class="k">for</span> <span class="p">(</span><span class="n">ObjectAssociationMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">j</span> <span class="o">=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">(),</span> <span class="n">end</span> <span class="o">=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">();</span> <span class="n">j</span> <span class="o">!=</span> <span class="n">end</span><span class="p">;</span> <span class="o">++</span><span class="n">j</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>                <span class="n">elements</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">j</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">);</span>
-</span><span class='line'>            <span class="p">}</span>
-</span><span class='line'>            <span class="c1">// remove the secondary table.</span>
-</span><span class='line'>            <span class="n">delete</span> <span class="n">refs</span><span class="p">;</span>
-</span><span class='line'>            <span class="n">associations</span><span class="p">.</span><span class="n">erase</span><span class="p">(</span><span class="n">i</span><span class="p">);</span>
-</span><span class='line'>        <span class="p">}</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'>    <span class="c1">// the calls to releaseValue() happen outside of the lock.</span>
-</span><span class='line'>    <span class="n">for_each</span><span class="p">(</span><span class="n">elements</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span> <span class="n">elements</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span> <span class="n">ReleaseValue</span><span class="p">());</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>这个函数负责移除一个对象的所有关联对象，具体实现也是先根据对象的地址获取其对应的 <code>ObjectAssociationMap</code> 对象，然后将所有的关联结构保存到一个 <code>vector</code> 中，最终释放 <code>vector</code> 中保存的所有关联对象。根据前面的实验观察到的情况，在一个对象被释放时，也正是调用的这个函数来移除其所有的关联对象。</p>
-
-<h3>给类对象添加关联对象</h3>
-
-<p>看完源代码后，我们知道对象地址与 <code>AssociationsHashMap</code> 哈希表是一一对应的。那么我们可能就会思考这样一个问题，是否可以给类对象添加关联对象呢？答案是肯定的。我们完全可以用同样的方式给类对象添加关联对象，只不过我们一般情况下不会这样做，因为更多时候我们可以通过 <code>static</code> 变量来实现类级别的变量。我在分类 <code>ViewController+AssociatedObjects</code> 中给 <code>ViewController</code> 类对象添加了一个关联对象 <code>associatedObject</code> ，读者可以亲自在 <code>viewDidLoad</code> 方法中调用一下以下两个方法验证一下：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">+</span> <span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">associatedObject</span><span class="p">;</span>
-</span><span class='line'><span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setAssociatedObject:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">associatedObject</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
+<p>如果我们想要暂停和恢复执行 operation queue 中的 operation ，可以通过调用 operation queue 的 <code>setSuspended:</code> 方法来实现这个目的。不过需要注意的是，暂停执行 operation queue 并不能使正在执行的 operation 暂停执行，而只是简单地暂停调度新的 operation 。另外，我们并不能单独地暂停执行一个 operation ，除非直接 <code>cancel</code> 掉。</p>
 
 <h2>总结</h2>
 
-<p>读到这里，相信你对开篇的那三个问题已经有了一定的认识，下面我们再梳理一下：</p>
-
-<ol>
-<li>关联对象与被关联对象本身的存储并没有直接的关系，它是存储在单独的哈希表中的；</li>
-<li>关联对象的五种关联策略与属性的限定符非常类似，在绝大多数情况下，我们都会使用 <code>OBJC_ASSOCIATION_RETAIN_NONATOMIC</code> 的关联策略，这可以保证我们持有关联对象；</li>
-<li>关联对象的释放时机与移除时机并不总是一致，比如实验中用关联策略 <code>OBJC_ASSOCIATION_ASSIGN</code> 进行关联的对象，很早就已经被释放了，但是并没有被移除，而再使用这个关联对象时就会造成 Crash 。</li>
-</ol>
-
-
-<p></p>
-
-
-<p>在弄懂 Associated Objects 的实现原理后，可以帮助我们更好地使用它，在出现问题时也能尽快地定位问题，最后希望本文能够对你有所帮助。</p>
+<p>看到这里，我想你对 iOS 的并发编程模型已经有了一定的了解。正如文中所说的，我们应该尽可能地直接使用队列而不是线程，让系统去与线程打交道，而我们只需定义好要调度的任务就可以了。一般情况下，我们也完全不需要去自定义一个并发的 operation ，因为在与 operation queue 结合使用时，operation queue 会自动为非并发的 operation 创建一个线程。Operation Queues 是对 <code>GCD</code> 面向对象的封装，它可以高度定制化，对依赖关系、队列优先级和线程优先级等提供了很好的支持，是我们实现复杂任务调度时的不二之选。</p>
 
 <h2>参考链接</h2>
 
-<p><a href="http://nshipster.com/associated-objects/">http://nshipster.com/associated-objects/</a>
+<p><a href="https://developer.apple.com/library/ios/documentation/General/Conceptual/ConcurrencyProgrammingGuide/Introduction/Introduction.html">https://developer.apple.com/library/ios/documentation/General/Conceptual/ConcurrencyProgrammingGuide/Introduction/Introduction.html</a>
 <br>
-<a href="http://kingscocoa.com/tutorials/associated-objects/">http://kingscocoa.com/tutorials/associated-objects/</a></p>
+<a href="http://www.raywenderlich.com/76341/use-nsoperation-nsoperationqueue-swift">http://www.raywenderlich.com/76341/use-nsoperation-nsoperationqueue-swift</a>
+<br>
+<a href="http://blog.xcodev.com/archives/operation-queue-intro/">http://blog.xcodev.com/archives/operation-queue-intro/</a></p>
+
+<p><strong>版权声明</strong>：我已将本文在微信公众平台的发表权「独家代理」给 iOS 开发（iOSDevTips）微信公众号。扫下方二维码即可关注「iOS 开发」：</p>
+
+<p><img src="http://blog.devtang.com/images/weixin-qr.jpg" alt="iOS 开发二维码" /></p>
 </div>
   
   
@@ -654,6 +933,10 @@
     <section>
   <h1>Recent Posts</h1>
   <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2016/02/27/mvvm-with-reactivecocoa/">MVVM With ReactiveCocoa</a>
+      </li>
     
       <li class="post">
         <a href="/blog/2015/12/25/reactivecocoa-v2-dot-5-yuan-ma-jie-xi-zhi-jia-gou-zong-lan/">ReactiveCocoa v2.5 源码解析之架构总览</a>
@@ -689,10 +972,6 @@
     
       <li class="post">
         <a href="/blog/2015/04/25/objective-c-object-model/">Objective-C 对象模型</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal/">结合 Reveal 谈谈 MBProgressHUD 的用法</a>
       </li>
     
   </ul>
