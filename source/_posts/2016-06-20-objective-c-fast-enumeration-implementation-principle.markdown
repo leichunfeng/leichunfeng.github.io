@@ -3,7 +3,8 @@ layout: post
 title: "Objective-C Fast Enumeration 的实现原理"
 date: 2016-06-20 20:30:53 +0800
 comments: true
-categories: Objective-C, Fast Enumeration, Fast, Enumeration, NSFastEnumeration, countByEnumeratingWithState
+categories: 
+keywords: Objective-C, Fast Enumeration, Fast, Enumeration, NSFastEnumeration, countByEnumeratingWithState
 ---
 
 在 Objective-C 2.0 中提供了快速枚举的语法，它是我们遍历集合元素的首选方法，因为它具有以下优点：
