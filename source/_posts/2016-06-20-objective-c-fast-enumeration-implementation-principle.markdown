@@ -80,7 +80,7 @@ int main(int argc, char * argv[]) {
 
 接着，我们使用下面的 clang 命令将 `main.m` 文件重写成 C++ 代码：
 
-```
+``` objc
 clang -rewrite-objc main.m
 ```
 
@@ -280,9 +280,11 @@ state->itemsPtr = (__typeof__(state->itemsPtr))const_array;
 
 其实，这里面有两次类型转换，第一次是从 `__strong NSNumber *` 类型转换到 `__unsafe_unretained const id *` 类型，第二次是从 `__unsafe_unretained const id *` 类型转换到 `id __unsafe_unretained *` 类型，更多信息可以查看 [AutomaticReferenceCounting](http://clang.llvm.org/docs/AutomaticReferenceCounting.html) 中的 4.3.3 小节。
 
+值得一提的是，我在前面的文章[《ReactiveCocoa v2.5 源码解析之架构总览》](http://localhost:4000/blog/2015/12/25/reactivecocoa-v2-dot-5-yuan-ma-jie-xi-zhi-jia-gou-zong-lan/) 中，就已经有提到过，[ReactiveCocoa](https://github.com/ReactiveCocoa/ReactiveCocoa/tree/v2.5) 中的 [RACSequence](https://github.com/ReactiveCocoa/ReactiveCocoa/blob/v2.5/ReactiveCocoa/RACSequence.m) 类是有实现 `NSFastEnumeration` 协议的。因为 `RACSequence` 中的元素在内存上并不一定连续，所以它采用的是第一种实现方式。对此感兴趣的同学，可以去看看它的源码，这里不再赘述。
+
 ## 总结
 
-本文从 `NSFastEnumeration` 的定义出发，解释了 `- countByEnumeratingWithState:objects:count:` 方法中的返回值以及各个参数的含义；接着，使用 `clang -rewrite-objc` 命令探究了快速枚举的内部实现细节；最后，通过一个自定义的集合类 `Array` 演示了两种实现 `NSFastEnumeration` 的方式。
+本文从 `NSFastEnumeration` 的定义出发，解释了 `- countByEnumeratingWithState:objects:count:` 方法中的返回值以及各个参数的含义；然后，使用 `clang -rewrite-objc` 命令探究了快速枚举的内部实现；最后，通过一个自定义的集合类 `Array` 演示了两种实现 `NSFastEnumeration` 协议的方式。
 
 ## 参考链接
 
