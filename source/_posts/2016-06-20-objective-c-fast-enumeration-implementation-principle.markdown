@@ -10,12 +10,12 @@ categories:
 
 - 比直接使用 `NSEnumerator` 更高效；
 - 语法非常简洁；
-- 如果你在遍历集合的过程中修改集合的话，它会抛出异常；
-- 你可以同时执行多个枚举。
+- 如果集合在遍历的过程中被修改，它会抛出异常；
+- 可以同时执行多个枚举。
 
-那么，问题来了，它是怎么做到的呢？我想，你应该也跟我一样，对 Objective-C 中快速枚举的底层实现非常感兴趣，事不宜迟，让我们来一探究竟吧。
+那么问题来了，它是如何做到的呢？我想，你应该也跟我一样，对 Objective-C 中快速枚举的实现原理非常感兴趣，事不宜迟，让我们来一探究竟吧。
 
-## NSFastEnumeration
+## 解析 NSFastEnumeration 协议
 
 在 Objective-C 中，我们要实现快速枚举就必须要实现 [NSFastEnumeration](https://developer.apple.com/library/mac/#documentation/Cocoa/Reference/NSFastEnumeration_protocol/Reference/NSFastEnumeration.html) 协议，在这个协议中，只声明了一个必须实现的方法：
 
@@ -59,7 +59,7 @@ typedef struct {
 
 截至目前，我们只剩下 `NSFastEnumerationState` 中的 `state` 和 `extra` 字段还没有进行介绍。事实上，它们是调用者提供给被调用者自由使用的两个字段，调用者根本就不关心这两个字段的值，我们可以用它们来存储任何有用的值。
 
-## 内部实现
+## 揭密快速枚举的内部实现
 
 说了这么多，说得好像 `NSFastEnumeration` 是你设计的一样，你到底是怎么知道的呢？额，我说我是瞎猜的，你信么？好了，不开玩笑了。下面，我们就一起来探究一下快速枚举的内部实现。假设，我们有一个 `main.m` 文件，其中的代码如下：
 
@@ -166,7 +166,7 @@ int main(int argc, char * argv[]) {
 
 另外，值得一提的是，我特意在 `main.m` 中加入了 `continue` 和 `break` 语句。因此，我们也有机会看到了在 `for/in` 语句中是如何使用 goto 语句来实现 `continue` 和 `break` 语句的。
 
-## 实现 NSFastEnumeration
+## 实现 NSFastEnumeration 协议
 
 看到这里，我相信你对 Objective-C 中的快速枚举的实现原理已经有了一个比较清晰地认识。接下来，我们就一起来动手实现一下 `NSFastEnumeration` 。
 
@@ -280,11 +280,11 @@ state->itemsPtr = (__typeof__(state->itemsPtr))const_array;
 
 其实，这里面有两次类型转换，第一次是从 `__strong NSNumber *` 类型转换到 `__unsafe_unretained const id *` 类型，第二次是从 `__unsafe_unretained const id *` 类型转换到 `id __unsafe_unretained *` 类型，更多信息可以查看 [AutomaticReferenceCounting](http://clang.llvm.org/docs/AutomaticReferenceCounting.html) 中的 4.3.3 小节。
 
-值得一提的是，我在前面的文章[《ReactiveCocoa v2.5 源码解析之架构总览》](http://localhost:4000/blog/2015/12/25/reactivecocoa-v2-dot-5-yuan-ma-jie-xi-zhi-jia-gou-zong-lan/) 中，就已经有提到过，[ReactiveCocoa](https://github.com/ReactiveCocoa/ReactiveCocoa/tree/v2.5) 中的 [RACSequence](https://github.com/ReactiveCocoa/ReactiveCocoa/blob/v2.5/ReactiveCocoa/RACSequence.m) 类是有实现 `NSFastEnumeration` 协议的。因为 `RACSequence` 中的元素在内存上并不一定连续，所以它采用的是第一种实现方式。对此感兴趣的同学，可以去看看它的源码，这里不再赘述。
+值得一提的是，我在前面的文章[《ReactiveCocoa v2.5 源码解析之架构总览》](http://localhost:4000/blog/2015/12/25/reactivecocoa-v2-dot-5-yuan-ma-jie-xi-zhi-jia-gou-zong-lan/)中，就已经有提到过，[ReactiveCocoa](https://github.com/ReactiveCocoa/ReactiveCocoa/tree/v2.5) 中的 [RACSequence](https://github.com/ReactiveCocoa/ReactiveCocoa/blob/v2.5/ReactiveCocoa/RACSequence.m) 类是有实现 `NSFastEnumeration` 协议的。因为 `RACSequence` 中的元素在内存上并不一定连续，所以它采用的是第一种实现方式。对此感兴趣的同学，可以去看看它的源码，这里不再赘述。
 
 ## 总结
 
-本文从 `NSFastEnumeration` 的定义出发，解释了 `- countByEnumeratingWithState:objects:count:` 方法中的返回值以及各个参数的含义；然后，使用 `clang -rewrite-objc` 命令探究了快速枚举的内部实现；最后，通过一个自定义的集合类 `Array` 演示了两种实现 `NSFastEnumeration` 协议的方式。
+本文从 `NSFastEnumeration` 的定义出发，解释了 `- countByEnumeratingWithState:objects:count:` 方法中的返回值以及各个参数的含义；然后，使用 `clang -rewrite-objc` 命令探究了快速枚举的内部实现；最后，通过一个自定义的集合类 `Array` 演示了两种实现 `NSFastEnumeration` 协议的方式，希望本文对你有所帮助。
 
 ## 参考链接
 
