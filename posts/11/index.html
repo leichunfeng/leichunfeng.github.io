@@ -9,7 +9,7 @@
   <meta name="author" content="雷纯锋">
 
   
-  <meta name="description" content="我的博客已经好几个月没有更新了，想想还真是有些难过。究其原因主要是工作占用了我绝大部分的时间，包含工作日的晚上和大部分周末。剩余的很小部分空余时间，我都用来开发个人 iOS 应用 GitBucket 了。 GitBucket 是一个 GitHub 的 iOS 客户端，使用 MVVM 模式和 RAC &hellip;">
+  <meta name="description" content="Objective-C 是一门面向对象的程序设计语言，它的对象模型是基于类来建立的。我们可以在苹果开源的 runtime（我下载的是当前的最新版本 objc4-646.tar.gz ）中发现 Objective-C 对象模型的实现细节。 对象 在 Objective-C 中， &hellip;">
   
     <meta name="keywords" content="雷纯锋的技术博客, 雷纯锋, 技术博客, 博客, iOS, Objective-C, Android, Java, HTML5, CSS3, JavaScript, Octopress, GitHub Pages, GitHub, Pages, GitCafe, RAC, ReactiveCocoa, Git">
   
@@ -38,7 +38,7 @@
   <header role="banner"><hgroup>
   <h1><a href="/">雷纯锋的技术博客</a></h1>
   
-    <h2>努力的人运气都不会太差</h2>
+    <h2>时间总会有的</h2>
   
 </hgroup>
 
@@ -73,7 +73,7 @@
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2015/03/16/talking-about-the-usage-of-mbprogresshud-combined-with-reveal/">结合 Reveal 谈谈 MBProgressHUD 的用法</a></h1>
+      <h1 class="entry-title"><a href="/blog/2015/04/25/objective-c-object-model/">Objective-C 对象模型</a></h1>
     
     
       <p class="meta">
@@ -82,72 +82,68 @@
 
 
 
-<time class='entry-date' datetime='2015-03-16T12:32:51+08:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>16</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>12:32 pm</span></time>
+<time class='entry-date' datetime='2015-04-25T19:38:02+08:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>7:38 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>我的博客已经好几个月没有更新了，想想还真是有些难过。究其原因主要是工作占用了我绝大部分的时间，包含工作日的晚上和大部分周末。剩余的很小部分空余时间，我都用来开发个人 iOS 应用 GitBucket 了。</p>
+  <div class="entry-content"><p>Objective-C 是一门面向对象的程序设计语言，它的对象模型是基于类来建立的。我们可以在苹果开源的 <a href="http://opensource.apple.com/tarballs/objc4/">runtime</a>（我下载的是当前的最新版本 <code>objc4-646.tar.gz</code> ）中发现 Objective-C 对象模型的实现细节。</p>
 
-<p>GitBucket 是一个 GitHub 的 iOS 客户端，使用 <a href="http://en.wikipedia.org/wiki/Model_View_ViewModel">MVVM</a> 模式和 <a href="https://github.com/ReactiveCocoa/ReactiveCocoa">RAC</a> 框架进行开发。目前 GitBucket 的项目代码 <a href="https://github.com/leichunfeng/MVVMReactiveCocoa">MVVMReactiveCocoa</a> 已经在 GitHub 上开源了出来。开发这个应用的主要目的是希望提供一个使用 MVVM 模式和 RAC 框架开发的完整应用，能够对学习 MVVM 模式和 RAC 框架的 iOS 开发者有所帮助。昨天，我已经向 App Store 提交了 GitBucket v1.0 版本，相信很快大家就可以下载使用了。</p>
+<h2>对象</h2>
 
-<p>言归正传，接下来我们结合 <a href="http://revealapp.com/">Reveal</a> 来谈谈 <a href="https://github.com/jdg/MBProgressHUD">MBProgressHUD</a> 的用法。这里主要讨论的是什么情况下导航栏上的按钮可用，什么情况下不可用，及其原因。</p>
+<p>在 Objective-C 中，每一个对象都是某个类的实例，且这个对象的 <code>isa</code>（在 64 位 CPU 下，<code>isa</code> 已经不再是一个简单的指针，在本文中我们暂且把它当作普通指针来理解，后面我会单独写一篇博文来详细介绍 <code>Non-pointer isa</code> ）指针指向它所属的类。</p>
 
-<p><strong>注</strong>：本博文的程序代码可以在 <a href="https://github.com/leichunfeng/MBProgressHUD">leichunfeng/MBProgressHUD</a> 上找到，读者可以克隆下来亲自运行下看看效果。</p>
+<p>打开刚下载的 runtime 工程，在文件 <code>objc-private.h</code> 的第 127-232 行我们可以找到 Objective-C 中的对象的定义 <code>struct objc_object</code> 。是的，Objective-C 中的对象本质上是结构体对象，其中 <code>isa</code> 是它唯一的私有成员变量。</p>
 
-<h2>关于 self.navigationController.view</h2>
+<p><img src="/images/objc_object.jpg" title="Objective-C 对象的定义" alt="Objective-C 对象的定义"></p>
 
-<p>相信看过 MBProgressHUD 官方例子 <code>HudDemo</code> 代码的同学应该看到过下述代码：</p>
+<p>在同一个文件的第 51-52 行我们可以找到 <code>Class</code> 和 <code>id</code> 类型的定义，它们分别是 <code>struct objc_class</code> 和 <code>struct objc_object</code> 类型的指针。这也是为什么 <code>id</code> 类型可以指向任意对象的原因。其中 <code>struct objc_class</code> 就是 Objective-C 中的类的定义，在下一节将会详细介绍。</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">HUD</span> <span class="o">=</span> <span class="p">[[</span><span class="n">MBProgressHUD</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithView</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">navigationController</span><span class="p">.</span><span class="n">view</span><span class="p">];</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">typedef</span> <span class="k">struct</span> <span class="n">objc_class</span> <span class="o">*</span><span class="kt">Class</span><span class="p">;</span>
+</span><span class='line'><span class="k">typedef</span> <span class="k">struct</span> <span class="n">objc_object</span> <span class="o">*</span><span class="kt">id</span><span class="p">;</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>当时，你可能会对 <code>self.navigationController.view</code> 有些疑惑，这是什么玩意？其实，如果我们查看下 <code>UINavigationController.h</code> 文件就会发现，<code>UINavigationController</code> 其实是继承自 <code>UIViewController</code> 的，那么它拥有 <code>view</code> 属性也就不奇怪了。</p>
+<h2>类</h2>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">NS_CLASS_AVAILABLE_IOS</span><span class="p">(</span><span class="mi">2</span><span class="n">_0</span><span class="p">)</span> <span class="k">@interface</span> <span class="bp">UINavigationController</span> : <span class="bp">UIViewController</span>
-</span></code></pre></td></tr></table></div></figure>
+<p>对象的类不仅描述了对象的数据：对象占用的内存大小、成员变量的类型和布局等，而且也描述了对象的行为：对象能够响应的消息、实现的实例方法等。因此，当我们调用实例方法 <code>[receiver message]</code> 给一个对象发送消息时，这个对象能否响应这个消息就需要通过 <code>isa</code> 找到它所属的类（当然还有 superclass，本文主要内容不是这个，所以不展开）才能知道。</p>
 
+<p>打开文件 <code>objc-runtime-new.h</code> ，在第 687-902 行我们可以找到 Objective-C 中的类的定义 <code>struct objc_class</code> 。同样的，Objective-C 中类也是一个结构体对象，并且继承了 <code>struct objc_object</code> 。</p>
 
-<p>下面，我们会结合 Reveal 清楚地看到 <code>self.navigationController.view</code> 到底是什么东西，稍安勿躁。</p>
+<p><img src="/images/objc_class.jpg" title="Objective-C 类的定义" alt="Objective-C 类的定义"></p>
 
-<h2>显示 MBProgressHUD</h2>
+<p>所以，Objective-C 中的类本质上也是对象，我们称之为类对象。按照我们前面所说的所有的对象都是某个类的实例，那么类对象又是什么类的实例呢？答案就是我们将在下一节介绍的元类。</p>
 
-<p>初始化 MBProgressHUD 时需要我们传入一个 <code>UIView</code> 类型的参数 <code>view</code>，而显示 MBProgressHUD 的原理其实就是用 <code>addSubview</code> 方法将 MBProgressHUD 添加为这个 <code>view</code> 的子视图。</p>
+<p>在 Objective-C 中有一个非常特殊的类 <code>NSObject</code> ，绝大部分的类都继承自它。它是 Objective-C 中的两个根类（rootclass）之一，另外一个是 NSProxy（本文不讨论）。同样的，我们打开文件 <code>NSObject.h</code> ，可以看到 <code>NSObject</code> 类其实就只有一个成员变量 <code>isa</code> ，所有继承自 <code>NSObject</code> 的类也都会有这个成员变量。</p>
 
-<p>我们先来看看未显示 MBProgressHUD 时，应用的视图层次结构。其中 1 为 <code>UIWindow</code> ，即 <code>self.view.window</code>，2 是 <code>UINavigationController</code> 的 <code>view</code> ，即我们前面提到的 <code>self.navigationController.view</code> ，3 为 <code>self.view</code> ，4 为导航栏 <code>UINavigationBar</code> ，即 <code>self.navigationController.navigationBar</code> 。</p>
+<p><img src="/images/nsobject.jpg" title="NSObject 类" alt="NSObject 类"></p>
 
-<p><img src="/images/show-mbprogresshud.jpg" title="应用的视图层次结构" alt="应用的视图层次结构"></p>
+<h2>元类</h2>
 
-<p>通过这张图，我们清楚地看到了 <code>self.view.window</code> 、<code>self.navigationController.view</code> 、<code>self.view</code> 和 <code>self.navigationController.navigationBar</code> 在应用的视图层次中所处的位置，以及它们之间的层次关系。</p>
+<p>我们上面提到，本质上 Objective-C 中的类也是对象，它也是某个类的实例，这个类我们称之为元类（metaclass）。</p>
 
-<p>下面，我们就对比一下 MBProgressHUD 分别在 <code>self.view.window</code> 、<code>self.navigationController.view</code> 和 <code>self.view</code> 上显示时应用的视图层次结构，以及导航栏上按钮的可用情况。</p>
+<p>因此，我们也可以通过调用类方法，比如 <code>[NSObject new]</code>，给类对象发送消息。同样的，类对象能否响应这个消息也要通过 <code>isa</code> 找到类对象所属的类（元类）才能知道。也就是说，实例方法是保存在类中的，而类方法是保存在元类中的。</p>
 
-<h3>方式 1 - On self.view.window</h3>
+<p>那元类也是对象吗？是的话那它又是什么类的实例呢？是的，没错，元类也是对象（元类对象），元类也是某个类的实例，这个类我们称之为根元类（root metaclass）。不过，有一点比较特殊，那就是所有的元类所属的类都是同一个根元类（当然根元类也是元类，所以它所属的类也是根元类，即它本身）。根元类指的就是根类的元类，具体来说就是根类 <code>NSObject</code> 对应的元类。</p>
 
-<p>使用这种方式时，MBProgressHUD 被添加到了 <code>self.view.window</code> 上，它与 <code>self.navigationController.view</code> 在视图层次上是平级的，同为 <code>self.view.window</code> 的子视图。但是由于 MBProgressHUD 是后添加的，所以它处于 <code>self.navigationController.view</code> 的上方，因此导航栏上的按钮均不可点击。</p>
+<p>因此，理论上我们也可以给元类发送消息，但是 Objective-C 倾向于隐藏元类，不想让大家知道元类的存在。元类是为了保持 Objective-C 对象模型在设计上的完整性而引入的，比如用来保存类方法等，它主要是用来给编译器使用的。</p>
 
-<p><img src="/images/on-self.view.window.jpg" title="应用的视图层次结构" alt="应用的视图层次结构"></p>
+<p>说了这么多，大家可能已经有点绕迷糊了，下面我们看一张图，一切自会明了。</p>
 
-<h3>方式 2 - On self.navigationController.view</h3>
+<p><img src="/images/object_model.png" title="Objective-C 对象模型" alt="Objective-C 对象模型"></p>
 
-<p>使用这种方式时，MBProgressHUD 被添加到了 <code>self.navigationController.view</code> 上，它与 <code>self.navigationController.navigationBar</code> 在视图层次上是平级的，同为 <code>self.navigationController.view</code> 的子视图。但是由于 MBProgressHUD 是后添加的，所以它处于 <code>self.navigationController.navigationBar</code> 的上方，因此导航栏上的按钮也均不可点击。</p>
+<h2>参考链接</h2>
 
-<p><img src="/images/on-self.navigationController.view.jpg" title="应用的视图层次结构" alt="应用的视图层次结构"></p>
+<ul>
+<li><a href="http://www.devtang.com/blog/2013/10/15/objective-c-object-model/">http://www.devtang.com/blog/2013/10/15/objective-c-object-model/</a></li>
+<li><a href="http://husbandman.diandian.com/post/2012-08-17/40036035008">http://husbandman.diandian.com/post/2012-08-17/40036035008</a></li>
+<li><a href="http://www.sealiesoftware.com/blog/archive/2009/04/14/objc_explain_Classes_and_metaclasses.html">http://www.sealiesoftware.com/blog/archive/2009/04/14/objc_explain_Classes_and_metaclasses.html</a></li>
+</ul>
 
-<h3>方式 3 - On self.view</h3>
-
-<p>使用这种方式时，MBProgressHUD 被添加到了 <code>self.view</code> 上，不管 <code>self.view</code> 或 MBProgressHUD 是否占满整个屏幕，<code>self.navigationController.navigationBar</code> 永远处于 MBProgressHUD 的上方。因此，导航栏上的按钮一直是可点击的。</p>
-
-<p><img src="/images/on-self.view.jpg" title="应用的视图层次结构" alt="应用的视图层次结构"></p>
-
-<h2>总结</h2>
-
-<p>当你需要让导航栏上的按钮不可点击的时候，可以选择使用 <code>方式 1</code> 或 <code>方式 2</code> 显示 MBProgressHUD 。反之，可以选择 <code>方式 3</code> 。</p>
 </div>
   
   
@@ -170,6 +166,10 @@
     <section>
   <h1>Recent Posts</h1>
   <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2016/06/20/objective-c-fast-enumeration-implementation-principle/">Objective-C Fast Enumeration 的实现原理</a>
+      </li>
     
       <li class="post">
         <a href="/blog/2016/02/27/mvvm-with-reactivecocoa/">MVVM With ReactiveCocoa</a>
@@ -205,10 +205,6 @@
     
       <li class="post">
         <a href="/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/">Objective-C +load vs +initialize</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2015/04/25/objective-c-object-model/">Objective-C 对象模型</a>
       </li>
     
   </ul>

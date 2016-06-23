@@ -9,7 +9,7 @@
   <meta name="author" content="雷纯锋">
 
   
-  <meta name="description" content="序言中提到周末折腾了两天时间，终于用 Octopress 成功搭建起了自己专属的技术博客，那么本文就来细说一下如何使用 Octopress+GitHub Pages 搭建个人博客。 Octopress Octopress 是一款基于 Jekyll 的功能强大的博客框架，是对 Jekyll &hellip;">
+  <meta name="description" content="在上一篇博文中我们提到了因为 GitHub 毕竟是国外的（你懂的）代码托管网站，所以我们博客的访问速度始终还是比较慢的。因此，如果你想让你的博客访问速度有飞一般的感觉的话，那么就跟我一样将你的 Octopress 博客从 GitHub 迁移到 GitCafe 上吧！ 迁移原理 注意， &hellip;">
   
     <meta name="keywords" content="雷纯锋的技术博客, 雷纯锋, 技术博客, 博客, iOS, Objective-C, Android, Java, HTML5, CSS3, JavaScript, Octopress, GitHub Pages, GitHub, Pages, GitCafe, RAC, ReactiveCocoa, Git">
   
@@ -38,7 +38,7 @@
   <header role="banner"><hgroup>
   <h1><a href="/">雷纯锋的技术博客</a></h1>
   
-    <h2>努力的人运气都不会太差</h2>
+    <h2>时间总会有的</h2>
   
 </hgroup>
 
@@ -73,7 +73,7 @@
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2014/11/11/use-octopress-plus-github-pages-to-setup-a-personal-blog/">使用 Octopress+GitHub Pages 搭建个人博客</a></h1>
+      <h1 class="entry-title"><a href="/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/">将 Octopress 博客从 GitHub 迁移到 GitCafe</a></h1>
     
     
       <p class="meta">
@@ -82,132 +82,44 @@
 
 
 
-<time class='entry-date' datetime='2014-11-11T21:47:07+08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>11</span><span class='date-suffix'>th</span>, <span class='date-year'>2014</span></span> <span class='time'>9:47 pm</span></time>
+<time class='entry-date' datetime='2014-11-15T13:38:20+08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>15</span><span class='date-suffix'>th</span>, <span class='date-year'>2014</span></span> <span class='time'>1:38 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>序言中提到周末折腾了两天时间，终于用 Octopress 成功搭建起了自己专属的技术博客，那么本文就来细说一下如何使用 Octopress+GitHub Pages 搭建个人博客。</p>
+  <div class="entry-content"><p>在<a href="http://blog.leichunfeng.com/blog/2014/11/11/use-octopress-plus-github-pages-to-setup-a-personal-blog/">上一篇博文</a>中我们提到了因为 GitHub 毕竟是国外的（你懂的）代码托管网站，所以我们博客的访问速度始终还是比较慢的。因此，如果你想让你的博客访问速度有飞一般的感觉的话，那么就跟我一样将你的 Octopress 博客从 GitHub 迁移到 GitCafe 上吧！</p>
 
-<h2>Octopress</h2>
+<h2>迁移原理</h2>
 
-<p><a href="http://octopress.org/">Octopress</a> 是一款基于 <a href="https://github.com/jekyll/jekyll">Jekyll</a> 的功能强大的博客框架，是对 Jekyll 的进一步封装，号称是给黑客使用的，用起来比 Jekyll 简单很多，不需要太多的设置，只需要 <a href="https://github.com/imathis/octopress">clone 或者 fork Octopress</a>，安装依赖和主题就可以了。当然，这个时候你的博客还比较粗糙，如果你想让你的博客访问速度更快，有分享和评论功能，以及每篇博文的最后都带上原文链接的话，你需要做的还比较多，不过不用担心，Follow me，我会为你娓娓道来。</p>
+<p><strong>注意</strong>，这里所说的迁移并非就是要完全抛弃 GitHub ，我们不需要这么极端。而是指我们在将博客内容 <code>push</code> 到 GitHub 的时候，也顺便 <code>push</code> 一份到 GitCafe 上。然后用 GitCafe 上的那份作为我们对外的博客使用，而 GitHub 上的那份则作为备份留存。这样，当我们哪天想再用回 GitHub 的时候，只要将我们的域名重新指回 GitHub 的博客地址就可以了，反之亦然。</p>
 
-<h2>GitHub Pages</h2>
+<p>在开始之前，我想大概谈一谈迁移的原理，理解了原理后你可能都不需要看下面的迁移步骤，自己就能轻松搞定了。我们知道，Octopress 其实为我们建立了两个分支，<code>source</code> 分支充当书桌，<code>master</code> 分支则用于存放最终生成的 <code>HTML</code> 博文。但有一点我们需要特别注意，那就是 Octopress 对这两个分支的操作其实是在本地两个不同的 Git 仓库中进行的。其中，对 <code>source</code> 分支的操作在 <code>octopress</code> 仓库中进行，而对 <code>master</code> 分支的操作则在 <code>_deploy</code> 仓库中进行。因此，接下来我们需要做的就已经比较明确了，只需要给 <code>_deploy</code> 仓库添加一个新的 GitCafe 远程仓库，然后将博客内容顺道 <code>push</code> 一份到 GitCafe 上就 OK 了。</p>
 
-<p><a href="https://pages.github.com/">GitHub Pages</a> 是 GitHub 推出的用于建立用户、组织和项目站点的工具，每个 GitHub 账号和组织都可以建立一个站点以及无数个项目站点。我们要建立个人博客自然使用的是 GitHub Pages 的用户站点功能，建立用户站点非常简单，稍后我们再展开来谈。</p>
-
-<h2>安装 Octopress</h2>
-
-<p>前面我们提到了安装 Octopress 只需要简单的几个步骤就可以了，下面我们一步步来。</p>
-
-<h3>准备工作</h3>
+<h2>准备工作</h2>
 
 <ol>
-<li>安装 <a href="http://git-scm.com/">Git</a> 。</li>
-<li>安装 Ruby 1.9.3 及以上版本。</li>
+<li>注册 <a href="http://gitcafe.com/signup?invited_by=leichunfeng">GitCafe</a> 账号。</li>
+<li>添加 SSH 公钥到你的 GitCafe 账号下，可参考 GitCafe 官方帮助文档中的<a href="https://gitcafe.com/GitCafe/Help/wiki/%E5%A6%82%E4%BD%95%E5%AE%89%E8%A3%85%E5%92%8C%E8%AE%BE%E7%BD%AE-Git#wiki">《如何安装和设置 Git》</a>。</li>
+<li>创建一个与你的 GitCafe 用户名相同名称的项目，例如 <a href="https://gitcafe.com/leichunfeng/leichunfeng">leichunfeng</a> 。</li>
 </ol>
 
 
-<p>你可以使用 <code>ruby --version</code> 查看一下你安装的 <code>Ruby</code> 版本，如果低于 1.9.3，你可以使用 <a href="http://octopress.org/docs/setup/rbenv/">rbenv</a> 或 <a href="http://octopress.org/docs/setup/rvm/">RVM</a> 来安装更高版本。</p>
+<h2>添加远程仓库</h2>
 
-<h3>克隆 Octopress</h3>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">git</span> <span class="nb">clone</span> <span class="ss">git</span><span class="p">:</span><span class="sr">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">imathis</span><span class="o">/</span><span class="n">octopress</span><span class="o">.</span><span class="n">git</span> <span class="n">octopress</span>
-</span><span class='line'><span class="n">cd</span> <span class="n">octopress</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>安装依赖</h3>
+<p>运行以下命令，给 <code>_deploy</code> 仓库添加你的 GitCafe 仓库为新的远程仓库。记得先将 <code>git@gitcafe.com:leichunfeng/leichunfeng.git</code> 替换为你刚创建的 GitCafe 仓库的 SSH 地址。</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">gem</span> <span class="n">install</span> <span class="n">bundler</span>
-</span><span class='line'><span class="n">rbenv</span> <span class="n">rehash</span> <span class="c1"># 如果你使用的是 rbenv 的话，执行下这句，不是的话可以略过</span>
-</span><span class='line'><span class="n">bundle</span> <span class="n">install</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">cd</span> <span class="n">_deploy</span>
+</span><span class='line'><span class="n">git</span> <span class="n">remote</span> <span class="n">add</span> <span class="n">gitcafe</span> <span class="n">git</span><span class="vi">@gitcafe</span><span class="o">.</span><span class="n">com</span><span class="ss">:leichunfeng</span><span class="o">/</span><span class="n">leichunfeng</span><span class="o">.</span><span class="n">git</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<h3>安装 Octopress 默认主题</h3>
+<h2>修改发布脚本</h2>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">rake</span> <span class="n">install</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h3>配置 Octopress</h3>
-
-<p>至此，你的 Octopress 就已经安装好了，接下来我们对 Octopress 进行一些简单的配置。我们需要修改的只有 <code>_config.yml</code> 一个文件，这个文件包含 <code>Main Configs</code> 、<code>Jekyll &amp; Plugins</code> 和 <code>3rd Party Settings</code> 三个部分。在这里，我们只需要修改 <code>Main Configs</code> 中的 <code>title</code> 、<code>subtitle</code> 和 <code>author</code> 。说明，后面我们会通过 Octopress 提供的 <code>rake setup_github_pages</code> 命令自动修改 <code>url</code> ，这里先不用管。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="ss">title</span><span class="p">:</span> <span class="err">雷纯锋的技术博客</span>
-</span><span class='line'><span class="ss">subtitle</span><span class="p">:</span> <span class="err">记录自己学习的点滴，收获分享知识的乐趣</span>
-</span><span class='line'><span class="ss">author</span><span class="p">:</span> <span class="err">雷纯锋</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h2>写博文的方法</h2>
-
-<p>用 Octopress 写博文主要是通过执行 Octopress 提供的 <code>rake</code> 命令来完成的，下面简单介绍一下，更多的详细信息可以查看 Octopress 官方文档中的 <a href="http://octopress.org/docs/blogging/">Blogging Basics</a> 。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">rake</span> <span class="n">new_post</span><span class="o">[</span><span class="s2">&quot;title&quot;</span><span class="o">]</span> <span class="c1"># 在 source/_posts 目录下创建一篇新博文</span>
-</span><span class='line'><span class="n">rake</span> <span class="n">generate</span>          <span class="c1"># 生成博文到 public 目录下</span>
-</span><span class='line'><span class="n">rake</span> <span class="n">watch</span>             <span class="c1"># 查看 source 和 sass 目录的变化，且有变化时重新生成博文</span>
-</span><span class='line'><span class="n">rake</span> <span class="n">preview</span>           <span class="c1"># 在 http://localhost:4000/ 预览博文</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>Octopress 博文采用 <a href="http://daringfireball.net/projects/markdown/">Markdown</a> 语法进行书写，Markdown 的语法全由一些符号所组成，这些符号经过精挑细选，它的作用一目了然，因此你可能只需要 5-10 分钟就能快速上手。Markdown 免费编辑器非常多，我本人非常酷爱 Sublime Text ，它绝对可以称得上编辑器中的神器。所以我的博文都是使用 <a href="http://www.sublimetext.com/3">Sublime Text 3</a>+<a href="https://github.com/SublimeText-Markdown/MarkdownEditing">MarkdownEditing</a> 插件进行书写的，书写起来感觉非常惬意。这感觉美妙极了，很难用言语来表达，是我梦寐以求的书写感受，所以也<strong>强烈推荐</strong>你试一试，Who with who knows 。</p>
-
-<h2>发布 Octopress 到 GitHub Pages</h2>
-
-<p>首先，你需要创建一个新的 <a href="https://github.com/repositories/new">GitHub 仓库</a> ，这个仓库的名称为 <code>username.github.io</code> ，其中 <code>username</code> 为你的 GitHub 用户名，例如 <code>leichunfeng.github.io</code> 。接下来，我们使用 Octopress 提供的 <code>rake setup_github_pages</code> 命令来完成一些与 GitHub Pages 相关的配置工作，其中就包括我们前面提到的 <code>_config.yml</code> 文件中的 <code>url</code> 。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">rake</span> <span class="n">setup_github_pages</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>根据提示需要我们输入 GitHub 仓库的 URL ，拷贝我们刚刚创建的仓库的 SSH 或 HTTPS URL ，例如 <code>git@github.com:leichunfeng/leichunfeng.github.io.git</code> ，粘贴并回车。这个看似简单的 <code>rake</code> 命令其实偷偷地为我们做了很多复杂的工作，包括修改 octopress 远程仓库 origin 的名称为 octopress 、添加我们的 GitHub 仓库为新的 origin 远程仓库和配置 <code>_config.yml</code> 文件中的 <code>url</code> 等等，更多的详细信息可以查看 Octopress 官方文档中的 <a href="http://octopress.org/docs/deploying/github/">Deploying to GitHub Pages</a> 。</p>
-
-<p>接下来，运行以下命令。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">rake</span> <span class="n">generate</span>
-</span><span class='line'><span class="n">rake</span> <span class="n">deploy</span> <span class="c1"># 发布博文到 GitHub Pages</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>最后，别忘记提交你的博客源文件。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">git</span> <span class="n">add</span> <span class="o">.</span>
-</span><span class='line'><span class="n">git</span> <span class="n">commit</span> <span class="o">-</span><span class="n">m</span> <span class="s1">&#39;your message&#39;</span>
-</span><span class='line'><span class="n">git</span> <span class="n">push</span> <span class="n">origin</span> <span class="n">source</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>在这里，我还是想大概谈一谈 Octopress 的工作原理，不然你可能也会跟我刚接触 Octopress 时一样充满疑惑。Octopress 其实为我们建立了两个分支，一个是 <code>source</code> 分支，就像我们的书桌，用于存放我们书写时需要用到的各种工具，包括原始的 markdown 文件、生成博文用的插件、主题和脚本等等。另一个是 <code>master</code> 分支，其实就是 <code>public</code> 目录中的内容，用于存放最终生成的 <code>HTML</code> 博文。当我们执行 <code>rake generate</code> 命令时，Octopress 会为我们生成 <code>HTML</code> 博文到 <code>public</code> 目录下。当执行 <code>rake deploy</code> 命令时，Octopress 则会将 <code>public</code> 目录中的内容提交并同步到 <code>GitHub Pages</code> 。建议你自己亲自对比一下运行以上命令前后 octopress 目录中文件的变化，这样可以快速地熟悉 Octopress 的工作原理。</p>
-
-<p>到这里，你的个人博客就已经搭建成功了，你可以使用 <code>http://username.github.io</code> 来访问你的博客了，给自己一点掌声吧！不过如果你希望你的博客能够更加与众不同的话，那么我们还有一些事情需要去做，休息一会，我们继续。</p>
-
-<h3>自定义域名</h3>
-
-<p>如果你也跟我一样有自己的域名的话，可以使用自己的域名指向你的博客地址。首先，你需要在 <code>source</code> 目录下建立一个名为 <code>CNAME</code> 的文件，这个文件只需要一行内容，就是你自己的域名。不过需要特别注意的一点就是这个域名不要带上 <code>http(s)://</code> 网址前缀，例如我的域名 <code>blog.leichunfeng.com</code> 。最后，运行 <code>rake</code> 命令重新生成并发布博文。</p>
+<p>为了实现在我们将博客内容 <code>push</code> 到 GitHub 的时候，也顺便 <code>push</code> 一份到 GitCafe 上，我们需要对 Octopress 的发布脚本稍作修改。这里，我们只需要在 <code>Rakefile</code> 文件中的 <code>:deploy</code> 部分添加以下三行代码就可以了。</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -215,67 +127,52 @@
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">echo</span> <span class="s1">&#39;your-domain.com&#39;</span> <span class="o">&gt;&gt;</span> <span class="n">source</span><span class="o">/</span><span class="no">CNAME</span>
-</span><span class='line'><span class="c1"># 或者</span>
-</span><span class='line'><span class="n">echo</span> <span class="s1">&#39;blog.your-domain.com&#39;</span> <span class="o">&gt;&gt;</span> <span class="n">source</span><span class="o">/</span><span class="no">CNAME</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">rake</span> <span class="n">generate</span>
-</span><span class='line'><span class="n">rake</span> <span class="n">deploy</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="nb">puts</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">## Pushing generated </span><span class="si">#{</span><span class="n">deploy_dir</span><span class="si">}</span><span class="s2"> website&quot;</span>
+</span><span class='line'><span class="no">Bundler</span><span class="o">.</span><span class="n">with_clean_env</span> <span class="p">{</span> <span class="nb">system</span> <span class="s2">&quot;git push origin </span><span class="si">#{</span><span class="n">deploy_branch</span><span class="si">}</span><span class="s2">&quot;</span> <span class="p">}</span>
+</span><span class='line'><span class="nb">puts</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">## Github Pages deploy complete&quot;</span>
+</span><span class='line'><span class="nb">puts</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">## Pushing generated </span><span class="si">#{</span><span class="n">deploy_dir</span><span class="si">}</span><span class="s2"> website&quot;</span> <span class="c1"># 此行为新增代码</span>
+</span><span class='line'><span class="no">Bundler</span><span class="o">.</span><span class="n">with_clean_env</span> <span class="p">{</span> <span class="nb">system</span> <span class="s2">&quot;git push gitcafe </span><span class="si">#{</span><span class="n">deploy_branch</span><span class="si">}</span><span class="s2">:gitcafe-pages&quot;</span> <span class="p">}</span> <span class="c1"># 此行为新增代码</span>
+</span><span class='line'><span class="nb">puts</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">## GitCafe Pages deploy complete&quot;</span> <span class="c1"># 此行为新增代码</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>接下来，你需要登陆你的域名注册商的管理平台，在你的域名下新增一条解析记录。如果你想使用子域名，例如 <code>blog.example.com</code> ，你需要新增的就是一条记录类型为 <code>CNAME</code> ，记录值为 <code>username.github.io</code> 的解析记录。如果你想使用顶级域名，例如 <code>example.com</code> ，那么你需要新增的就是一条记录类型为 <code>A</code> ，记录值为 <code>192.30.252.153</code> or <code>192.30.252.154</code> 的解析记录。大概过 1 个小时左右，你就可以使用你自己的域名来访问你的博客了。怎么样，这种感觉是不是非常美妙？</p>
+<p>细心的你也许会有所发现，我们 <code>push</code> 到 GitCafe 上的远程分支名与 <code>push</code> 到 GitHub 上的远程分支名是不一样的。这是因为 GitHub 使用的是 <code>master</code> 分支来存放页面内容，而 GitCafe 则使用的是 <code>gitcafe-pages</code> 分支。不过，对这个我们不需要太过关心，知道是怎么回事就可以了，换汤不换药。</p>
 
-<h2>高级配置</h2>
+<p>接下来，运行一下发布命令试试效果吧！</p>
 
-<p>如果你希望你的博客具有微博分享和评论功能的话，可以参考下<code>唐巧</code>的博文 <a href="http://blog.devtang.com/blog/2012/02/10/setup-blog-based-on-github/">《象写程序一样写博客：搭建基于github的博客》</a> 中的<code>高级配置</code>章节，这里不再赘述。不过，我建议你最好在注册了<a href="http://www.uyan.cc/">友言</a>或 <a href="http://www.jiathis.com/">JiaThis</a> 的账号后再点击<code>获取代码</code>，这样获取到的代码就会带有你的 <code>uid</code> ，那么你就可以通过友言或 JiaThis 的管理后台查看你的统计数据了。</p>
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">rake</span> <span class="n">deploy</span>
+</span></code></pre></td></tr></table></div></figure>
 
-<h3>优化博客的访问速度</h3>
 
-<ol>
-<li>删除或注释配置 <code>_config.yml</code> 文件中有关 <code>Twitter</code> 的部分。</li>
-<li>修改 <code>source/_includes/custom/head.html</code> 文件，删除 <code>google</code> 的自定义字体。<strong>注意</strong>，如果使用注释的方式会造成最终生成出来的 <code>HTML</code> 页面的 <code>body</code>
-部分也被注释。</li>
-<li>修改 <code>source/_includes/head.html</code> 文件中 <code>jquery.min.js</code> 的链接地址。</li>
-</ol>
+<h2>自定义域名</h2>
 
+<p>GitCafe 的自定义域名设置要比 GitHub 的友好得多，它不仅提供了图形界面，而且支持给一个项目设置多个域名。进入<code>项目设置</code>界面，然后在<code>Pages 服务</code>栏目中添加你自己的域名。</p>
+
+<p><img src="/images/gitcafe-custom-domains-new.jpg" title="GitCafe 自定义域名" alt="GitCafe 自定义域名"></p>
+
+<p>同样的，你需要登陆你的域名注册商的管理平台，在你的域名下新增相应的 <code>A</code> 或 <code>CNAME</code> 解析记录。如果你需要将域名指向一个 <code>IPv4</code> 地址（例如：<code>leichunfeng.com</code> -> <code>207.226.141.135</code> ），则需要增加 <code>A</code> 记录；而如果你需要将域名指向另一个域名（例如：<code>blog.leichunfeng.com</code> -> <code>leichunfeng.gitcafe.io</code> ），实现与被指向域名相同的访问效果，则需要增加 <code>CNAME</code> 记录。</p>
+
+<p><img src="/images/net-resolve-record-new.jpg" title="万网解析记录" alt="万网解析记录"></p>
+
+<h2>添加对 GitCafe 的感谢</h2>
+
+<p>GitCafe 是国内为数不多的做得不错的代码托管网站，目前还处于创业阶段。如果你也想跟我一样，在博客底部添加对 GitCafe 的感谢，可以通过修改 <code>source/_includes/custom/footer.html</code> 文件来实现。<strong>注意</strong>，记得将 <code>http://gitcafe.com/signup?invited_by=leichunfeng</code> 中的 <code>leichunfeng</code> 替换成你的 GitCafe 用户名。</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='html'><span class='line'>将 <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
-</span><span class='line'>替换为 <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;http://cdn.staticfile.org/jquery/1.9.1/jquery.min.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='html'><span class='line'><span class="nt">&lt;p&gt;</span>
+</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2016-06-23 22:31:18 +0800 - 雷纯锋 -
+</span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span>Powered by <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://octopress.org&quot;</span><span class="nt">&gt;</span>Octopress<span class="nt">&lt;/a&gt;&lt;/span&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span> - 感谢 <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://gitcafe.com/signup?invited_by=leichunfeng&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;</span>GitCafe<span class="nt">&lt;/a&gt;</span> 为本站提供存储空间<span class="nt">&lt;/span&gt;</span>
+</span><span class='line'><span class="nt">&lt;/p&gt;</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<h3>添加原文链接</h3>
-
-<p>给你的每篇博文最后添加上原文链接，这样不管是其他人转载或是分享你的博文，读者都能够根据原文链接轻松地访问到你的原始博文。要实现这个目的并不难，但是我不想因为这样而破坏了博文原本的结构和布局，还要让读者在阅读博文的时候毫无违和感，谁让我是一个偏执狂呢！我查看过不少这方面的博文，其中<a href="http://codemacro.com/2012/07/26/post-footer-plugin-for-octopress/">《为octopress每篇文章添加一个文章信息》</a>还算比较接近我的需求，但还不够完美，且太复杂。于是我决定自己动手实现，结果已如你所见。</p>
-
-<ul>
-<li>创建 <code>source/_includes/post/original_link.html</code> 文件，内容只有一行代码。</li>
-</ul>
-
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">echo</span> <span class="s1">&#39;&lt;br&gt;原文链接：&lt;a href=&quot;http://blog.leichunfeng.com{#{page.url}#}&quot;&gt;http://blog.leichunfeng.com{#{page.url}#}&lt;/a&gt;&#39;</span> <span class="o">&gt;&gt;</span> <span class="n">source</span><span class="o">/</span><span class="n">_includes</span><span class="o">/</span><span class="n">post</span><span class="o">/</span><span class="n">original_link</span><span class="o">.</span><span class="n">html</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<ul>
-<li>修改 <code>source/_layouts/post.html</code> 文件，在 <code>{#% include post/categories.html %#}</code> 后面添加一行代码。</li>
-</ul>
-
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="p">{</span><span class="c1">#% include post/categories.html %#}</span>
-</span><span class='line'><span class="p">{</span><span class="c1">#% include post/original_link.html %#} &lt;!-- 添加这一行代码 --&gt;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p><strong>注意</strong>，请记得将第一步中的 <code>blog.leichunfeng.com</code> 替换成你自己的博客域名，将上述两步中的 <code>#</code> 号去掉。</p>
-
-<p>到这里，本文就已经接近尾声了，不过我们对博客访问速度的追求仍然没有结束。因为 GitHub 毕竟是国外的（你懂的）代码托管网站，所以我们博客的访问速度始终还是比较慢的。在下一篇博文中我将向大家介绍如何<a href="http://blog.leichunfeng.com/blog/2014/11/15/migrate-octopress-blog-from-github-to-gitcafe/">《将 Octopress 博客从 GitHub 迁移到 GitCafe》</a>，到时你的博客的访问速度也会跟我的一样，飞一般的感觉。</p>
+<p>至此，迁移工作就全部完成了。Enjoy ！</p>
 </div>
   
   
@@ -298,6 +195,10 @@
     <section>
   <h1>Recent Posts</h1>
   <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2016/06/20/objective-c-fast-enumeration-implementation-principle/">Objective-C Fast Enumeration 的实现原理</a>
+      </li>
     
       <li class="post">
         <a href="/blog/2016/02/27/mvvm-with-reactivecocoa/">MVVM With ReactiveCocoa</a>
@@ -333,10 +234,6 @@
     
       <li class="post">
         <a href="/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/">Objective-C +load vs +initialize</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2015/04/25/objective-c-object-model/">Objective-C 对象模型</a>
       </li>
     
   </ul>
