@@ -293,4 +293,6 @@ state->itemsPtr = (__typeof__(state->itemsPtr))const_array;
 [https://zh.wikipedia.org/wiki/Objective-C#.E5.BF.AB.E9.80.9F.E6.9E.9A.E4.B8.BE](https://zh.wikipedia.org/wiki/Objective-C#.E5.BF.AB.E9.80.9F.E6.9E.9A.E4.B8.BE)
 [https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/Collections/Articles/Enumerators.html#//apple_ref/doc/uid/20000135-SW1](https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/Collections/Articles/Enumerators.html#//apple_ref/doc/uid/20000135-SW1)
 
-<img src="http://blog.leichunfeng.com/images/wechat_pay.jpg" width="260" />
+**版权声明**：我已将本文在微信公众平台的发表权「独家代理」给 iOS 开发（iOSDevTips）微信公众号。扫下方二维码即可关注「iOS 开发」：
+
+![iOS 开发二维码](http://blog.devtang.com/images/weixin-qr.jpg)
