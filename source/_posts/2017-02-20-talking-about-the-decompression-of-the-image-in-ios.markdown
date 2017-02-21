@@ -42,7 +42,7 @@ CFDataRef rawData = CGDataProviderCopyData(CGImageGetDataProvider(image.CGImage)
 
 就可以获取到这个图片的原始像素数据，大小为 3600B ：
 
-```
+``` objc
 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
 01020102 032c023c 0567048c 078d06bf 08a006d9 09b307f3 09b307f3 08a006d9 078d06bf
 0567048c 032c023c 01020102 00000000 00000000 00000000 00000000 00000000 00000000
@@ -72,7 +72,7 @@ CFDataRef rawData = CGDataProviderCopyData(CGImageGetDataProvider(image.CGImage)
 
 至此，我们已经知道了什么是位图，并且直观地看到了它的原始像素数据，那么它与我们经常提到的图片的二进制数据有什么联系吗？是同一个东西吗？事实上，这二者是完全独立的两个东西，它们之间没有必然的联系。为了加深理解，我把这个图片拖进 Sublime Text 2 中，得到了这个图片的二进制数据，大小与原始文件大小一致，为 843B ：
 
-```
+``` objc
 8950 4e47 0d0a 1a0a 0000 000d 4948 4452 0000 001e 0000 001e 0806 0000 003b 30ae a200
 0000 0173 5247 4200 aece 1ce9 0000 0305 4944 4154 480d c557 4d68 1341 149e 3709 da4d
 09c6 8a56 2385 9e14 f458 4fa2 d092 f4a6 28d8 2222 de04 3d09 a1d0 7a50 0954 8bad 2d05
@@ -106,6 +106,68 @@ UIKIT_EXTERN NSData * __nullable UIImageJPEGRepresentation(UIImage * __nonnull i
 
 ## 强制解压缩
 
+既然图片的解压缩不可避免，而我们也不想让它在主线程执行，影响我们应用的响应性，那么是否有比较好的解决方案呢？答案是肯定的。
+
+我们前面已经提到了，当未解压缩的图片将要渲染到屏幕时，系统会在主线程对图片进行解压缩，而如果图片已经解压缩了，系统就不会再对图片进行解压缩。因此，也就有了业内的解决方案，在子线程提前对图片进行强制解压缩。
+
+而强制解压缩的原理就是对图片进行重新绘制，得到一张新的解压缩后的位图。其中，用到的最核心的函数是 `CGBitmapContextCreate` ：
+
+``` objc
+/* Create a bitmap context. The context draws into a bitmap which is `width'
+   pixels wide and `height' pixels high. The number of components for each
+   pixel is specified by `space', which may also specify a destination color
+   profile. The number of bits for each component of a pixel is specified by
+   `bitsPerComponent'. The number of bytes per pixel is equal to
+   `(bitsPerComponent * number of components + 7)/8'. Each row of the bitmap
+   consists of `bytesPerRow' bytes, which must be at least `width * bytes
+   per pixel' bytes; in addition, `bytesPerRow' must be an integer multiple
+   of the number of bytes per pixel. `data', if non-NULL, points to a block
+   of memory at least `bytesPerRow * height' bytes. If `data' is NULL, the
+   data for context is allocated automatically and freed when the context is
+   deallocated. `bitmapInfo' specifies whether the bitmap should contain an
+   alpha channel and how it's to be generated, along with whether the
+   components are floating-point or integer. */
+CG_EXTERN CGContextRef __nullable CGBitmapContextCreate(void * __nullable data,
+    size_t width, size_t height, size_t bitsPerComponent, size_t bytesPerRow,
+    CGColorSpaceRef cg_nullable space, uint32_t bitmapInfo)
+    CG_AVAILABLE_STARTING(__MAC_10_0, __IPHONE_2_0);
+```
+
+顾名思义，这个函数用于创建一个位图上下文，用来绘制一张宽 `width` 像素，高 `height` 像素的位图。这个函数的注释比较长，参数也比较难理解，但是先别着急，我们先来了解下相关的知识，然后再回过头来理解这些参数，就会比较简单了。
+
+### Pixel Format
+
+我们前面已经提到了，位图其实就是一个像素数组，而[像素格式](https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_images/dq_images.html#//apple_ref/doc/uid/TP30001066-CH212-CJBECCFG)则是用来描述每个像素的组成格式，它包括以下信息：
+
+- Bits per component ：一个像素中每个独立的颜色分量使用的 bit 数；
+- Bits per pixel ：一个像素使用的总 bit 数；
+- Bytes per row ：位图中的每一行使用的字节数。
+
+有一点需要注意的是，对于位图来说，像素格式并不是随意组合的，目前只支持以下有限的 [17 种特定组合](https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_context/dq_context.html#//apple_ref/doc/uid/TP30001066-CH203-BCIBHHBB)：
+
+<img src="http://localhost:4000/images/Supported Pixel Formats.png" width="738" />
+
+从上图可知，对于 iOS 来说，只支持 8 种像素格式。其中颜色空间为 Null 的 1 种，Gray 的 2 种，RGB 的 5 种，CMYK 的 0 种。换句话说，iOS 并不支持 CMYK 的颜色空间。另外，在表格的第 2 列中，除了像素格式外，还指定了 bitmap information constant ，我们在后面会详细介绍。
+
+### Color and Color Spaces
+
+在上面我们提到了颜色空间，那么什么是颜色空间呢？它跟颜色有什么关系呢？在 Quartz 中，一个颜色是由一组值来表示的，比如 0, 0, 1 。而颜色空间则是用来说明如何解析这些值的，离开了颜色空间，它们将变得毫无意义。比如，下面的值都表示蓝色：
+
+<img src="http://localhost:4000/images/blue_color.png" width="483" />
+
+如果不知道颜色空间，那么我们根本无法知道这些值所代表的颜色。比如 0, 0, 1 在 RGB 下代表蓝色，而在 BGR 下则代表的是红色。在 RGB 和 BGR 两种颜色空间下，绿色是相同的，而红色和蓝色则相互对调了。因此，对于同一张图片，使用 RGB 和 BGR 两种颜色空间可能会得到两种不一样的效果：
+
+![color_profiles](http://localhost:4000/images/color_profiles.png)
+
+### Color Spaces and Bitmap Layout
+
+接下来，我们来详细地了解下每个参数的具体含义。
+
+`data` ：如果不为 `NULL` ，那么它应该指向一块大小至少为 `bytesPerRow * height` 字节的内存，如果 为 `NULL` ，那么系统会为我们自动分配和释放所需的内存，所以一般指定 `NULL` 即可；
+`width` 和 `height` ：分别赋值为图片的像素宽度和像素高度即可；
+`bitsPerComponent` ：一个像素的每个组成部分需要的二进制位数，一般指定 8 即可；
+`bytesPerRow` ：位图的每一行需要的字节数，
+
 ## 开源库的实现
 
 ## 性能对比
@@ -114,4 +176,8 @@ UIKIT_EXTERN NSData * __nullable UIImageJPEGRepresentation(UIImage * __nonnull i
 
 ## 参考链接
 
+[https://www.cocoanetics.com/2011/10/avoiding-image-decompression-sickness/](https://www.cocoanetics.com/2011/10/avoiding-image-decompression-sickness/)
+[https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/Introduction/Introduction.html](https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/Introduction/Introduction.html)
+[https://github.com/path/FastImageCache](https://github.com/path/FastImageCache)
+[http://stackoverflow.com/questions/23790837/what-is-byte-alignment-cache-line-alignment-for-core-animation-why-it-matters](http://stackoverflow.com/questions/23790837/what-is-byte-alignment-cache-line-alignment-for-core-animation-why-it-matters)
 
