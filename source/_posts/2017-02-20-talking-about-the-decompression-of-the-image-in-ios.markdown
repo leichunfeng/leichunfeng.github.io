@@ -216,6 +216,7 @@ typedef CF_ENUM(uint32_t, CGImageAlphaInfo) {
 
 至于颜色分量是否为浮点数，这个就比较简单了，直接逻辑或 `kCGBitmapFloatComponents` 就可以了。更详细的内容就不展开了，因为我们一般用不上这个值。
 
+
 接下来，我们来简单地了解下像素格式的[字节顺序](https://developer.apple.com/library/content/documentation/CoreFoundation/Conceptual/CFMemoryMgmt/Concepts/ByteOrdering.html#//apple_ref/doc/uid/20001150-CJBEJBHH)，它是由枚举值 `CGImageByteOrderInfo` 来表示的：
 
 ``` objc
@@ -265,6 +266,56 @@ typedef CF_ENUM(uint32_t, CGImageByteOrderInfo) {
 到这里，你已经掌握了强制解压缩图片需要用到的最核心的函数，点个赞。
 
 ## 开源库的实现
+
+接下来，我们来看看在三个比较流行的开源库 [YYKit](https://github.com/ibireme/YYKit) 、[SDWebImage](https://github.com/rs/SDWebImage) 和 [FLAnimatedImage](https://github.com/Flipboard/FLAnimatedImage) 中，对图片的强制解压缩是如何实现的。
+
+首先，我们来看看 YYKit 中的相关代码，用于解压缩图片的函数 `YYCGImageCreateDecodedCopy` 存在于 [YYImageCoder](https://github.com/ibireme/YYKit/blob/master/YYKit/Image/YYImageCoder.m) 类中，核心代码如下：
+
+``` objc
+CGImageRef YYCGImageCreateDecodedCopy(CGImageRef imageRef, BOOL decodeForDisplay) {
+    ...
+    
+    if (decodeForDisplay) { // decode with redraw (may lose some precision)
+        CGImageAlphaInfo alphaInfo = CGImageGetAlphaInfo(imageRef) & kCGBitmapAlphaInfoMask;
+        
+        BOOL hasAlpha = NO;
+        if (alphaInfo == kCGImageAlphaPremultipliedLast ||
+            alphaInfo == kCGImageAlphaPremultipliedFirst ||
+            alphaInfo == kCGImageAlphaLast ||
+            alphaInfo == kCGImageAlphaFirst) {
+            hasAlpha = YES;
+        }
+        
+        // BGRA8888 (premultiplied) or BGRX8888
+        // same as UIGraphicsBeginImageContext() and -[UIView drawRect:]
+        CGBitmapInfo bitmapInfo = kCGBitmapByteOrder32Host;
+        bitmapInfo |= hasAlpha ? kCGImageAlphaPremultipliedFirst : kCGImageAlphaNoneSkipFirst;
+        
+        CGContextRef context = CGBitmapContextCreate(NULL, width, height, 8, 0, YYCGColorSpaceGetDeviceRGB(), bitmapInfo);
+        if (!context) return NULL;
+        
+        CGContextDrawImage(context, CGRectMake(0, 0, width, height), imageRef); // decode
+        CGImageRef newImage = CGBitmapContextCreateImage(context);
+        CFRelease(context);
+      
+        return newImage;
+    } else {
+        ...
+    }
+}
+```
+
+它接受一个原始的位图参数 `imageRef` ，最终返回一个新的解压缩后的位图 `newImage` ，中间主要经过了以下三个步骤：
+
+- 使用 `CGBitmapContextCreate` 函数创建一个位图上下文；
+- 使用 `CGContextDrawImage` 函数将原始位图绘制到上下文中；
+- 使用 `CGBitmapContextCreateImage` 函数创建一张新的解压缩后的位图。
+
+事实上，SDWebImage 和 FLAnimatedImage 中对图片的解压缩过程与上述完全一致，只是传递给 `CGBitmapContextCreate` 函数的部分参数存在细微的差别，如下表所示：
+
+![CGBitmapContextCreate](http://localhost:4000/images/CGBitmapContextCreate.png)
+
+在上表中，用浅绿色背景标记的参数即为我们在前面的分析中所推荐的参数，用这些参数解压缩后的图片渲染的速度会更快。因此，从理论上说 YYKit 中的解压缩算法是三者之中最优的。
 
 ## 性能对比
 
