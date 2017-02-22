@@ -6,7 +6,7 @@ comments: true
 categories: 
 ---
 
-对于大多数 iOS 应用来说，图片往往是最占用手机内存的资源之一，同时也是不可或缺的组成部分。将一张图片从磁盘中加载出来，并最终显示到屏幕上，中间经过了一系列复杂的处理过程，其中就包括了对图片的解压缩。
+对于大多数 iOS 应用来说，图片往往是最占用手机内存的资源之一，同时也是不可或缺的组成部分。将一张图片从磁盘中加载出来，并最终显示到屏幕上，中间其实经过了一系列复杂的处理过程，其中就包括了对图片的解压缩。
 
 ## 图片加载的工作流
 
@@ -92,7 +92,7 @@ bdff 7943 afc0 c91f bdd1 a327 28fc 29f7 d47a b337 f192 0cc9 36fa 5497 73f9 5827 
 1599 4eff 69fb 0b0d 1f7a 96cd 3eb0 7800 0000 0049 454e 44ae 4260 82
 ```
 
-事实上，不管是 JPEG 还是 PNG 图片，都是一种压缩的位图图形格式。PNG 图片是无损压缩，并且支持 Alpha 通道，而 JPEG 图片则是有损压缩，可以指定 0-100% 的压缩比。值得一提的是，在苹果的 SDK 中专门提供了两个函数用来生成 PNG 和 JPEG 图片：
+事实上，不管是 JPEG 还是 PNG 图片，都是一种压缩的位图图形格式。只不过 PNG 图片是无损压缩，并且支持 Alpha 通道，而 JPEG 图片则是有损压缩，可以指定 0-100% 的压缩比。值得一提的是，在苹果的 SDK 中专门提供了两个函数用来生成 PNG 和 JPEG 图片：
 
 ``` objc
 // return image as PNG. May return nil if image has no CGImageRef or invalid bitmap format
@@ -151,7 +151,7 @@ CG_EXTERN CGContextRef __nullable CGBitmapContextCreate(void * __nullable data,
 
 ### Color and Color Spaces
 
-在上面我们提到了颜色空间，那么什么是颜色空间呢？它跟颜色有什么关系呢？在 Quartz 中，一个颜色是由一组值来表示的，比如 0, 0, 1 。而颜色空间则是用来说明如何解析这些值的，离开了颜色空间，它们将变得毫无意义。比如，下面的值都表示蓝色：
+在上面我们提到了[颜色空间](https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_color/dq_color.html#//apple_ref/doc/uid/TP30001066-CH205-TPXREF101)，那么什么是颜色空间呢？它跟颜色有什么关系呢？在 Quartz 中，一个颜色是由一组值来表示的，比如 0, 0, 1 。而颜色空间则是用来说明如何解析这些值的，离开了颜色空间，它们将变得毫无意义。比如，下面的值都表示蓝色：
 
 <img src="http://localhost:4000/images/blue_color.png" width="483" />
 
@@ -159,14 +159,110 @@ CG_EXTERN CGContextRef __nullable CGBitmapContextCreate(void * __nullable data,
 
 ![color_profiles](http://localhost:4000/images/color_profiles.png)
 
+是不是感觉非常有意思呢？
+
 ### Color Spaces and Bitmap Layout
 
-接下来，我们来详细地了解下每个参数的具体含义。
+我们前面已经知道了，像素格式是用来描述每个像素的组成格式的，比如每个像素使用的总 bit 数。而要想确保 Quartz 能够正确地解析这些 bit 所代表的含义，我们还需要提供[位图的布局信息](https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_images/dq_images.html#//apple_ref/doc/uid/TP30001066-CH212-CJBHEGIB) `CGBitmapInfo` ：
 
-`data` ：如果不为 `NULL` ，那么它应该指向一块大小至少为 `bytesPerRow * height` 字节的内存，如果 为 `NULL` ，那么系统会为我们自动分配和释放所需的内存，所以一般指定 `NULL` 即可；
-`width` 和 `height` ：分别赋值为图片的像素宽度和像素高度即可；
-`bitsPerComponent` ：一个像素的每个组成部分需要的二进制位数，一般指定 8 即可；
-`bytesPerRow` ：位图的每一行需要的字节数，
+``` objc
+typedef CF_OPTIONS(uint32_t, CGBitmapInfo) {
+    kCGBitmapAlphaInfoMask = 0x1F,
+
+    kCGBitmapFloatInfoMask = 0xF00,
+    kCGBitmapFloatComponents = (1 << 8),
+
+    kCGBitmapByteOrderMask     = kCGImageByteOrderMask,
+    kCGBitmapByteOrderDefault  = (0 << 12),
+    kCGBitmapByteOrder16Little = kCGImageByteOrder16Little,
+    kCGBitmapByteOrder32Little = kCGImageByteOrder32Little,
+    kCGBitmapByteOrder16Big    = kCGImageByteOrder16Big,
+    kCGBitmapByteOrder32Big    = kCGImageByteOrder32Big
+} CG_AVAILABLE_STARTING(__MAC_10_0, __IPHONE_2_0);
+```
+
+它主要提供了三个方面的布局信息：
+
+- alpha 的信息；
+- 颜色分量是否为浮点数；
+- 像素格式的字节顺序。
+
+其中，alpha 的信息由枚举值 `CGImageAlphaInfo` 来表示：
+
+``` objc
+typedef CF_ENUM(uint32_t, CGImageAlphaInfo) {
+    kCGImageAlphaNone,               /* For example, RGB. */
+    kCGImageAlphaPremultipliedLast,  /* For example, premultiplied RGBA */
+    kCGImageAlphaPremultipliedFirst, /* For example, premultiplied ARGB */
+    kCGImageAlphaLast,               /* For example, non-premultiplied RGBA */
+    kCGImageAlphaFirst,              /* For example, non-premultiplied ARGB */
+    kCGImageAlphaNoneSkipLast,       /* For example, RBGX. */
+    kCGImageAlphaNoneSkipFirst,      /* For example, XRGB. */
+    kCGImageAlphaOnly                /* No color data, alpha data only */
+};
+```
+
+上面的注释其实已经比较清楚了，它同样也提供了三个方面的 alpha 信息：
+
+- 是否包含 alpha ；
+- 如果包含 alpha ，那么 alpha 信息所处的位置，在像素的[最低有效位](https://zh.wikipedia.org/wiki/%E6%9C%80%E4%BD%8E%E6%9C%89%E6%95%88%E4%BD%8D)，比如 RGBA ，还是[最高有效位](https://zh.wikipedia.org/wiki/%E6%9C%80%E9%AB%98%E6%9C%89%E6%95%88%E4%BD%8D)，比如 ARGB ；
+- 如果包含 alpha ，那么每个颜色分量是否已经乘以 alpha 的值，这种做法可以加速图片的渲染时间，因为它避免了渲染时的额外乘法运算。比如，对于 RGB 颜色空间，用已经乘以 alpha 的数据来渲染图片，每个像素都可以避免 3 次乘法运算，红色乘以 alpha ，绿色乘以 alpha 和蓝色乘以 alpha 。
+
+那么我们在解压缩图片的时候应该使用哪个值呢？根据 [Which CGImageAlphaInfo should we use](http://stackoverflow.com/questions/23723564/which-cgimagealphainfo-should-we-use) 和官方文档中对 `UIGraphicsBeginImageContextWithOptions` 函数的讨论：
+
+> You use this function to configure the drawing environment for rendering into a bitmap. The format for the bitmap is a ARGB 32-bit integer pixel format using host-byte order. If the opaque parameter is YES, the alpha channel is ignored and the bitmap is treated as fully opaque (kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host). Otherwise, each pixel uses a premultipled ARGB format (kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host).
+
+我们可以知道，当图片不包含 alpha 的时候使用 `kCGImageAlphaNoneSkipFirst` ，否则使用 `kCGImageAlphaPremultipliedFirst` 。另外，这里也提到了字节顺序应该使用 32 位的主机字节顺序 `kCGBitmapByteOrder32Host` ，而这个值具体是什么，我们后面再讨论。
+
+至于颜色分量是否为浮点数，这个就比较简单了，直接逻辑或 `kCGBitmapFloatComponents` 就可以了。更详细的内容就不展开了，因为我们一般用不上这个值。
+
+接下来，我们来简单地了解下像素格式的[字节顺序](https://developer.apple.com/library/content/documentation/CoreFoundation/Conceptual/CFMemoryMgmt/Concepts/ByteOrdering.html#//apple_ref/doc/uid/20001150-CJBEJBHH)，它是由枚举值 `CGImageByteOrderInfo` 来表示的：
+
+``` objc
+typedef CF_ENUM(uint32_t, CGImageByteOrderInfo) {
+    kCGImageByteOrderMask     = 0x7000,
+    kCGImageByteOrder16Little = (1 << 12),
+    kCGImageByteOrder32Little = (2 << 12),
+    kCGImageByteOrder16Big    = (3 << 12),
+    kCGImageByteOrder32Big    = (4 << 12)
+} CG_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+```
+
+它主要提供了两个方面的字节顺序信息：
+
+- [小端模式](https://zh.wikipedia.org/wiki/%E5%AD%97%E8%8A%82%E5%BA%8F#.E5.B0.8F.E7.AB.AF.E5.BA.8F)还是[大端模式](https://zh.wikipedia.org/wiki/%E5%AD%97%E8%8A%82%E5%BA%8F#.E5.A4.A7.E7.AB.AF.E5.BA.8F)；
+- 数据以 16 位还是 32 位为单位。
+
+对于 iPhone 来说，采用的是小端模式，但是为了保证应用的向后兼容性，我们可以使用系统提供的宏，来避免 [Hardcoding](https://en.wikipedia.org/wiki/Hard_coding) ：
+
+``` objc
+#ifdef __BIG_ENDIAN__
+    #define kCGBitmapByteOrder16Host kCGBitmapByteOrder16Big
+    #define kCGBitmapByteOrder32Host kCGBitmapByteOrder32Big
+#else /* Little endian. */
+    #define kCGBitmapByteOrder16Host kCGBitmapByteOrder16Little
+    #define kCGBitmapByteOrder32Host kCGBitmapByteOrder32Little
+#endif
+```
+
+根据前面的讨论，我们知道字节顺序的值应该使用的是 32 位的主机字节顺序 `kCGBitmapByteOrder32Host` ，这样的话不管当前设备采用的是小端模式还是大端模式，字节顺序始终与其保持一致。
+
+下面，我们来看一张图，它非常形象地展示了在使用 16 或 32 位像素格式的 CMYK 和 RGB 颜色空间下，一个像素是如何被表示的：
+
+![pixel formats](http://localhost:4000/images/pixel formats.png)
+
+我们从图中可以看出，在 32 位像素格式下，每个颜色分量使用 8 位；而在 16 位像素格式下，每个颜色分量则使用 5 位。
+
+好了，了解完这些相关知识后，我们再回过头来看看 `CGBitmapContextCreate` 函数中每个参数所代表的具体含义：
+
+- `data` ：如果不为 `NULL` ，那么它应该指向一块大小至少为 `bytesPerRow * height` 字节的内存；如果 为 `NULL` ，那么系统就会为我们自动分配和释放所需的内存，所以一般指定 `NULL` 即可；
+- `width` 和 `height` ：位图的宽度和高度，分别赋值为图片的像素宽度和像素高度即可；
+- `bitsPerComponent` ：像素的每个颜色分量使用的 bit 数，在 RGB 颜色空间下指定 8 即可；
+- `bytesPerRow` ：位图的每一行使用的字节数，大小至少为 `width * bytes per pixel` 字节。有意思的是，当我们指定 0 时，系统不仅会为我们自动计算，而且还会进行 cache line alignment 的优化，更多信息可以查看 [what is byte alignment (cache line alignment) for Core Animation? Why it matters?](http://stackoverflow.com/questions/23790837/what-is-byte-alignment-cache-line-alignment-for-core-animation-why-it-matters) 和 [Why is my image's Bytes per Row more than its Bytes per Pixel times its Width?](http://stackoverflow.com/questions/15935074/why-is-my-images-bytes-per-row-more-than-its-bytes-per-pixel-times-its-width) ，亲测可用；
+- `space` ：就是我们前面提到的颜色空间，一般使用 RGB 即可；
+- `bitmapInfo` ：就是我们前面提到的位图的布局信息。
+
+到这里，你已经掌握了强制解压缩图片需要用到的最核心的函数，点个赞。
 
 ## 开源库的实现
 
