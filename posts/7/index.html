@@ -9,7 +9,7 @@
   <meta name="author" content="雷纯锋">
 
   
-  <meta name="description" content="Objective-C 中的 Method Swizzling 是一项异常强大的技术，它可以允许我们动态地替换方法的实现，实现 Hook 功能，是一种比子类化更加灵活的“重写”方法的方式。 Method Swizzling 的原理 Method Swizzling 是一把双刃剑， &hellip;">
+  <meta name="description" content="我们知道，在 Objective-C 中可以通过 Category 给一个现有的类添加属性，但是却不能添加实例变量，这似乎成为了 Objective-C 的一个明显短板。然而值得庆幸的是，我们可以通过 Associated Objects 来弥补这一不足。本文将结合 runtime 源码深入探究 &hellip;">
   
     <meta name="keywords" content="雷纯锋的技术博客, 雷纯锋, 技术博客, 博客, iOS, Objective-C, Android, Java, HTML5, CSS3, JavaScript, Octopress, GitHub Pages, GitHub, Pages, GitCafe, RAC, ReactiveCocoa, Git">
   
@@ -73,7 +73,7 @@
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2015/06/14/objective-c-method-swizzling-best-practice/">Objective-C Method Swizzling 的最佳实践</a></h1>
+      <h1 class="entry-title"><a href="/blog/2015/06/26/objective-c-associated-objects-implementation-principle/">Objective-C Associated Objects 的实现原理</a></h1>
     
     
       <p class="meta">
@@ -82,126 +82,133 @@
 
 
 
-<time class='entry-date' datetime='2015-06-14T12:03:32+08:00'><span class='date'><span class='date-month'>Jun</span> <span class='date-day'>14</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>12:03 pm</span></time>
+<time class='entry-date' datetime='2015-06-26T22:35:58+08:00'><span class='date'><span class='date-month'>Jun</span> <span class='date-day'>26</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>10:35 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p>Objective-C 中的 Method Swizzling 是一项<strong>异常</strong>强大的技术，它可以允许我们动态地替换方法的实现，实现 <code>Hook</code> 功能，是一种比子类化更加灵活的“重写”方法的方式。</p>
+  <div class="entry-content"><p>我们知道，在 Objective-C 中可以通过 Category 给一个现有的类添加属性，但是却不能添加实例变量，这似乎成为了 Objective-C 的一个明显短板。然而值得庆幸的是，我们可以通过 Associated Objects 来弥补这一不足。本文将结合 <a href="http://opensource.apple.com/tarballs/objc4/">runtime</a> 源码深入探究 Objective-C 中 Associated Objects 的实现原理。</p>
 
-<h2>Method Swizzling 的原理</h2>
+<p>在阅读本文的过程中，读者需要着重关注以下三个问题：</p>
 
-<p>Method Swizzling 是一把双刃剑，使用得当可以让我们非常轻松地实现复杂的功能，而如果一旦误用，它也很可能会给我们的程序带来毁灭性的伤害。但是我们大可不必惊慌，在了解了它的实现原理后，我们就可以“信手拈来”了。</p>
+<ol>
+<li>关联对象被存储在什么地方，是不是存放在被关联对象本身的内存中？</li>
+<li>关联对象的五种关联策略有什么区别，有什么坑？</li>
+<li>关联对象的生命周期是怎样的，什么时候被释放，什么时候被移除？</li>
+</ol>
 
-<p>我们先来了解下 Objective-C 中方法 <code>Method</code> 的数据结构：</p>
+
+<p></p>
+
+
+<p>这是我写这篇文章的初衷，也是本文的价值所在。</p>
+
+<h2>使用场景</h2>
+
+<p>按照 Mattt Thompson 大神的文章 <a href="http://nshipster.com/associated-objects/">Associated Objects</a> 中的说法，Associated Objects 主要有以下三个使用场景：</p>
+
+<ol>
+<li>为现有的类添加私有变量以帮助实现细节；</li>
+<li>为现有的类添加公有属性；</li>
+<li>为 <code>KVO</code> 创建一个关联的观察者。</li>
+</ol>
+
+
+<p></p>
+
+
+<p>从本质上看，第 <code>1</code> 、<code>2</code> 个场景其实是一个意思，唯一的区别就在于新添加的这个属性是公有的还是私有的而已。就目前来说，我在实际工作中使用得最多的是第 <code>2</code> 个场景，而第 <code>3</code> 个场景我还没有使用过。</p>
+
+<h2>相关函数</h2>
+
+<p>与 Associated Objects 相关的函数主要有三个，我们可以在 runtime 源码的 runtime.h 文件中找到它们的声明：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">typedef</span> <span class="k">struct</span> <span class="kt">method_t</span> <span class="o">*</span><span class="n">Method</span><span class="p">;</span>
-</span><span class='line'><span class="k">struct</span> <span class="kt">method_t</span> <span class="p">{</span>
-</span><span class='line'>    <span class="kt">SEL</span> <span class="n">name</span><span class="p">;</span>
-</span><span class='line'>    <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">types</span><span class="p">;</span>
-</span><span class='line'>    <span class="kt">IMP</span> <span class="n">imp</span><span class="p">;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">struct</span> <span class="nl">SortBySELAddress</span> <span class="p">:</span>
-</span><span class='line'>        <span class="n">public</span> <span class="n">std</span><span class="o">::</span><span class="n">binary_function</span><span class="o">&lt;</span><span class="k">const</span> <span class="kt">method_t</span><span class="o">&amp;</span><span class="p">,</span>
-</span><span class='line'>                                    <span class="k">const</span> <span class="kt">method_t</span><span class="o">&amp;</span><span class="p">,</span> <span class="kt">bool</span><span class="o">&gt;</span>
-</span><span class='line'>    <span class="p">{</span>
-</span><span class='line'>        <span class="kt">bool</span> <span class="n">operator</span><span class="p">()</span> <span class="p">(</span><span class="k">const</span> <span class="kt">method_t</span><span class="o">&amp;</span> <span class="n">lhs</span><span class="p">,</span>
-</span><span class='line'>                         <span class="k">const</span> <span class="kt">method_t</span><span class="o">&amp;</span> <span class="n">rhs</span><span class="p">)</span>
-</span><span class='line'>        <span class="p">{</span> <span class="k">return</span> <span class="n">lhs</span><span class="p">.</span><span class="n">name</span> <span class="o">&lt;</span> <span class="n">rhs</span><span class="p">.</span><span class="n">name</span><span class="p">;</span> <span class="p">}</span>
-</span><span class='line'>    <span class="p">};</span>
-</span><span class='line'><span class="p">};</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="kt">void</span> <span class="nf">objc_setAssociatedObject</span><span class="p">(</span><span class="kt">id</span> <span class="n">object</span><span class="p">,</span> <span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">key</span><span class="p">,</span> <span class="kt">id</span> <span class="n">value</span><span class="p">,</span> <span class="n">objc_AssociationPolicy</span> <span class="n">policy</span><span class="p">);</span>
+</span><span class='line'><span class="kt">id</span> <span class="nf">objc_getAssociatedObject</span><span class="p">(</span><span class="kt">id</span> <span class="n">object</span><span class="p">,</span> <span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">key</span><span class="p">);</span>
+</span><span class='line'><span class="kt">void</span> <span class="nf">objc_removeAssociatedObjects</span><span class="p">(</span><span class="kt">id</span> <span class="n">object</span><span class="p">);</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>本质上，它就是 <code>struct method_t</code> 类型的指针，所以我们重点看下结构体 <code>method_t</code> 的定义。在结构体 <code>method_t</code> 中定义了三个成员变量和一个成员函数：</p>
+<p>这三个函数的命名对程序员非常友好，可以让我们一眼就看出函数的作用：</p>
+
+<ul>
+<li><code>objc_setAssociatedObject</code> 用于给对象添加关联对象，传入 <code>nil</code> 则可以移除已有的关联对象；</li>
+<li><code>objc_getAssociatedObject</code> 用于获取关联对象；</li>
+<li><code>objc_removeAssociatedObjects</code> 用于移除一个对象的所有关联对象。</li>
+</ul>
+
+
+<p></p>
+
+
+<p><strong>注</strong>：<code>objc_removeAssociatedObjects</code> 函数我们一般是用不上的，因为这个函数会移除一个对象的所有关联对象，将该对象恢复成“原始”状态。这样做就很有可能把别人添加的关联对象也一并移除，这并不是我们所希望的。所以一般的做法是通过给 <code>objc_setAssociatedObject</code> 函数传入 <code>nil</code> 来移除某个已有的关联对象。</p>
+
+<h3>key 值</h3>
+
+<p>关于前两个函数中的 <code>key</code> 值是我们需要重点关注的一个点，这个 <code>key</code> 值必须保证是一个对象级别（为什么是对象级别？看完下面的章节你就会明白了）的唯一常量。一般来说，有以下三种推荐的 <code>key</code> 值：</p>
 
 <ol>
-<li><code>name</code> 表示的是方法的名称，用于唯一标识某个方法，比如 <code>@selector(viewWillAppear:)</code> ；</li>
-<li><code>types</code> 表示的是方法的返回值和参数类型（详细信息可以查阅苹果官方文档中的 <a href="https://developer.apple.com/library/ios/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html#//apple_ref/doc/uid/TP40008048-CH100-SW1">Type Encodings</a> ）；</li>
-<li><code>imp</code> 是一个函数指针，指向方法的实现；</li>
-<li><code>SortBySELAddress</code> 顾名思义，是一个根据 <code>name</code> 的地址对方法进行排序的函数。</li>
+<li>声明 <code>static char kAssociatedObjectKey;</code> ，使用 <code>&amp;kAssociatedObjectKey</code> 作为 <code>key</code> 值;</li>
+<li>声明 <code>static void *kAssociatedObjectKey = &amp;kAssociatedObjectKey;</code> ，使用 <code>kAssociatedObjectKey</code> 作为 <code>key</code> 值；</li>
+<li>用 <code>selector</code> ，使用 <code>getter</code> 方法的名称作为 <code>key</code> 值。</li>
 </ol>
 
 
-<p>由此，我们也可以发现 Objective-C 中的方法名是不包括参数类型的，也就是说下面两个方法在 runtime 看来就是同一个方法：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span><span class="p">;</span>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">string</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
+<p></p>
 
 
-<p>而下面两个方法却是可以共存的：</p>
+<p>我个人最喜欢的（没有之一）是第 <code>3</code> 种方式，因为它省掉了一个变量名，非常优雅地解决了计算科学中的两大世界难题之一（命名）。</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span><span class="p">;</span>
-</span><span class='line'><span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
+<h3>关联策略</h3>
 
+<p>在给一个对象添加关联对象时有五种关联策略可供选择：</p>
 
-<p>因为实例方法和类方法是分别保存在类对象和元类对象中的，更多详情可以查看我前面的文章<a href="http://blog.leichunfeng.com/blog/2015/04/25/objective-c-object-model/">《Objective-C 对象模型》</a>。</p>
-
-<p>原则上，方法的名称 <code>name</code> 和方法的实现 <code>imp</code> 是一一对应的，而 Method Swizzling 的原理就是动态地改变它们的对应关系，以达到替换方法实现的目的。</p>
-
-<h2>Method Swizzling 有什么用</h2>
-
-<p>说了这么多，到底 Method Swizzling 有什么用呢？表猴急哈，我们接下来看个例子就明白了。用过<a href="http://www.umeng.com/">友盟</a>统计的同学应该知道，要实现<a href="http://dev.umeng.com/analytics/ios-doc/integration#3">页面的统计</a>功能，我们需要在每个页面的 <code>view controller</code> 中添加如下代码：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
-</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="nl">viewWillAppear</span><span class="p">:</span><span class="n">animated</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">MobClick</span> <span class="nl">beginLogPageView</span><span class="p">:</span><span class="s">@&quot;PageOne&quot;</span><span class="p">];</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillDisappear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
-</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="nl">viewWillDisappear</span><span class="p">:</span><span class="n">animated</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">MobClick</span> <span class="nl">endLogPageView</span><span class="p">:</span><span class="s">@&quot;PageOne&quot;</span><span class="p">];</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>要达到这个目的，我们有两种比较常规的实现方式：</p>
-
-<ol>
-<li>直接修改每个页面的 <code>view controller</code> 代码，简单粗暴；</li>
-<li>子类化 <code>view controller</code> ，并让我们的 <code>view controller</code> 都继承这些子类。</li>
-</ol>
+<p>
+    <table border="1" width="100%">
+        <tr>
+            <th>关联策略</th>        
+            <th>等价属性</th>        
+            <th>说明</th>        
+        </tr>
+        <tr>
+            <td>OBJC_ASSOCIATION_ASSIGN</td>        
+            <td>@property (assign) or @property (unsafe_unretained)</td>
+            <td>弱引用关联对象</td>        
+        </tr>
+        <tr>
+            <td>OBJC_ASSOCIATION_RETAIN_NONATOMIC</td>        
+            <td>@property (strong, nonatomic)</td>        
+            <td>强引用关联对象，且为非原子操作</td>        
+        </tr>
+        <tr>
+            <td>OBJC_ASSOCIATION_COPY_NONATOMIC</td>        
+            <td>@property (copy, nonatomic)</td>        
+            <td>复制关联对象，且为非原子操作</td>        
+        </tr>
+        <tr>
+            <td>OBJC_ASSOCIATION_RETAIN</td>        
+            <td>@property (strong, atomic)</td>        
+            <td>强引用关联对象，且为原子操作</td>        
+        </tr>
+        <tr>
+            <td>OBJC_ASSOCIATION_COPY</td>        
+            <td>@property (copy, atomic)</td>        
+            <td>复制关联对象，且为原子操作</td>        
+        </tr>
+    </table>
+</p>
 
 
-<p>第 1 种方式的缺点是不言而喻的，这样做不仅会产生大量重复的代码，而且还很容易遗漏某些页面，非常难维护；第 2 种方式稍微好一点，但是也同样需要我们子类化 <code>UIViewController</code> 、<code>UITableViewController</code> 和 <code>UITabBarController</code> 等不同类型的 <code>view controller</code> 。</p>
+<p>其中，第 <code>2</code> 种与第 <code>4</code> 种、第 <code>3</code> 种与第 <code>5</code> 种关联策略的唯一差别就在于操作是否具有原子性。由于操作的原子性不在本文的讨论范围内，所以下面的实验和讨论就以前三种以例进行展开。</p>
 
-<p>也许你跟我一样陷入了思考，难道就没有一种简单优雅的解决方案吗？答案是肯定的，Method Swizzling 就是解决此类问题的最佳方式。</p>
+<h2>实现原理</h2>
 
-<h2>Method Swizzling 的最佳实践</h2>
-
-<p>下面我们就以替换 <code>viewWillAppear</code> 方法为例谈谈 Method Swizzling 的最佳实践，话不多说，直接上代码：</p>
+<p>在探究 Associated Objects 的实现原理前，我们还是先来动手做一个小实验，研究一下关联对象什么时候会被释放。本实验主要涉及 <code>ViewController</code> 类和它的分类 <code>ViewController+AssociatedObjects</code> 。<strong>注</strong>：本实验的完整代码可以在这里 <a href="https://github.com/leichunfeng/AssociatedObjects">AssociatedObjects</a> 找到，其中关键代码如下：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -237,86 +244,141 @@
 <span class='line-number'>32</span>
 <span class='line-number'>33</span>
 <span class='line-number'>34</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@interface</span> <span class="bp">UIViewController</span> <span class="nl">(MRCUMAnalytics)</span>
+<span class='line-number'>35</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@interface</span> <span class="nc">ViewController</span> <span class="nl">(AssociatedObjects)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">assign</span><span class="p">,</span> <span class="k">nonatomic</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">associatedObject_assign</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">strong</span><span class="p">,</span> <span class="k">nonatomic</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">associatedObject_retain</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">copy</span><span class="p">,</span>   <span class="k">nonatomic</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">associatedObject_copy</span><span class="p">;</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">@end</span>
 </span><span class='line'>
-</span><span class='line'><span class="k">@implementation</span> <span class="bp">UIViewController</span> <span class="nl">(MRCUMAnalytics)</span>
+</span><span class='line'><span class="k">@implementation</span> <span class="nc">ViewController</span> <span class="nl">(AssociatedObjects)</span>
 </span><span class='line'>
-</span><span class='line'><span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">load</span> <span class="p">{</span>
-</span><span class='line'>    <span class="k">static</span> <span class="kt">dispatch_once_t</span> <span class="n">onceToken</span><span class="p">;</span>
-</span><span class='line'>    <span class="n">dispatch_once</span><span class="p">(</span><span class="o">&amp;</span><span class="n">onceToken</span><span class="p">,</span> <span class="o">^</span><span class="p">{</span>
-</span><span class='line'>        <span class="kt">Class</span> <span class="k">class</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="k">class</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="kt">SEL</span> <span class="n">originalSelector</span> <span class="o">=</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">viewWillAppear</span><span class="p">:);</span>
-</span><span class='line'>        <span class="kt">SEL</span> <span class="n">swizzledSelector</span> <span class="o">=</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">mrc_viewWillAppear</span><span class="p">:);</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="n">Method</span> <span class="n">originalMethod</span> <span class="o">=</span> <span class="n">class_getInstanceMethod</span><span class="p">(</span><span class="k">class</span><span class="p">,</span> <span class="n">originalSelector</span><span class="p">);</span>
-</span><span class='line'>        <span class="n">Method</span> <span class="n">swizzledMethod</span> <span class="o">=</span> <span class="n">class_getInstanceMethod</span><span class="p">(</span><span class="k">class</span><span class="p">,</span> <span class="n">swizzledSelector</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'>        <span class="kt">BOOL</span> <span class="n">success</span> <span class="o">=</span> <span class="n">class_addMethod</span><span class="p">(</span><span class="k">class</span><span class="p">,</span> <span class="n">originalSelector</span><span class="p">,</span> <span class="n">method_getImplementation</span><span class="p">(</span><span class="n">swizzledMethod</span><span class="p">),</span> <span class="n">method_getTypeEncoding</span><span class="p">(</span><span class="n">swizzledMethod</span><span class="p">));</span>
-</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">success</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>            <span class="n">class_replaceMethod</span><span class="p">(</span><span class="k">class</span><span class="p">,</span> <span class="n">swizzledSelector</span><span class="p">,</span> <span class="n">method_getImplementation</span><span class="p">(</span><span class="n">originalMethod</span><span class="p">),</span> <span class="n">method_getTypeEncoding</span><span class="p">(</span><span class="n">originalMethod</span><span class="p">));</span>
-</span><span class='line'>        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-</span><span class='line'>            <span class="n">method_exchangeImplementations</span><span class="p">(</span><span class="n">originalMethod</span><span class="p">,</span> <span class="n">swizzledMethod</span><span class="p">);</span>
-</span><span class='line'>        <span class="p">}</span>
-</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">associatedObject_assign</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">objc_getAssociatedObject</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">_cmd</span><span class="p">);</span>
 </span><span class='line'><span class="p">}</span>
 </span><span class='line'>
-</span><span class='line'><span class="cp">#pragma mark - Method Swizzling</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setAssociatedObject_assign:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">associatedObject_assign</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">objc_setAssociatedObject</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="n">associatedObject_assign</span><span class="p">),</span> <span class="n">associatedObject_assign</span><span class="p">,</span> <span class="n">OBJC_ASSOCIATION_ASSIGN</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
 </span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">mrc_viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
-</span><span class='line'>    <span class="p">[</span><span class="nb">self</span> <span class="nl">mrc_viewWillAppear</span><span class="p">:</span><span class="n">animated</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">MobClick</span> <span class="nl">beginLogPageView</span><span class="p">:</span><span class="n">NSStringFromClass</span><span class="p">([</span><span class="nb">self</span> <span class="k">class</span><span class="p">])];</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">associatedObject_retain</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">objc_getAssociatedObject</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">_cmd</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setAssociatedObject_retain:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">associatedObject_retain</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">objc_setAssociatedObject</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="n">associatedObject_retain</span><span class="p">),</span> <span class="n">associatedObject_retain</span><span class="p">,</span> <span class="n">OBJC_ASSOCIATION_RETAIN_NONATOMIC</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">associatedObject_copy</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">objc_getAssociatedObject</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">_cmd</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setAssociatedObject_copy:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">associatedObject_copy</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">objc_setAssociatedObject</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="n">associatedObject_copy</span><span class="p">),</span> <span class="n">associatedObject_copy</span><span class="p">,</span> <span class="n">OBJC_ASSOCIATION_COPY_NONATOMIC</span><span class="p">);</span>
 </span><span class='line'><span class="p">}</span>
 </span><span class='line'>
 </span><span class='line'><span class="k">@end</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p><strong>解析</strong>：在上面的代码中有三个关键点需要引起我们的注意：</p>
+<p>在 <code>ViewController+AssociatedObjects.h</code> 中声明了三个属性，限定符分别为 <code>assign, nonatomic</code> 、<code>strong, nonatomic</code> 和 <code>copy, nonatomic</code> ，而在 <code>ViewController+AssociatedObjects.m</code> 中相应的分别用 <code>OBJC_ASSOCIATION_ASSIGN</code> 、<code>OBJC_ASSOCIATION_RETAIN_NONATOMIC</code> 、<code>OBJC_ASSOCIATION_COPY_NONATOMIC</code> 三种关联策略为这三个属性添加“实例变量”。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">__weak</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">string_weak_assign</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'><span class="k">__weak</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">string_weak_retain</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'><span class="k">__weak</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">string_weak_copy</span>   <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@implementation</span> <span class="nc">ViewController</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidLoad</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">[</span><span class="nb">super</span> <span class="n">viewDidLoad</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_assign</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&quot;leichunfeng1&quot;</span><span class="p">];</span>
+</span><span class='line'>    <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_retain</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&quot;leichunfeng2&quot;</span><span class="p">];</span>
+</span><span class='line'>    <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_copy</span>   <span class="o">=</span> <span class="p">[</span><span class="bp">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&quot;leichunfeng3&quot;</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">string_weak_assign</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_assign</span><span class="p">;</span>
+</span><span class='line'>    <span class="n">string_weak_retain</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_retain</span><span class="p">;</span>
+</span><span class='line'>    <span class="n">string_weak_copy</span>   <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_copy</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">touchesBegan:</span><span class="p">(</span><span class="bp">NSSet</span> <span class="o">*</span><span class="p">)</span><span class="nv">touches</span> <span class="nf">withEvent:</span><span class="p">(</span><span class="bp">UIEvent</span> <span class="o">*</span><span class="p">)</span><span class="nv">event</span> <span class="p">{</span>
+</span><span class='line'><span class="c1">//    NSLog(@&quot;self.associatedObject_assign: %@&quot;, self.associatedObject_assign); // Will Crash</span>
+</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;self.associatedObject_retain: %@&quot;</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_retain</span><span class="p">);</span>
+</span><span class='line'>    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;self.associatedObject_copy:   %@&quot;</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="n">associatedObject_copy</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>在 <code>ViewController</code> 的 <code>viewDidLoad</code> 方法中，我们对三个属性进行了赋值，并声明了三个全局的 <code>__weak</code> 变量来观察相应对象的释放时机。此外，我们重写了 <code>touchesBegan:withEvent:</code> 方法，在方法中分别打印了这三个属性的当前值。</p>
+
+<p>在继续阅读下面章节前，建议读者先自行思考一下 <code>self.associatedObject_assign</code> 、<code>self.associatedObject_retain</code> 和 <code>self.associatedObject_copy</code> 指向的对象分别会在什么时候被释放，以加深理解。</p>
+
+<h3>实验</h3>
+
+<p>我们先在 <code>viewDidLoad</code> 方法的第 <code>28</code> 行打上断点，然后运行程序，点击导航栏右上角的按钮 <code>Push</code> 到 <code>ViewController</code> 界面，程序将停在断点处。接着，我们使用 <code>lldb</code> 的 <code>watchpoint</code> 命令来设置观察点，观察全局变量 <code>string_weak_assign</code> 、<code>string_weak_retain</code> 和 <code>string_weak_copy</code> 的值的变化。正确设置好观察点后，将会在 <code>console</code> 中看到如下的类似输出：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/AssociatedObjects1.jpg" title="设置观察点" alt="设置观察点" /></p>
+
+<p>点击继续运行按钮，有一个观察点将被命中。我们先查看 <code>console</code> 中的输出，通过将这一步打印的 <code>old value</code> 和上一步的 <code>new value</code> 进行对比，我们可以知道本次命中的观察点是 <code>string_weak_assign</code> ，<code>string_weak_assign</code> 的值变成了 <code>0x0000000000000000</code> ，也就是 <code>nil</code> 。换句话说 <code>self.associatedObject_assign</code> 指向的对象已经被释放了，而通过查看左侧调用栈我们可以知道，这个对象是由于其所在的 <code>autoreleasepool</code> 被 <code>drain</code> 而被释放的，这与我前面的文章<a href="http://blog.leichunfeng.com/blog/2015/05/31/objective-c-autorelease-pool-implementation-principle/">《Objective-C Autorelease Pool 的实现原理
+》</a>中的表述是一致的。<strong>提示</strong>，待会你也可以放开 <code>touchesBegan:withEvent:</code> 中第 <code>31</code> 行的注释，在 <code>ViewController</code> 出现后，点击一下它的 <code>view</code> ，进一步验证一下这个结论。</p>
+
+<p><img src="http://blog.leichunfeng.com/images/AssociatedObjects2.jpg" title="设置观察点" alt="设置观察点" /></p>
+
+<p>接下来，我们点击 <code>ViewController</code> 导航栏左上角的按钮，返回前一个界面，此时，又将有一个观察点被命中。同理，我们可以知道这个观察点是 <code>string_weak_retain</code> 。我们查看左侧的调用栈，将会发现一个非常敏感的函数调用 <code>_object_remove_assocations</code> ，调用这个函数后 <code>ViewController</code> 的所有关联对象被全部移除。最终，<code>self.associatedObject_retain</code> 指向的对象被释放。</p>
+
+<p><img src="http://blog.leichunfeng.com/images/AssociatedObjects3.jpg" title="设置观察点" alt="设置观察点" /></p>
+
+<p>点击继续运行按钮，最后一个观察点 <code>string_weak_copy</code> 被命中。同理，<code>self.associatedObject_copy</code> 指向的对象也由于关联对象的移除被最终释放。</p>
+
+<p><img src="http://blog.leichunfeng.com/images/AssociatedObjects4.jpg" title="设置观察点" alt="设置观察点" /></p>
+
+<h3>结论</h3>
+
+<p>由这个实验，我们可以得出以下结论：</p>
 
 <ol>
-<li>为什么是在 <code>+load</code> 方法中实现 Method Swizzling 的逻辑，而不是其他的什么方法，比如 <code>+initialize</code> 等；</li>
-<li>为什么 Method Swizzling 的逻辑需要用 dispatch_once 来进行调度；</li>
-<li>为什么需要调用 <code>class_addMethod</code> 方法，并且以它的结果为依据分别处理两种不同的情况。</li>
+<li>关联对象的释放时机与被移除的时机并不总是一致的，比如上面的 <code>self.associatedObject_assign</code> 所指向的对象在 <code>ViewController</code> 出现后就被释放了，但是 <code>self.associatedObject_assign</code> 仍然有值，还是保存的原对象的地址。如果之后再使用 <code>self.associatedObject_assign</code> 就会造成 Crash ，所以我们在使用弱引用的关联对象时要非常小心；</li>
+<li>一个对象的所有关联对象是在这个对象被释放时调用的 <code>_object_remove_assocations</code> 函数中被移除的。</li>
 </ol>
 
 
-<p>下面我们就一起来分析下这三个为什么到底是为了什么？</p>
-
-<p><strong>第 1 个为什么</strong>：看过我前面文章<a href="http://blog.leichunfeng.com/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/">《Objective-C +load vs +initialize》</a> 的同学应该知道，<code>+load</code> 和 <code>+initialize</code> 是 Objective-C runtime 会自动调用的两个类方法。但是它们被调用的时机却是有差别的，<code>+load</code> 方法是在类被加载的时候调用的，而 <code>+initialize</code> 方法是在类或它的子类收到第一条消息之前被调用的，这里所指的消息包括实例方法和类方法的调用。也就是说 <code>+initialize</code> 方法是以懒加载的方式被调用的，如果程序一直没有给某个类或它的子类发送消息，那么这个类的 <code>+initialize</code> 方法是永远不会被调用的。此外 <code>+load</code> 方法还有一个非常重要的特性，那就是子类、父类和分类中的 <code>+load</code> 方法的实现是被区别对待的。换句话说在 Objective-C runtime 自动调用 <code>+load</code> 方法时，分类中的 <code>+load</code> 方法并不会对主类中的 <code>+load</code> 方法造成覆盖。综上所述，<code>+load</code> 方法是实现 Method Swizzling 逻辑的最佳“场所”。</p>
-
-<p><strong>第 2 个为什么</strong>：我们上面提到，<code>+load</code> 方法在类加载的时候会被 runtime 自动调用一次，但是它并没有限制程序员对 <code>+load</code> 方法的手动调用。什么？你说不会有程序员这么干？那可说不定，我还见过手动调用 <code>viewDidLoad</code> 方法的程序员，就是介么任性。而我们所能够做的就是尽可能地保证程序能够在各种情况下正常运行。</p>
-
-<p><strong>第 3 个为什么</strong>：我们使用 Method Swizzling 的目的通常都是为了给程序增加功能，而不是完全地替换某个功能，所以我们一般都需要在自定义的实现中调用原始的实现。所以这里就会有两种情况需要我们分别进行处理：</p>
-
-<p><strong>第 1 种情况</strong>：主类本身有实现需要替换的方法，也就是 <code>class_addMethod</code> 方法返回 <code>NO</code> 。这种情况的处理比较简单，直接交换两个方法的实现就可以了：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
-</span><span class='line'>    <span class="c1">/// 先调用原始实现，由于主类本身有实现该方法，所以这里实际调用的是主类的实现</span>
-</span><span class='line'>    <span class="p">[</span><span class="nb">self</span> <span class="nl">mrc_viewWillAppear</span><span class="p">:</span><span class="n">animated</span><span class="p">];</span>
-</span><span class='line'>    <span class="c1">/// 我们增加的功能</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">MobClick</span> <span class="nl">beginLogPageView</span><span class="p">:</span><span class="n">NSStringFromClass</span><span class="p">([</span><span class="nb">self</span> <span class="k">class</span><span class="p">])];</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">mrc_viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
-</span><span class='line'>    <span class="c1">/// 主类的实现</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+<p></p>
 
 
-<p><strong>第 2 种情况</strong>：主类本身没有实现需要替换的方法，而是继承了父类的实现，即 <code>class_addMethod</code> 方法返回 <code>YES</code> 。这时使用 <code>class_getInstanceMethod</code> 函数获取到的 <code>originalSelector</code> 指向的就是父类的方法，我们再通过执行 <code>class_replaceMethod(class, swizzledSelector, method_getImplementation(originalMethod), method_getTypeEncoding(originalMethod));</code> 将父类的实现替换到我们自定义的 <code>mrc_viewWillAppear</code> 方法中。这样就达到了在 <code>mrc_viewWillAppear</code> 方法的实现中调用父类实现的目的。</p>
+<p>接下来，我们就一起看看 runtime 中的源码，来验证下我们的实验结论。</p>
+
+<h3>objc_setAssociatedObject</h3>
+
+<p>我们可以在 <code>objc-references.mm</code> 文件中找到 <code>objc_setAssociatedObject</code> 函数最终调用的函数：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -328,30 +390,248 @@
 <span class='line-number'>8</span>
 <span class='line-number'>9</span>
 <span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
-</span><span class='line'>    <span class="c1">/// 先调用原始实现，由于主类本身并没有实现该方法，所以这里实际调用的是父类的实现</span>
-</span><span class='line'>    <span class="p">[</span><span class="nb">self</span> <span class="nl">mrc_viewWillAppear</span><span class="p">:</span><span class="n">animated</span><span class="p">];</span>
-</span><span class='line'>    <span class="c1">/// 我们增加的功能</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">MobClick</span> <span class="nl">beginLogPageView</span><span class="p">:</span><span class="n">NSStringFromClass</span><span class="p">([</span><span class="nb">self</span> <span class="k">class</span><span class="p">])];</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">mrc_viewWillAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span> <span class="p">{</span>
-</span><span class='line'>    <span class="c1">/// 父类的实现</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="kt">void</span> <span class="nf">_object_set_associative_reference</span><span class="p">(</span><span class="kt">id</span> <span class="n">object</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">key</span><span class="p">,</span> <span class="kt">id</span> <span class="n">value</span><span class="p">,</span> <span class="kt">uintptr_t</span> <span class="n">policy</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="c1">// retain the new value (if any) outside the lock.</span>
+</span><span class='line'>    <span class="n">ObjcAssociation</span> <span class="n">old_association</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">nil</span><span class="p">);</span>
+</span><span class='line'>    <span class="kt">id</span> <span class="n">new_value</span> <span class="o">=</span> <span class="n">value</span> <span class="o">?</span> <span class="n">acquireValue</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">policy</span><span class="p">)</span> <span class="o">:</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">{</span>
+</span><span class='line'>        <span class="n">AssociationsManager</span> <span class="n">manager</span><span class="p">;</span>
+</span><span class='line'>        <span class="n">AssociationsHashMap</span> <span class="o">&amp;</span><span class="n">associations</span><span class="p">(</span><span class="n">manager</span><span class="p">.</span><span class="n">associations</span><span class="p">());</span>
+</span><span class='line'>        <span class="kt">disguised_ptr_t</span> <span class="n">disguised_object</span> <span class="o">=</span> <span class="n">DISGUISE</span><span class="p">(</span><span class="n">object</span><span class="p">);</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">new_value</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="c1">// break any existing association.</span>
+</span><span class='line'>            <span class="n">AssociationsHashMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">i</span> <span class="o">=</span> <span class="n">associations</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">disguised_object</span><span class="p">);</span>
+</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">associations</span><span class="p">.</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
+</span><span class='line'>                <span class="c1">// secondary table exists</span>
+</span><span class='line'>                <span class="n">ObjectAssociationMap</span> <span class="o">*</span><span class="n">refs</span> <span class="o">=</span> <span class="n">i</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
+</span><span class='line'>                <span class="n">ObjectAssociationMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">j</span> <span class="o">=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="n">key</span><span class="p">);</span>
+</span><span class='line'>                <span class="k">if</span> <span class="p">(</span><span class="n">j</span> <span class="o">!=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
+</span><span class='line'>                    <span class="n">old_association</span> <span class="o">=</span> <span class="n">j</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
+</span><span class='line'>                    <span class="n">j</span><span class="o">-&gt;</span><span class="n">second</span> <span class="o">=</span> <span class="n">ObjcAssociation</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span> <span class="n">new_value</span><span class="p">);</span>
+</span><span class='line'>                <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>                    <span class="p">(</span><span class="o">*</span><span class="n">refs</span><span class="p">)[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">ObjcAssociation</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span> <span class="n">new_value</span><span class="p">);</span>
+</span><span class='line'>                <span class="p">}</span>
+</span><span class='line'>            <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>                <span class="c1">// create the new association (first time).</span>
+</span><span class='line'>                <span class="n">ObjectAssociationMap</span> <span class="o">*</span><span class="n">refs</span> <span class="o">=</span> <span class="n">new</span> <span class="n">ObjectAssociationMap</span><span class="p">;</span>
+</span><span class='line'>                <span class="n">associations</span><span class="p">[</span><span class="n">disguised_object</span><span class="p">]</span> <span class="o">=</span> <span class="n">refs</span><span class="p">;</span>
+</span><span class='line'>                <span class="p">(</span><span class="o">*</span><span class="n">refs</span><span class="p">)[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">ObjcAssociation</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span> <span class="n">new_value</span><span class="p">);</span>
+</span><span class='line'>                <span class="n">object</span><span class="o">-&gt;</span><span class="n">setHasAssociatedObjects</span><span class="p">();</span>
+</span><span class='line'>            <span class="p">}</span>
+</span><span class='line'>        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>            <span class="c1">// setting the association to nil breaks the association.</span>
+</span><span class='line'>            <span class="n">AssociationsHashMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">i</span> <span class="o">=</span> <span class="n">associations</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">disguised_object</span><span class="p">);</span>
+</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span>  <span class="n">associations</span><span class="p">.</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
+</span><span class='line'>                <span class="n">ObjectAssociationMap</span> <span class="o">*</span><span class="n">refs</span> <span class="o">=</span> <span class="n">i</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
+</span><span class='line'>                <span class="n">ObjectAssociationMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">j</span> <span class="o">=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="n">key</span><span class="p">);</span>
+</span><span class='line'>                <span class="k">if</span> <span class="p">(</span><span class="n">j</span> <span class="o">!=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
+</span><span class='line'>                    <span class="n">old_association</span> <span class="o">=</span> <span class="n">j</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
+</span><span class='line'>                    <span class="n">refs</span><span class="o">-&gt;</span><span class="n">erase</span><span class="p">(</span><span class="n">j</span><span class="p">);</span>
+</span><span class='line'>                <span class="p">}</span>
+</span><span class='line'>            <span class="p">}</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="c1">// release the old value (outside of the lock).</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">old_association</span><span class="p">.</span><span class="n">hasValue</span><span class="p">())</span> <span class="n">ReleaseValue</span><span class="p">()(</span><span class="n">old_association</span><span class="p">);</span>
 </span><span class='line'><span class="p">}</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>看到这里，相信你对 Method Swizzling 已经有了一定的了解，那么接下来就请你自己亲自试一试吧，you should give it a try yourself 。</p>
+<p>在看这段代码前，我们需要先了解一下几个数据结构以及它们之间的关系：</p>
+
+<ol>
+<li><code>AssociationsManager</code> 是顶级的对象，维护了一个从 <code>spinlock_t</code> 锁到 <code>AssociationsHashMap</code> 哈希表的单例键值对映射；</li>
+<li><code>AssociationsHashMap</code> 是一个无序的哈希表，维护了从对象地址到 <code>ObjectAssociationMap</code> 的映射；</li>
+<li><code>ObjectAssociationMap</code> 是一个 <code>C++</code> 中的 <code>map</code> ，维护了从 <code>key</code> 到 <code>ObjcAssociation</code> 的映射，即关联记录；</li>
+<li><code>ObjcAssociation</code> 是一个 <code>C++</code> 的类，表示一个具体的关联结构，主要包括两个实例变量，<code>_policy</code> 表示关联策略，<code>_value</code> 表示关联对象。</li>
+</ol>
+
+
+<p></p>
+
+
+<p>每一个对象地址对应一个 <code>ObjectAssociationMap</code> 对象，而一个 <code>ObjectAssociationMap</code> 对象保存着这个对象的若干个关联记录。</p>
+
+<p>弄清楚这些数据结构之间的关系后，再回过头来看上面的代码就不难了。我们发现，在苹果的底层代码中一般都会充斥着各种 <code>if else</code> ，可见写好 <code>if else</code> 后我们就距离成为高手不远了。开个玩笑，我们来看下面的流程图，一图胜千言：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/objc_setAssociatedObject.png" title="objc_setAssociatedObject" alt="objc_setAssociatedObject" /></p>
+
+<h3>objc_getAssociatedObject</h3>
+
+<p>同样的，我们也可以在 <code>objc-references.mm</code> 文件中找到 <code>objc_getAssociatedObject</code> 函数最终调用的函数：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="kt">id</span> <span class="nf">_object_get_associative_reference</span><span class="p">(</span><span class="kt">id</span> <span class="n">object</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">key</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kt">id</span> <span class="n">value</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'>    <span class="kt">uintptr_t</span> <span class="n">policy</span> <span class="o">=</span> <span class="n">OBJC_ASSOCIATION_ASSIGN</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">{</span>
+</span><span class='line'>        <span class="n">AssociationsManager</span> <span class="n">manager</span><span class="p">;</span>
+</span><span class='line'>        <span class="n">AssociationsHashMap</span> <span class="o">&amp;</span><span class="n">associations</span><span class="p">(</span><span class="n">manager</span><span class="p">.</span><span class="n">associations</span><span class="p">());</span>
+</span><span class='line'>        <span class="kt">disguised_ptr_t</span> <span class="n">disguised_object</span> <span class="o">=</span> <span class="n">DISGUISE</span><span class="p">(</span><span class="n">object</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">AssociationsHashMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">i</span> <span class="o">=</span> <span class="n">associations</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">disguised_object</span><span class="p">);</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">associations</span><span class="p">.</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
+</span><span class='line'>            <span class="n">ObjectAssociationMap</span> <span class="o">*</span><span class="n">refs</span> <span class="o">=</span> <span class="n">i</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
+</span><span class='line'>            <span class="n">ObjectAssociationMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">j</span> <span class="o">=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="n">key</span><span class="p">);</span>
+</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="n">j</span> <span class="o">!=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
+</span><span class='line'>                <span class="n">ObjcAssociation</span> <span class="o">&amp;</span><span class="n">entry</span> <span class="o">=</span> <span class="n">j</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
+</span><span class='line'>                <span class="n">value</span> <span class="o">=</span> <span class="n">entry</span><span class="p">.</span><span class="n">value</span><span class="p">();</span>
+</span><span class='line'>                <span class="n">policy</span> <span class="o">=</span> <span class="n">entry</span><span class="p">.</span><span class="n">policy</span><span class="p">();</span>
+</span><span class='line'>                <span class="k">if</span> <span class="p">(</span><span class="n">policy</span> <span class="o">&amp;</span> <span class="n">OBJC_ASSOCIATION_GETTER_RETAIN</span><span class="p">)</span> <span class="p">((</span><span class="kt">id</span><span class="p">(</span><span class="o">*</span><span class="p">)(</span><span class="kt">id</span><span class="p">,</span> <span class="kt">SEL</span><span class="p">))</span><span class="n">objc_msgSend</span><span class="p">)(</span><span class="n">value</span><span class="p">,</span> <span class="n">SEL_retain</span><span class="p">);</span>
+</span><span class='line'>            <span class="p">}</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">value</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">policy</span> <span class="o">&amp;</span> <span class="n">OBJC_ASSOCIATION_GETTER_AUTORELEASE</span><span class="p">))</span> <span class="p">{</span>
+</span><span class='line'>        <span class="p">((</span><span class="kt">id</span><span class="p">(</span><span class="o">*</span><span class="p">)(</span><span class="kt">id</span><span class="p">,</span> <span class="kt">SEL</span><span class="p">))</span><span class="n">objc_msgSend</span><span class="p">)(</span><span class="n">value</span><span class="p">,</span> <span class="n">SEL_autorelease</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="k">return</span> <span class="n">value</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>看懂了 <code>objc_setAssociatedObject</code> 函数后，<code>objc_getAssociatedObject</code> 函数对我们来说就是小菜一碟了。这个函数先根据对象地址在 <code>AssociationsHashMap</code> 中查找其对应的 <code>ObjectAssociationMap</code> 对象，如果能找到则进一步根据 <code>key</code> 在 <code>ObjectAssociationMap</code> 对象中查找这个 <code>key</code> 所对应的关联结构 <code>ObjcAssociation</code> ，如果能找到则返回 <code>ObjcAssociation</code> 对象的 <code>value</code> 值，否则返回 <code>nil</code> 。</p>
+
+<h3>objc_removeAssociatedObjects</h3>
+
+<p>同理，我们也可以在 <code>objc-references.mm</code> 文件中找到 <code>objc_removeAssociatedObjects</code> 函数最终调用的函数：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="kt">void</span> <span class="nf">_object_remove_assocations</span><span class="p">(</span><span class="kt">id</span> <span class="n">object</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">vector</span><span class="o">&lt;</span> <span class="n">ObjcAssociation</span><span class="p">,</span><span class="n">ObjcAllocator</span><span class="o">&lt;</span><span class="n">ObjcAssociation</span><span class="o">&gt;</span> <span class="o">&gt;</span> <span class="n">elements</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">{</span>
+</span><span class='line'>        <span class="n">AssociationsManager</span> <span class="n">manager</span><span class="p">;</span>
+</span><span class='line'>        <span class="n">AssociationsHashMap</span> <span class="o">&amp;</span><span class="n">associations</span><span class="p">(</span><span class="n">manager</span><span class="p">.</span><span class="n">associations</span><span class="p">());</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">associations</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
+</span><span class='line'>        <span class="kt">disguised_ptr_t</span> <span class="n">disguised_object</span> <span class="o">=</span> <span class="n">DISGUISE</span><span class="p">(</span><span class="n">object</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">AssociationsHashMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">i</span> <span class="o">=</span> <span class="n">associations</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">disguised_object</span><span class="p">);</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">associations</span><span class="p">.</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
+</span><span class='line'>            <span class="c1">// copy all of the associations that need to be removed.</span>
+</span><span class='line'>            <span class="n">ObjectAssociationMap</span> <span class="o">*</span><span class="n">refs</span> <span class="o">=</span> <span class="n">i</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>
+</span><span class='line'>            <span class="k">for</span> <span class="p">(</span><span class="n">ObjectAssociationMap</span><span class="o">::</span><span class="n">iterator</span> <span class="n">j</span> <span class="o">=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">(),</span> <span class="n">end</span> <span class="o">=</span> <span class="n">refs</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">();</span> <span class="n">j</span> <span class="o">!=</span> <span class="n">end</span><span class="p">;</span> <span class="o">++</span><span class="n">j</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>                <span class="n">elements</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">j</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">);</span>
+</span><span class='line'>            <span class="p">}</span>
+</span><span class='line'>            <span class="c1">// remove the secondary table.</span>
+</span><span class='line'>            <span class="n">delete</span> <span class="n">refs</span><span class="p">;</span>
+</span><span class='line'>            <span class="n">associations</span><span class="p">.</span><span class="n">erase</span><span class="p">(</span><span class="n">i</span><span class="p">);</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="c1">// the calls to releaseValue() happen outside of the lock.</span>
+</span><span class='line'>    <span class="n">for_each</span><span class="p">(</span><span class="n">elements</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span> <span class="n">elements</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span> <span class="n">ReleaseValue</span><span class="p">());</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>这个函数负责移除一个对象的所有关联对象，具体实现也是先根据对象的地址获取其对应的 <code>ObjectAssociationMap</code> 对象，然后将所有的关联结构保存到一个 <code>vector</code> 中，最终释放 <code>vector</code> 中保存的所有关联对象。根据前面的实验观察到的情况，在一个对象被释放时，也正是调用的这个函数来移除其所有的关联对象。</p>
+
+<h3>给类对象添加关联对象</h3>
+
+<p>看完源代码后，我们知道对象地址与 <code>AssociationsHashMap</code> 哈希表是一一对应的。那么我们可能就会思考这样一个问题，是否可以给类对象添加关联对象呢？答案是肯定的。我们完全可以用同样的方式给类对象添加关联对象，只不过我们一般情况下不会这样做，因为更多时候我们可以通过 <code>static</code> 变量来实现类级别的变量。我在分类 <code>ViewController+AssociatedObjects</code> 中给 <code>ViewController</code> 类对象添加了一个关联对象 <code>associatedObject</code> ，读者可以亲自在 <code>viewDidLoad</code> 方法中调用一下以下两个方法验证一下：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">+</span> <span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">associatedObject</span><span class="p">;</span>
+</span><span class='line'><span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setAssociatedObject:</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">associatedObject</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
 
 <h2>总结</h2>
 
-<p>Method Swizzling 是一种黑魔法，我们在使用它时需要加倍小心，而遵循本文的最佳实践可以让你事半功倍。</p>
+<p>读到这里，相信你对开篇的那三个问题已经有了一定的认识，下面我们再梳理一下：</p>
+
+<ol>
+<li>关联对象与被关联对象本身的存储并没有直接的关系，它是存储在单独的哈希表中的；</li>
+<li>关联对象的五种关联策略与属性的限定符非常类似，在绝大多数情况下，我们都会使用 <code>OBJC_ASSOCIATION_RETAIN_NONATOMIC</code> 的关联策略，这可以保证我们持有关联对象；</li>
+<li>关联对象的释放时机与移除时机并不总是一致，比如实验中用关联策略 <code>OBJC_ASSOCIATION_ASSIGN</code> 进行关联的对象，很早就已经被释放了，但是并没有被移除，而再使用这个关联对象时就会造成 Crash 。</li>
+</ol>
+
+
+<p></p>
+
+
+<p>在弄懂 Associated Objects 的实现原理后，可以帮助我们更好地使用它，在出现问题时也能尽快地定位问题，最后希望本文能够对你有所帮助。</p>
 
 <h2>参考链接</h2>
 
-<p><a href="http://nshipster.com/method-swizzling/">http://nshipster.com/method-swizzling/</a>
+<p><a href="http://nshipster.com/associated-objects/">http://nshipster.com/associated-objects/</a>
 <br>
-<a href="https://www.mikeash.com/pyblog/friday-qa-2010-01-29-method-replacement-for-fun-and-profit.html">https://www.mikeash.com/pyblog/friday-qa-2010-01-29-method-replacement-for-fun-and-profit.html</a></p>
+<a href="http://kingscocoa.com/tutorials/associated-objects/">http://kingscocoa.com/tutorials/associated-objects/</a></p>
 </div>
   
   
@@ -374,6 +654,10 @@
     <section>
   <h1>Recent Posts</h1>
   <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2017/02/20/talking-about-the-decompression-of-the-image-in-ios/">谈谈 iOS 中图片的解压缩</a>
+      </li>
     
       <li class="post">
         <a href="/blog/2016/06/20/objective-c-fast-enumeration-implementation-principle/">Objective-C Fast Enumeration 的实现原理</a>
@@ -409,10 +693,6 @@
     
       <li class="post">
         <a href="/blog/2015/05/18/objective-c-category-implementation-principle/">Objective-C Category 的实现原理</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/">Objective-C +load vs +initialize</a>
       </li>
     
   </ul>

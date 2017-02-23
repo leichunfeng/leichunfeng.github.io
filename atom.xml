@@ -4,7 +4,7 @@
   <title><![CDATA[雷纯锋的技术博客]]></title>
   <link href="http://leichunfeng.github.io/atom.xml" rel="self"/>
   <link href="http://leichunfeng.github.io/"/>
-  <updated>2017-02-07T16:05:50+08:00</updated>
+  <updated>2017-02-23T17:17:59+08:00</updated>
   <id>http://leichunfeng.github.io/</id>
   <author>
     <name><![CDATA[雷纯锋]]></name>
@@ -12,6 +12,529 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[谈谈 iOS 中图片的解压缩]]></title>
+    <link href="http://leichunfeng.github.io/blog/2017/02/20/talking-about-the-decompression-of-the-image-in-ios/"/>
+    <updated>2017-02-20T10:47:56+08:00</updated>
+    <id>http://leichunfeng.github.io/blog/2017/02/20/talking-about-the-decompression-of-the-image-in-ios</id>
+    <content type="html"><![CDATA[<p>对于大多数 iOS 应用来说，图片往往是最占用手机内存的资源之一，同时也是不可或缺的组成部分。将一张图片从磁盘中加载出来，并最终显示到屏幕上，中间其实经过了一系列复杂的处理过程，其中就包括了对图片的解压缩。</p>
+
+<h2>图片加载的工作流</h2>
+
+<p>概括来说，从磁盘中加载一张图片，并将它显示到屏幕上，中间的<a href="https://github.com/path/FastImageCache#the-problem">主要工作流</a>如下：</p>
+
+<ol>
+<li>假设我们使用 <code>+imageWithContentsOfFile:</code> 方法从磁盘中加载一张图片，这个时候的图片并没有解压缩；</li>
+<li>然后将生成的 <code>UIImage</code> 赋值给 <code>UIImageView</code> ；</li>
+<li>接着一个隐式的 <code>CATransaction</code> 捕获到了 <code>UIImageView</code> 图层树的变化；</li>
+<li>在主线程的下一个 run loop 到来时，Core Animation 提交了这个隐式的 transaction ，这个过程可能会对图片进行 copy 操作，而受图片是否<strong>字节对齐</strong>等因素的影响，这个 copy 操作可能会涉及以下部分或全部步骤：
+
+<ol>
+<li>分配内存缓冲区用于管理文件 IO 和解压缩操作；</li>
+<li>将文件数据从磁盘读到内存中；</li>
+<li>将压缩的图片数据解码成未压缩的位图形式，这是一个非常耗时的 CPU 操作；</li>
+<li>最后 Core Animation 使用未压缩的位图数据渲染 <code>UIImageView</code> 的图层。</li>
+</ol>
+</li>
+</ol>
+
+
+<p>在上面的步骤中，我们提到了图片的解压缩是一个非常耗时的 CPU 操作，并且它默认是在主线程中执行的。那么当需要加载的图片比较多时，就会对我们应用的响应性造成严重的影响，尤其是在快速滑动的列表上，这个问题会表现得更加突出。</p>
+
+<h2>为什么需要解压缩</h2>
+
+<p>既然图片的解压缩需要消耗大量的 CPU 时间，那么我们为什么还要对图片进行解压缩呢？是否可以不经过解压缩，而直接将图片显示到屏幕上呢？答案是否定的。要想弄明白这个问题，我们首先需要知道什么是<a href="https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_images/dq_images.html#//apple_ref/doc/uid/TP30001066-CH212-SW3">位图</a>：</p>
+
+<blockquote><p>A bitmap image (or sampled image) is an array of pixels (or samples). Each pixel represents a single point in the image. JPEG, TIFF, and PNG graphics files are examples of bitmap images.</p></blockquote>
+
+<p>其实，位图就是一个像素数组，数组中的每个像素就代表着图片中的一个点。我们在应用中经常用到的 JPEG 和 PNG 图片就是位图。下面，我们来看一个具体的例子，这是一张 PNG 图片，像素为 30 × 30 ，文件大小为 843B ：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/check_green.png" alt="位图" /></p>
+
+<p>我们使用<a href="https://developer.apple.com/library/content/qa/qa1509/_index.html">下面的代码</a>：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="bp">UIImage</span> <span class="o">*</span><span class="n">image</span> <span class="o">=</span> <span class="p">[</span><span class="bp">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&quot;check_green&quot;</span><span class="p">];</span>
+</span><span class='line'><span class="n">CFDataRef</span> <span class="n">rawData</span> <span class="o">=</span> <span class="n">CGDataProviderCopyData</span><span class="p">(</span><span class="n">CGImageGetDataProvider</span><span class="p">(</span><span class="n">image</span><span class="p">.</span><span class="bp">CGImage</span><span class="p">));</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>就可以获取到这个图片的原始像素数据，大小为 3600B ：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span>
+</span><span class='line'><span class="mo">01020102</span> <span class="mo">032</span><span class="n">c023c</span> <span class="mo">056704</span><span class="mi">8</span><span class="n">c</span> <span class="mo">07</span><span class="mi">8</span><span class="n">d06bf</span> <span class="mi">08</span><span class="n">a006d9</span> <span class="mi">09</span><span class="n">b307f3</span> <span class="mi">09</span><span class="n">b307f3</span> <span class="mi">08</span><span class="n">a006d9</span> <span class="mo">07</span><span class="mi">8</span><span class="n">d06bf</span>
+</span><span class='line'><span class="mo">056704</span><span class="mi">8</span><span class="n">c</span> <span class="mo">032</span><span class="n">c023c</span> <span class="mo">01020102</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span>
+</span><span class='line'><span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span>
+</span><span class='line'><span class="mo">00000000</span> <span class="mo">0106010</span><span class="mi">8</span> <span class="mo">05570476</span> <span class="mi">09</span><span class="n">ab07e9</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span>
+</span><span class='line'><span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">ab07e9</span> <span class="mo">05570476</span> <span class="mo">0106010</span><span class="mi">8</span> <span class="mo">00000000</span>
+</span><span class='line'><span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span>
+</span><span class='line'><span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">033</span><span class="n">d0353</span> <span class="mi">08</span><span class="n">a607e2</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span>
+</span><span class='line'><span class="p">...</span>
+</span><span class='line'><span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">08</span><span class="n">a607e2</span> <span class="mo">033</span><span class="n">d0353</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span>
+</span><span class='line'><span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span>
+</span><span class='line'><span class="mo">00000000</span> <span class="mo">0106010</span><span class="mi">8</span> <span class="mo">05570476</span> <span class="mi">09</span><span class="n">ab07e9</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span>
+</span><span class='line'><span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">bb07ff</span> <span class="mi">09</span><span class="n">ab07e9</span> <span class="mo">05570476</span> <span class="mo">0106010</span><span class="mi">8</span> <span class="mo">00000000</span>
+</span><span class='line'><span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span>
+</span><span class='line'><span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">01020102</span> <span class="mo">032</span><span class="n">c023c</span> <span class="mo">056704</span><span class="mi">8</span><span class="n">c</span>
+</span><span class='line'><span class="mo">07</span><span class="mi">8</span><span class="n">d06bf</span> <span class="mi">08</span><span class="n">a006d9</span> <span class="mi">09</span><span class="n">b307f3</span> <span class="mi">09</span><span class="n">b307f3</span> <span class="mi">08</span><span class="n">a006d9</span> <span class="mo">07</span><span class="mi">8</span><span class="n">d06bf</span> <span class="mo">056704</span><span class="mi">8</span><span class="n">c</span> <span class="mo">032</span><span class="n">c023c</span> <span class="mo">01020102</span>
+</span><span class='line'><span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span> <span class="mo">00000000</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>也就是说，这张文件大小为 843B 的 PNG 图片解压缩后的大小是 3600B ，是原始文件大小的 4.27 倍。那么这个 3600B 是怎么得来的呢？与图片的文件大小或者像素有什么必然的联系吗？事实上，解压缩后的图片大小与原始文件大小之间没有任何关系，而只与图片的像素有关：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="err">解压缩后的图片大小</span> <span class="o">=</span> <span class="err">图片的像素宽</span> <span class="mi">30</span> <span class="o">*</span> <span class="err">图片的像素高</span> <span class="mi">30</span> <span class="o">*</span> <span class="err">每个像素所占的字节数</span> <span class="mi">4</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>至于这个公式是怎么得来的，我们后面会有详细的说明，现在只需要知道即可。</p>
+
+<p>至此，我们已经知道了什么是位图，并且直观地看到了它的原始像素数据，那么它与我们经常提到的图片的二进制数据有什么联系吗？是同一个东西吗？事实上，这二者是完全独立的两个东西，它们之间没有必然的联系。为了加深理解，我把这个图片拖进 Sublime Text 2 中，得到了这个图片的二进制数据，大小与原始文件大小一致，为 843B ：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="mi">8950</span> <span class="mf">4e47</span> <span class="mi">0</span><span class="n">d0a</span> <span class="mi">1</span><span class="n">a0a</span> <span class="mo">0000</span> <span class="mo">000</span><span class="n">d</span> <span class="mi">4948</span> <span class="mi">4452</span> <span class="mo">0000</span> <span class="mo">001</span><span class="n">e</span> <span class="mo">0000</span> <span class="mo">001</span><span class="n">e</span> <span class="mi">0806</span> <span class="mo">0000</span> <span class="mo">003</span><span class="n">b</span> <span class="mi">30</span><span class="n">ae</span> <span class="n">a200</span>
+</span><span class='line'><span class="mo">0000</span> <span class="mo">0173</span> <span class="mi">5247</span> <span class="mi">4200</span> <span class="n">aece</span> <span class="mi">1</span><span class="n">ce9</span> <span class="mo">0000</span> <span class="mo">0305</span> <span class="mi">4944</span> <span class="mi">4154</span> <span class="mi">480</span><span class="n">d</span> <span class="n">c557</span> <span class="mi">4</span><span class="n">d68</span> <span class="mi">1341</span> <span class="mi">149</span><span class="n">e</span> <span class="mi">3709</span> <span class="n">da4d</span>
+</span><span class='line'><span class="mi">09</span><span class="n">c6</span> <span class="mi">8</span><span class="n">a56</span> <span class="mi">2385</span> <span class="mf">9e14</span> <span class="n">f458</span> <span class="mf">4f</span><span class="n">a2</span> <span class="n">d092</span> <span class="n">f4a6</span> <span class="mi">28</span><span class="n">d8</span> <span class="mi">2222</span> <span class="n">de04</span> <span class="mi">3</span><span class="n">d09</span> <span class="n">a1d0</span> <span class="mi">7</span><span class="n">a50</span> <span class="mi">0954</span> <span class="mi">8</span><span class="n">bad</span> <span class="mi">2</span><span class="n">d05</span>
+</span><span class='line'><span class="mf">4f</span><span class="n">de</span> <span class="mi">3</span><span class="n">c89</span> <span class="mi">482</span><span class="n">b</span> <span class="mi">2</span><span class="n">ad6</span> <span class="mi">8334</span> <span class="n">d183</span> <span class="n">e049</span> <span class="n">ef9e</span> <span class="mi">4</span><span class="n">a41</span> <span class="mi">48</span><span class="n">b0</span> <span class="mi">42</span><span class="n">eb</span> <span class="n">a549</span> <span class="mi">6893</span> <span class="mi">1</span><span class="n">ddf</span> <span class="mi">9</span><span class="n">bcd</span> <span class="n">b4d9</span> <span class="n">d9d9</span>
+</span><span class='line'><span class="mi">4</span><span class="n">dd8</span> <span class="n">a43a</span> <span class="n">b0d9</span> <span class="mi">9</span><span class="n">d79</span> <span class="mf">3f</span><span class="n">df</span> <span class="n">bc79</span> <span class="mf">3ff</span><span class="mi">3</span> <span class="mo">02</span><span class="n">ac</span> <span class="mi">8591</span> <span class="mi">1559</span> <span class="mf">3e97</span> <span class="mi">9</span><span class="n">b3e</span> <span class="mi">5</span><span class="n">b05</span> <span class="n">fb32</span> <span class="mi">6330</span> <span class="n">c098</span> <span class="mi">48</span><span class="n">a2</span>
+</span><span class='line'><span class="mi">183</span><span class="n">d</span> <span class="mi">340</span><span class="n">a</span> <span class="n">b886</span> <span class="mf">8ff</span><span class="mi">8</span> <span class="mf">1e15</span> <span class="n">fced</span> <span class="mi">587</span><span class="n">a</span> <span class="n">e26b</span> <span class="mi">16</span><span class="n">b2</span> <span class="n">b643</span> <span class="n">f2ff</span> <span class="mf">057f</span> <span class="mi">1263</span> <span class="n">fd9f</span> <span class="n">fbbb</span> <span class="mi">7</span><span class="n">ed7</span> <span class="mi">7</span><span class="n">edd</span>
+</span><span class='line'><span class="mi">1142</span> <span class="mi">8</span><span class="n">c09</span> <span class="mi">268</span><span class="n">e</span> <span class="mf">04f</span><span class="mi">1</span> <span class="mi">2</span><span class="n">a1a</span> <span class="mi">3058</span> <span class="mo">03</span><span class="mi">80</span> <span class="n">b9c3</span> <span class="mi">91</span><span class="n">de</span> <span class="n">a7ab</span> <span class="mi">43</span><span class="n">ab</span> <span class="mi">15</span><span class="n">b5</span> <span class="n">aebf</span> <span class="mi">7</span><span class="n">d81</span> <span class="n">ad65</span> <span class="n">eb0a</span> <span class="mi">5</span><span class="n">a31</span>
+</span><span class='line'><span class="mf">8f4f</span> <span class="mf">9f</span><span class="mi">2</span><span class="n">e</span> <span class="n">d4da</span> <span class="mi">1</span><span class="n">c7e</span> <span class="n">e249</span> <span class="mi">64</span><span class="n">ca</span> <span class="n">c3e5</span> <span class="n">d726</span> <span class="mi">7</span><span class="n">eae</span> <span class="mf">2f</span><span class="n">a2</span> <span class="mi">7510</span> <span class="n">cb75</span> <span class="mi">3</span><span class="n">d62</span> <span class="n">cc5e</span> <span class="mi">0</span><span class="n">c0f</span> <span class="mi">4</span><span class="n">a5a</span> <span class="mi">69</span><span class="n">c3</span>
+</span><span class='line'><span class="p">...</span>
+</span><span class='line'><span class="mi">36</span><span class="n">ac</span> <span class="n">b11e</span> <span class="mi">7006</span> <span class="n">f71b</span> <span class="mi">5386</span> <span class="n">a2b7</span> <span class="mf">1e48</span> <span class="n">ad82</span> <span class="n">a26a</span> <span class="mi">2880</span> <span class="mi">95</span><span class="n">db</span> <span class="mf">3f</span><span class="mi">8</span><span class="n">b</span> <span class="n">f525</span> <span class="n">b880</span> <span class="n">e0ed</span> <span class="mi">7221</span> <span class="mf">75f</span><span class="mi">1</span>
+</span><span class='line'><span class="n">fa02</span> <span class="mi">2</span><span class="n">cd4</span> <span class="mi">1</span><span class="n">af7</span> <span class="mi">1</span><span class="n">d0e</span> <span class="mi">546</span><span class="n">a</span> <span class="mf">98e5</span> <span class="n">d4ae</span> <span class="mi">342</span><span class="n">a</span> <span class="mi">337</span><span class="n">e</span> <span class="mi">6</span><span class="n">b96</span> <span class="mf">134f</span> <span class="mi">1</span><span class="n">ba0</span> <span class="mi">0</span><span class="n">c0b</span> <span class="n">c83b</span> <span class="n">a0f2</span> <span class="mi">3593</span> <span class="mi">7</span><span class="n">b5c</span>
+</span><span class='line'><span class="mi">6</span><span class="n">ca9</span> <span class="n">b541</span> <span class="n">cb4f</span> <span class="mi">254</span><span class="n">e</span> <span class="n">df58</span> <span class="n">d958</span> <span class="mi">8955</span> <span class="n">a0fc</span> <span class="mi">2638</span> <span class="mi">658</span><span class="n">c</span> <span class="mi">2660</span> <span class="n">f986</span> <span class="n">b5f1</span> <span class="n">f4dd</span> <span class="mf">63f</span><span class="mi">2</span> <span class="mi">5</span><span class="n">aec</span> <span class="n">ce59</span>
+</span><span class='line'><span class="n">e3b6</span> <span class="n">b0a7</span> <span class="n">cdac</span> <span class="n">ee55</span> <span class="mi">145</span><span class="n">c</span> <span class="n">c7dc</span> <span class="mf">8f</span><span class="mi">60</span> <span class="n">f53f</span> <span class="n">e0a6</span> <span class="n">b436</span> <span class="n">e3c0</span> <span class="mi">27</span><span class="n">b0</span> <span class="mi">8</span><span class="n">ecf</span> <span class="mi">5054</span> <span class="mi">336</span><span class="n">a</span> <span class="n">ccd0</span> <span class="n">e1d8</span>
+</span><span class='line'><span class="mi">2335</span> <span class="mf">1f</span><span class="mi">78</span> <span class="mi">323</span><span class="n">d</span> <span class="mi">6141</span> <span class="mi">09</span><span class="n">c3</span> <span class="n">c1aa</span> <span class="mf">5f</span><span class="mi">8</span><span class="n">b</span> <span class="mf">4e37</span> <span class="mi">0899</span> <span class="n">e6b0</span> <span class="n">ed72</span> <span class="mi">4046</span> <span class="mi">759</span><span class="n">e</span> <span class="n">d262</span> <span class="mi">5247</span> <span class="mi">9</span><span class="n">d01</span> <span class="mi">1689</span>
+</span><span class='line'><span class="n">a976</span> <span class="mf">55f</span><span class="n">b</span> <span class="n">c993</span> <span class="mi">6</span><span class="n">ed5</span> <span class="mi">7</span><span class="n">d10</span> <span class="mf">8ff</span><span class="mi">4</span> <span class="n">b162</span> <span class="n">fe6f</span> <span class="n">cd1e</span> <span class="n">ee4a</span> <span class="n">d4bb</span> <span class="n">c18e</span> <span class="mi">594</span><span class="n">e</span> <span class="mi">96</span><span class="n">ea</span> <span class="mi">1</span><span class="n">da6</span> <span class="n">c762</span> <span class="mi">6539</span>
+</span><span class='line'><span class="n">bdff</span> <span class="mi">7943</span> <span class="n">afc0</span> <span class="n">c91f</span> <span class="n">bdd1</span> <span class="n">a327</span> <span class="mf">28f</span><span class="n">c</span> <span class="mf">29f</span><span class="mi">7</span> <span class="n">d47a</span> <span class="n">b337</span> <span class="n">f192</span> <span class="mi">0</span><span class="n">cc9</span> <span class="mf">36f</span><span class="n">a</span> <span class="mi">5497</span> <span class="mf">73f</span><span class="mi">9</span> <span class="mi">5827</span> <span class="n">aa39</span>
+</span><span class='line'><span class="mi">1599</span> <span class="mi">4</span><span class="n">eff</span> <span class="mf">69f</span><span class="n">b</span> <span class="mi">0</span><span class="n">b0d</span> <span class="mf">1f</span><span class="mi">7</span><span class="n">a</span> <span class="mi">96</span><span class="n">cd</span> <span class="mi">3</span><span class="n">eb0</span> <span class="mi">7800</span> <span class="mo">0000</span> <span class="mo">004</span><span class="mi">9</span> <span class="mi">454</span><span class="n">e</span> <span class="mi">44</span><span class="n">ae</span> <span class="mi">4260</span> <span class="mi">82</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>事实上，不管是 JPEG 还是 PNG 图片，都是一种压缩的位图图形格式。只不过 PNG 图片是无损压缩，并且支持 alpha 通道，而 JPEG 图片则是有损压缩，可以指定 0-100% 的压缩比。值得一提的是，在苹果的 SDK 中专门提供了两个函数用来生成 PNG 和 JPEG 图片：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="c1">// return image as PNG. May return nil if image has no CGImageRef or invalid bitmap format</span>
+</span><span class='line'><span class="n">UIKIT_EXTERN</span> <span class="bp">NSData</span> <span class="o">*</span> <span class="n">__nullable</span> <span class="nf">UIImagePNGRepresentation</span><span class="p">(</span><span class="bp">UIImage</span> <span class="o">*</span> <span class="n">__nonnull</span> <span class="n">image</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// return image as JPEG. May return nil if image has no CGImageRef or invalid bitmap format. compression is 0(most)..1(least)                           </span>
+</span><span class='line'><span class="n">UIKIT_EXTERN</span> <span class="bp">NSData</span> <span class="o">*</span> <span class="n">__nullable</span> <span class="nf">UIImageJPEGRepresentation</span><span class="p">(</span><span class="bp">UIImage</span> <span class="o">*</span> <span class="n">__nonnull</span> <span class="n">image</span><span class="p">,</span> <span class="n">CGFloat</span> <span class="n">compressionQuality</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>因此，在将磁盘中的图片渲染到屏幕之前，必须先要得到图片的原始像素数据，才能执行后续的绘制操作，这就是为什么需要对图片解压缩的原因。</p>
+
+<h2>强制解压缩的原理</h2>
+
+<p>既然图片的解压缩不可避免，而我们也不想让它在主线程执行，影响我们应用的响应性，那么是否有比较好的解决方案呢？答案是肯定的。</p>
+
+<p>我们前面已经提到了，当未解压缩的图片将要渲染到屏幕时，系统会在主线程对图片进行解压缩，而如果图片已经解压缩了，系统就不会再对图片进行解压缩。因此，也就有了业内的解决方案，在子线程提前对图片进行强制解压缩。</p>
+
+<p>而强制解压缩的原理就是对图片进行重新绘制，得到一张新的解压缩后的位图。其中，用到的最核心的函数是 <code>CGBitmapContextCreate</code> ：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="cm">/* Create a bitmap context. The context draws into a bitmap which is `width&#39;</span>
+</span><span class='line'><span class="cm">   pixels wide and `height&#39; pixels high. The number of components for each</span>
+</span><span class='line'><span class="cm">   pixel is specified by `space&#39;, which may also specify a destination color</span>
+</span><span class='line'><span class="cm">   profile. The number of bits for each component of a pixel is specified by</span>
+</span><span class='line'><span class="cm">   `bitsPerComponent&#39;. The number of bytes per pixel is equal to</span>
+</span><span class='line'><span class="cm">   `(bitsPerComponent * number of components + 7)/8&#39;. Each row of the bitmap</span>
+</span><span class='line'><span class="cm">   consists of `bytesPerRow&#39; bytes, which must be at least `width * bytes</span>
+</span><span class='line'><span class="cm">   per pixel&#39; bytes; in addition, `bytesPerRow&#39; must be an integer multiple</span>
+</span><span class='line'><span class="cm">   of the number of bytes per pixel. `data&#39;, if non-NULL, points to a block</span>
+</span><span class='line'><span class="cm">   of memory at least `bytesPerRow * height&#39; bytes. If `data&#39; is NULL, the</span>
+</span><span class='line'><span class="cm">   data for context is allocated automatically and freed when the context is</span>
+</span><span class='line'><span class="cm">   deallocated. `bitmapInfo&#39; specifies whether the bitmap should contain an</span>
+</span><span class='line'><span class="cm">   alpha channel and how it&#39;s to be generated, along with whether the</span>
+</span><span class='line'><span class="cm">   components are floating-point or integer. */</span>
+</span><span class='line'><span class="n">CG_EXTERN</span> <span class="n">CGContextRef</span> <span class="n">__nullable</span> <span class="nf">CGBitmapContextCreate</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span> <span class="n">__nullable</span> <span class="n">data</span><span class="p">,</span>
+</span><span class='line'>    <span class="kt">size_t</span> <span class="n">width</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">height</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">bitsPerComponent</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">bytesPerRow</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">CGColorSpaceRef</span> <span class="n">cg_nullable</span> <span class="n">space</span><span class="p">,</span> <span class="kt">uint32_t</span> <span class="n">bitmapInfo</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">CG_AVAILABLE_STARTING</span><span class="p">(</span><span class="n">__MAC_10_0</span><span class="p">,</span> <span class="n">__IPHONE_2_0</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>顾名思义，这个函数用于创建一个位图上下文，用来绘制一张宽 <code>width</code> 像素，高 <code>height</code> 像素的位图。这个函数的注释比较长，参数也比较难理解，但是先别着急，我们先来了解下相关的知识，然后再回过头来理解这些参数，就会比较简单了。</p>
+
+<h3>Pixel Format</h3>
+
+<p>我们前面已经提到了，位图其实就是一个像素数组，而<a href="https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_images/dq_images.html#//apple_ref/doc/uid/TP30001066-CH212-CJBECCFG">像素格式</a>则是用来描述每个像素的组成格式，它包括以下信息：</p>
+
+<ul>
+<li>Bits per component ：一个像素中每个独立的颜色分量使用的 bit 数；</li>
+<li>Bits per pixel ：一个像素使用的总 bit 数；</li>
+<li>Bytes per row ：位图中的每一行使用的字节数。</li>
+</ul>
+
+
+<p>有一点需要注意的是，对于位图来说，像素格式并不是随意组合的，目前只支持以下有限的 <a href="https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_context/dq_context.html#//apple_ref/doc/uid/TP30001066-CH203-BCIBHHBB">17 种特定组合</a>：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/Supported Pixel Formats.png" width="738" /></p>
+
+<p>从上图可知，对于 iOS 来说，只支持 8 种像素格式。其中颜色空间为 Null 的 1 种，Gray 的 2 种，RGB 的 5 种，CMYK 的 0 种。换句话说，iOS 并不支持 CMYK 的颜色空间。另外，在表格的第 2 列中，除了像素格式外，还指定了 bitmap information constant ，我们在后面会详细介绍。</p>
+
+<h3>Color and Color Spaces</h3>
+
+<p>在上面我们提到了<a href="https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_color/dq_color.html#//apple_ref/doc/uid/TP30001066-CH205-TPXREF101">颜色空间</a>，那么什么是颜色空间呢？它跟颜色有什么关系呢？在 Quartz 中，一个颜色是由一组值来表示的，比如 0, 0, 1 。而颜色空间则是用来说明如何解析这些值的，离开了颜色空间，它们将变得毫无意义。比如，下面的值都表示蓝色：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/blue_color.png" width="483" /></p>
+
+<p>如果不知道颜色空间，那么我们根本无法知道这些值所代表的颜色。比如 0, 0, 1 在 RGB 下代表蓝色，而在 BGR 下则代表的是红色。在 RGB 和 BGR 两种颜色空间下，绿色是相同的，而红色和蓝色则相互对调了。因此，对于同一张图片，使用 RGB 和 BGR 两种颜色空间可能会得到两种不一样的效果：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/color_profiles.png" alt="color_profiles" /></p>
+
+<p>是不是感觉非常有意思呢？</p>
+
+<h3>Color Spaces and Bitmap Layout</h3>
+
+<p>我们前面已经知道了，像素格式是用来描述每个像素的组成格式的，比如每个像素使用的总 bit 数。而要想确保 Quartz 能够正确地解析这些 bit 所代表的含义，我们还需要提供<a href="https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_images/dq_images.html#//apple_ref/doc/uid/TP30001066-CH212-CJBHEGIB">位图的布局信息</a> <code>CGBitmapInfo</code> ：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">typedef</span> <span class="nf">CF_OPTIONS</span><span class="p">(</span><span class="kt">uint32_t</span><span class="p">,</span> <span class="n">CGBitmapInfo</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">kCGBitmapAlphaInfoMask</span> <span class="o">=</span> <span class="mh">0x1F</span><span class="p">,</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">kCGBitmapFloatInfoMask</span> <span class="o">=</span> <span class="mh">0xF00</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">kCGBitmapFloatComponents</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">8</span><span class="p">),</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">kCGBitmapByteOrderMask</span>     <span class="o">=</span> <span class="n">kCGImageByteOrderMask</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">kCGBitmapByteOrderDefault</span>  <span class="o">=</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;&lt;</span> <span class="mi">12</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">kCGBitmapByteOrder16Little</span> <span class="o">=</span> <span class="n">kCGImageByteOrder16Little</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">kCGBitmapByteOrder32Little</span> <span class="o">=</span> <span class="n">kCGImageByteOrder32Little</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">kCGBitmapByteOrder16Big</span>    <span class="o">=</span> <span class="n">kCGImageByteOrder16Big</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">kCGBitmapByteOrder32Big</span>    <span class="o">=</span> <span class="n">kCGImageByteOrder32Big</span>
+</span><span class='line'><span class="p">}</span> <span class="n">CG_AVAILABLE_STARTING</span><span class="p">(</span><span class="n">__MAC_10_0</span><span class="p">,</span> <span class="n">__IPHONE_2_0</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>它主要提供了三个方面的布局信息：</p>
+
+<ul>
+<li>alpha 的信息；</li>
+<li>颜色分量是否为浮点数；</li>
+<li>像素格式的字节顺序。</li>
+</ul>
+
+
+<p>其中，alpha 的信息由枚举值 <code>CGImageAlphaInfo</code> 来表示：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">typedef</span> <span class="nf">CF_ENUM</span><span class="p">(</span><span class="kt">uint32_t</span><span class="p">,</span> <span class="n">CGImageAlphaInfo</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">kCGImageAlphaNone</span><span class="p">,</span>               <span class="cm">/* For example, RGB. */</span>
+</span><span class='line'>    <span class="n">kCGImageAlphaPremultipliedLast</span><span class="p">,</span>  <span class="cm">/* For example, premultiplied RGBA */</span>
+</span><span class='line'>    <span class="n">kCGImageAlphaPremultipliedFirst</span><span class="p">,</span> <span class="cm">/* For example, premultiplied ARGB */</span>
+</span><span class='line'>    <span class="n">kCGImageAlphaLast</span><span class="p">,</span>               <span class="cm">/* For example, non-premultiplied RGBA */</span>
+</span><span class='line'>    <span class="n">kCGImageAlphaFirst</span><span class="p">,</span>              <span class="cm">/* For example, non-premultiplied ARGB */</span>
+</span><span class='line'>    <span class="n">kCGImageAlphaNoneSkipLast</span><span class="p">,</span>       <span class="cm">/* For example, RBGX. */</span>
+</span><span class='line'>    <span class="n">kCGImageAlphaNoneSkipFirst</span><span class="p">,</span>      <span class="cm">/* For example, XRGB. */</span>
+</span><span class='line'>    <span class="n">kCGImageAlphaOnly</span>                <span class="cm">/* No color data, alpha data only */</span>
+</span><span class='line'><span class="p">};</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>上面的注释其实已经比较清楚了，它同样也提供了三个方面的 alpha 信息：</p>
+
+<ul>
+<li>是否包含 alpha ；</li>
+<li>如果包含 alpha ，那么 alpha 信息所处的位置，在像素的<a href="https://zh.wikipedia.org/wiki/%E6%9C%80%E4%BD%8E%E6%9C%89%E6%95%88%E4%BD%8D">最低有效位</a>，比如 RGBA ，还是<a href="https://zh.wikipedia.org/wiki/%E6%9C%80%E9%AB%98%E6%9C%89%E6%95%88%E4%BD%8D">最高有效位</a>，比如 ARGB ；</li>
+<li>如果包含 alpha ，那么每个颜色分量是否已经乘以 alpha 的值，这种做法可以加速图片的渲染时间，因为它避免了渲染时的额外乘法运算。比如，对于 RGB 颜色空间，用已经乘以 alpha 的数据来渲染图片，每个像素都可以避免 3 次乘法运算，红色乘以 alpha ，绿色乘以 alpha 和蓝色乘以 alpha 。</li>
+</ul>
+
+
+<p>那么我们在解压缩图片的时候应该使用哪个值呢？根据 <a href="http://stackoverflow.com/questions/23723564/which-cgimagealphainfo-should-we-use">Which CGImageAlphaInfo should we use</a> 和官方文档中对 <code>UIGraphicsBeginImageContextWithOptions</code> 函数的讨论：</p>
+
+<blockquote><p>You use this function to configure the drawing environment for rendering into a bitmap. The format for the bitmap is a ARGB 32-bit integer pixel format using host-byte order. If the opaque parameter is YES, the alpha channel is ignored and the bitmap is treated as fully opaque (kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host). Otherwise, each pixel uses a premultipled ARGB format (kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host).</p></blockquote>
+
+<p>我们可以知道，当图片不包含 alpha 的时候使用 <code>kCGImageAlphaNoneSkipFirst</code> ，否则使用 <code>kCGImageAlphaPremultipliedFirst</code> 。另外，这里也提到了字节顺序应该使用 32 位的主机字节顺序 <code>kCGBitmapByteOrder32Host</code> ，而这个值具体是什么，我们后面再讨论。</p>
+
+<p>至于颜色分量是否为浮点数，这个就比较简单了，直接逻辑或 <code>kCGBitmapFloatComponents</code> 就可以了。更详细的内容就不展开了，因为我们一般用不上这个值。</p>
+
+<p>接下来，我们来简单地了解下像素格式的<a href="https://developer.apple.com/library/content/documentation/CoreFoundation/Conceptual/CFMemoryMgmt/Concepts/ByteOrdering.html#//apple_ref/doc/uid/20001150-CJBEJBHH">字节顺序</a>，它是由枚举值 <code>CGImageByteOrderInfo</code> 来表示的：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">typedef</span> <span class="nf">CF_ENUM</span><span class="p">(</span><span class="kt">uint32_t</span><span class="p">,</span> <span class="n">CGImageByteOrderInfo</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">kCGImageByteOrderMask</span>     <span class="o">=</span> <span class="mh">0x7000</span><span class="p">,</span>
+</span><span class='line'>    <span class="n">kCGImageByteOrder16Little</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">12</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">kCGImageByteOrder32Little</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">&lt;&lt;</span> <span class="mi">12</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">kCGImageByteOrder16Big</span>    <span class="o">=</span> <span class="p">(</span><span class="mi">3</span> <span class="o">&lt;&lt;</span> <span class="mi">12</span><span class="p">),</span>
+</span><span class='line'>    <span class="n">kCGImageByteOrder32Big</span>    <span class="o">=</span> <span class="p">(</span><span class="mi">4</span> <span class="o">&lt;&lt;</span> <span class="mi">12</span><span class="p">)</span>
+</span><span class='line'><span class="p">}</span> <span class="n">CG_AVAILABLE_STARTING</span><span class="p">(</span><span class="n">__MAC_10_12</span><span class="p">,</span> <span class="n">__IPHONE_10_0</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>它主要提供了两个方面的字节顺序信息：</p>
+
+<ul>
+<li><a href="https://zh.wikipedia.org/wiki/%E5%AD%97%E8%8A%82%E5%BA%8F#.E5.B0.8F.E7.AB.AF.E5.BA.8F">小端模式</a>还是<a href="https://zh.wikipedia.org/wiki/%E5%AD%97%E8%8A%82%E5%BA%8F#.E5.A4.A7.E7.AB.AF.E5.BA.8F">大端模式</a>；</li>
+<li>数据以 16 位还是 32 位为单位。</li>
+</ul>
+
+
+<p>对于 iPhone 来说，采用的是小端模式，但是为了保证应用的向后兼容性，我们可以使用系统提供的宏，来避免 <a href="https://en.wikipedia.org/wiki/Hard_coding">Hardcoding</a> ：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="cp">#ifdef __BIG_ENDIAN__</span>
+</span><span class='line'>    <span class="cp">#define kCGBitmapByteOrder16Host kCGBitmapByteOrder16Big</span>
+</span><span class='line'>    <span class="cp">#define kCGBitmapByteOrder32Host kCGBitmapByteOrder32Big</span>
+</span><span class='line'><span class="cp">#else </span><span class="cm">/* Little endian. */</span><span class="cp"></span>
+</span><span class='line'>    <span class="cp">#define kCGBitmapByteOrder16Host kCGBitmapByteOrder16Little</span>
+</span><span class='line'>    <span class="cp">#define kCGBitmapByteOrder32Host kCGBitmapByteOrder32Little</span>
+</span><span class='line'><span class="cp">#endif</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>根据前面的讨论，我们知道字节顺序的值应该使用的是 32 位的主机字节顺序 <code>kCGBitmapByteOrder32Host</code> ，这样的话不管当前设备采用的是小端模式还是大端模式，字节顺序始终与其保持一致。</p>
+
+<p>下面，我们来看一张图，它非常形象地展示了在使用 16 或 32 位像素格式的 CMYK 和 RGB 颜色空间下，一个像素是如何被表示的：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/pixel%20formats.png" alt="pixel formats" /></p>
+
+<p>我们从图中可以看出，在 32 位像素格式下，每个颜色分量使用 8 位；而在 16 位像素格式下，每个颜色分量则使用 5 位。</p>
+
+<p>好了，了解完这些相关知识后，我们再回过头来看看 <code>CGBitmapContextCreate</code> 函数中每个参数所代表的具体含义：</p>
+
+<ul>
+<li><code>data</code> ：如果不为 <code>NULL</code> ，那么它应该指向一块大小至少为 <code>bytesPerRow * height</code> 字节的内存；如果 为 <code>NULL</code> ，那么系统就会为我们自动分配和释放所需的内存，所以一般指定 <code>NULL</code> 即可；</li>
+<li><code>width</code> 和 <code>height</code> ：位图的宽度和高度，分别赋值为图片的像素宽度和像素高度即可；</li>
+<li><code>bitsPerComponent</code> ：像素的每个颜色分量使用的 bit 数，在 RGB 颜色空间下指定 8 即可；</li>
+<li><code>bytesPerRow</code> ：位图的每一行使用的字节数，大小至少为 <code>width * bytes per pixel</code> 字节。有意思的是，当我们指定 0 时，系统不仅会为我们自动计算，而且还会进行 cache line alignment 的优化，更多信息可以查看 <a href="http://stackoverflow.com/questions/23790837/what-is-byte-alignment-cache-line-alignment-for-core-animation-why-it-matters">what is byte alignment (cache line alignment) for Core Animation? Why it matters?</a> 和 <a href="http://stackoverflow.com/questions/15935074/why-is-my-images-bytes-per-row-more-than-its-bytes-per-pixel-times-its-width">Why is my image&rsquo;s Bytes per Row more than its Bytes per Pixel times its Width?</a> ，亲测可用；</li>
+<li><code>space</code> ：就是我们前面提到的颜色空间，一般使用 RGB 即可；</li>
+<li><code>bitmapInfo</code> ：就是我们前面提到的位图的布局信息。</li>
+</ul>
+
+
+<p>到这里，你已经掌握了强制解压缩图片需要用到的最核心的函数，点个赞。</p>
+
+<h2>开源库的实现</h2>
+
+<p>接下来，我们来看看在三个比较流行的开源库 <a href="https://github.com/ibireme/YYKit">YYKit</a> 、<a href="https://github.com/rs/SDWebImage">SDWebImage</a> 和 <a href="https://github.com/Flipboard/FLAnimatedImage">FLAnimatedImage</a> 中，对图片的强制解压缩是如何实现的。</p>
+
+<p>首先，我们来看看 YYKit 中的相关代码，用于解压缩图片的函数 <code>YYCGImageCreateDecodedCopy</code> 存在于 <a href="https://github.com/ibireme/YYKit/blob/master/YYKit/Image/YYImageCoder.m">YYImageCoder</a> 类中，核心代码如下：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">CGImageRef</span> <span class="nf">YYCGImageCreateDecodedCopy</span><span class="p">(</span><span class="n">CGImageRef</span> <span class="n">imageRef</span><span class="p">,</span> <span class="kt">BOOL</span> <span class="n">decodeForDisplay</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">...</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">decodeForDisplay</span><span class="p">)</span> <span class="p">{</span> <span class="c1">// decode with redraw (may lose some precision)</span>
+</span><span class='line'>        <span class="n">CGImageAlphaInfo</span> <span class="n">alphaInfo</span> <span class="o">=</span> <span class="n">CGImageGetAlphaInfo</span><span class="p">(</span><span class="n">imageRef</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">kCGBitmapAlphaInfoMask</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="kt">BOOL</span> <span class="n">hasAlpha</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">alphaInfo</span> <span class="o">==</span> <span class="n">kCGImageAlphaPremultipliedLast</span> <span class="o">||</span>
+</span><span class='line'>            <span class="n">alphaInfo</span> <span class="o">==</span> <span class="n">kCGImageAlphaPremultipliedFirst</span> <span class="o">||</span>
+</span><span class='line'>            <span class="n">alphaInfo</span> <span class="o">==</span> <span class="n">kCGImageAlphaLast</span> <span class="o">||</span>
+</span><span class='line'>            <span class="n">alphaInfo</span> <span class="o">==</span> <span class="n">kCGImageAlphaFirst</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="n">hasAlpha</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="c1">// BGRA8888 (premultiplied) or BGRX8888</span>
+</span><span class='line'>        <span class="c1">// same as UIGraphicsBeginImageContext() and -[UIView drawRect:]</span>
+</span><span class='line'>        <span class="n">CGBitmapInfo</span> <span class="n">bitmapInfo</span> <span class="o">=</span> <span class="n">kCGBitmapByteOrder32Host</span><span class="p">;</span>
+</span><span class='line'>        <span class="n">bitmapInfo</span> <span class="o">|=</span> <span class="n">hasAlpha</span> <span class="o">?</span> <span class="nl">kCGImageAlphaPremultipliedFirst</span> <span class="p">:</span> <span class="n">kCGImageAlphaNoneSkipFirst</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">CGContextRef</span> <span class="n">context</span> <span class="o">=</span> <span class="n">CGBitmapContextCreate</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">YYCGColorSpaceGetDeviceRGB</span><span class="p">(),</span> <span class="n">bitmapInfo</span><span class="p">);</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">context</span><span class="p">)</span> <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">CGContextDrawImage</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">CGRectMake</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">),</span> <span class="n">imageRef</span><span class="p">);</span> <span class="c1">// decode</span>
+</span><span class='line'>        <span class="n">CGImageRef</span> <span class="n">newImage</span> <span class="o">=</span> <span class="n">CGBitmapContextCreateImage</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+</span><span class='line'>        <span class="n">CFRelease</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">return</span> <span class="n">newImage</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>        <span class="p">...</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>它接受一个原始的位图参数 <code>imageRef</code> ，最终返回一个新的解压缩后的位图 <code>newImage</code> ，中间主要经过了以下三个步骤：</p>
+
+<ul>
+<li>使用 <code>CGBitmapContextCreate</code> 函数创建一个位图上下文；</li>
+<li>使用 <code>CGContextDrawImage</code> 函数将原始位图绘制到上下文中；</li>
+<li>使用 <code>CGBitmapContextCreateImage</code> 函数创建一张新的解压缩后的位图。</li>
+</ul>
+
+
+<p>事实上，SDWebImage 和 FLAnimatedImage 中对图片的解压缩过程与上述完全一致，只是传递给 <code>CGBitmapContextCreate</code> 函数的部分参数存在细微的差别，如下表所示：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/CGBitmapContextCreate.png" width="720" /></p>
+
+<p>在上表中，用浅绿色背景标记的参数即为我们在前面的分析中所推荐的参数，用这些参数解压缩后的图片渲染的速度会更快。因此，从理论上说 YYKit 中的解压缩算法是三者之中最优的。</p>
+
+<h2>性能对比</h2>
+
+<p>口说无凭，因此我编写了一个小的测试程序，来简单地对比一下这三个开源库的解压缩性能，源码可以在 <a href="https://github.com/leichunfeng/Image-Decompression-Benchmark">GitHub</a> 上找到。</p>
+
+<p>采用的测试样例分别为 5 张 PNG 图片和 5 张 JPEG 图片，像素依次为 128x96 、256x192 、512x384 、1024x768 和 2048x1536 ，它们其实都长一个样：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/128x96.png" alt="128x96" /></p>
+
+<p>首先，我们来了解下测试的原理，我们可以将从磁盘加载一张图片到最终渲染到屏幕上的过程划分为三个阶段：</p>
+
+<ul>
+<li>初始化阶段：从磁盘初始化图片，生成一个未解压缩的 <code>UIImage</code> 对象；</li>
+<li>解压缩阶段：分别使用 YYKit 、SDWebImage 和 FLAnimatedImage 对第 1 步中得到的 <code>UIImage</code> 对象进行解压缩，得到一个新的解压缩后的 <code>UIImage</code> 对象；</li>
+<li>绘制阶段：将第 2 步中得到的 <code>UIImage</code> 对象绘制到屏幕上。</li>
+</ul>
+
+
+<p>这里我们以绘制阶段的耗时为依据来评测解压缩的性能，解压缩的算法越优秀，那么得到的图片就越符合系统渲染时的需求，绘制的时间也就越短。为了让测试的结果更准确，我们对每张图片都解压缩 10 次，然后取平均值。说明，本次使用的测试设备是 iPhone 5s 。</p>
+
+<p>首先，我们来看看解压缩 PNG 图片的测试结果：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/decompress_png_compare.png" width="320" /></p>
+
+<p>相应的柱状图如下：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/decompress_png.png" width="600" /></p>
+
+<p>从上图可以看出，就我们采用的测试样例来说，解压缩 PNG 图片的性能 SDWebImage 最好，FLAnimatedImage 次之，YYKit 最差。这与我们前面的理论结果有一定的差距，可能是测试样例太少，也可能这就是真实结果。另外，需要说明的是，我们这里使用的 PNG 图片都是不带 alpha 值，因为 SDWebImage 不支持解压缩带 alpha 值的 PNG 图片。</p>
+
+<p>接着，我们再来看看解压缩 JPEG 图片的测试结果：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/decompress_jpeg_compare.png" width="320" /></p>
+
+<p>相应的柱状图如下：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/decompress_jpeg.png" width="600" /></p>
+
+<p>这次 YYKit 终于翻盘了，解压缩 JPEG 图片的性能最好，SDWebImage 和 FLAnimatedImage 并列第二。</p>
+
+<h2>总结</h2>
+
+<p>其实，要理解 iOS 中图片的解压缩并不难，重点是要理解位图的概念。而图片解压缩的过程其实就是将图片的二进制数据转换成像素数据的过程。了解这些知识，将有助于我们更好地处理图片，管理好它们所占用的内存。</p>
+
+<h2>参考链接</h2>
+
+<p><a href="https://www.cocoanetics.com/2011/10/avoiding-image-decompression-sickness/">https://www.cocoanetics.com/2011/10/avoiding-image-decompression-sickness/</a>
+<br>
+<a href="https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/Introduction/Introduction.html">https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/Introduction/Introduction.html</a>
+<br>
+<a href="https://github.com/path/FastImageCache">https://github.com/path/FastImageCache</a>
+<br>
+<a href="http://stackoverflow.com/questions/23790837/what-is-byte-alignment-cache-line-alignment-for-core-animation-why-it-matters">http://stackoverflow.com/questions/23790837/what-is-byte-alignment-cache-line-alignment-for-core-animation-why-it-matters</a></p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Objective-C Fast Enumeration 的实现原理]]></title>
@@ -5705,7 +6228,7 @@
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 </pre></td><td class='code'><pre><code class='html'><span class='line'><span class="nt">&lt;p&gt;</span>
-</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2017-02-07 16:05:50 +0800 - 雷纯锋 -
+</span><span class='line'>  Copyright <span class="ni">&amp;copy;</span> 2017-02-23 17:17:59 +0800 - 雷纯锋 -
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span>Powered by <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://octopress.org&quot;</span><span class="nt">&gt;</span>Octopress<span class="nt">&lt;/a&gt;&lt;/span&gt;</span>
 </span><span class='line'>  <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;credit&quot;</span><span class="nt">&gt;</span> - 感谢 <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://gitcafe.com/signup?invited_by=leichunfeng&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;</span>GitCafe<span class="nt">&lt;/a&gt;</span> 为本站提供存储空间<span class="nt">&lt;/span&gt;</span>
 </span><span class='line'><span class="nt">&lt;/p&gt;</span>

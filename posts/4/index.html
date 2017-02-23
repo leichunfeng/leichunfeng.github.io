@@ -9,7 +9,7 @@
   <meta name="author" content="雷纯锋">
 
   
-  <meta name="description" content="Functor、Applicative 和 Monad 是函数式编程语言中三个非常重要的概念，尤其是 Monad ，难倒了不知道多少英雄好汉。事实上，它们的概念是非常简单的，但是却很少有文章能够将它们描述清楚，往往还适得其反，越描越黑。与其它文章不同的是，本文将从结论出发，层层深入， &hellip;">
+  <meta name="description" content="ReactiveCocoa 是一个 iOS 中的函数式响应式编程框架，它受 Functional Reactive Programming 的启发，是 Justin Spahr-Summers 和 Josh Abernathy 在开发 GitHub for Mac 过程中的一个副产品， &hellip;">
   
     <meta name="keywords" content="雷纯锋的技术博客, 雷纯锋, 技术博客, 博客, iOS, Objective-C, Android, Java, HTML5, CSS3, JavaScript, Octopress, GitHub Pages, GitHub, Pages, GitCafe, RAC, ReactiveCocoa, Git">
   
@@ -73,7 +73,7 @@
       
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2015/11/08/functor-applicative-and-monad/">Functor、Applicative 和 Monad</a></h1>
+      <h1 class="entry-title"><a href="/blog/2015/12/25/reactivecocoa-v2-dot-5-yuan-ma-jie-xi-zhi-jia-gou-zong-lan/">ReactiveCocoa v2.5 源码解析之架构总览</a></h1>
     
     
       <p class="meta">
@@ -82,260 +82,86 @@
 
 
 
-<time class='entry-date' datetime='2015-11-08T10:53:16+08:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>8</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>10:53 am</span></time>
+<time class='entry-date' datetime='2015-12-25T20:44:27+08:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>25</span><span class='date-suffix'>th</span>, <span class='date-year'>2015</span></span> <span class='time'>8:44 pm</span></time>
         
       </p>
     
   </header>
 
 
-  <div class="entry-content"><p><code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 是函数式编程语言中三个非常重要的概念，尤其是 <code>Monad</code> ，难倒了不知道多少英雄好汉。事实上，它们的概念是非常简单的，但是却很少有文章能够将它们描述清楚，往往还适得其反，越描越黑。与其它文章不同的是，本文将从结论出发，层层深入，一步步为你揭开它们的神秘面纱。</p>
+  <div class="entry-content"><p><code>ReactiveCocoa</code> 是一个 <code>iOS</code> 中的函数式响应式编程框架，它受 <a href="https://en.wikipedia.org/wiki/Functional_reactive_programming">Functional Reactive Programming</a> 的启发，是 <a href="https://github.com/jspahrsummers">Justin Spahr-Summers</a> 和 <a href="https://github.com/joshaber">Josh Abernathy</a> 在开发 <a href="https://desktop.github.com/">GitHub for Mac</a> 过程中的一个副产品，它提供了一系列用来组合和转换值流的 <code>API</code> 。</p>
 
-<p><strong>说明</strong>：本文中的主要代码为 <a href="https://www.haskell.org">Haskell</a> 语言，它是一门纯函数式的编程语言。其中，具体的语法细节，我们不需要太过关心，因为这并不影响你对本文的理解。</p>
+<p><a href="https://github.com/mattt">Mattt Thompson</a> 大神是这样评价 <code>ReactiveCocoa</code> 的：</p>
 
-<h2>结论</h2>
+<blockquote><p>Breaking from a tradition of covering Apple APIs exclusively, this edition of NSHipster will look at an open source project that exemplifies this brave new era for Objective-C.</p></blockquote>
 
-<p>关于 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 的概念，其实各用一句话就可以概括：</p>
+<p>他认为 <code>ReactiveCocoa</code> 打破了苹果 <code>API</code> 排他性的束缚，勇敢地开创了 <code>Objective-C</code> 的新纪元，具有划时代的意义。不得不说，这对于一个第三方框架来说，已经是非常高的评价了。</p>
 
-<ol>
-<li>一个 <code>Functor</code> 就是一种实现了 <code>Functor typeclass</code> 的数据类型；</li>
-<li>一个 <code>Applicative</code> 就是一种实现了 <code>Applicative typeclass</code> 的数据类型；</li>
-<li>一个 <code>Monad</code> 就是一种实现了 <code>Monad typeclass</code> 的数据类型。</li>
-</ol>
-
-
-<p>当然，你可能会问那什么是 <a href="http://learnyouahaskell.com/types-and-typeclasses#typeclasses-101">typeclass</a> 呢？我想当你在看到<strong>实现</strong>二字的时候，就应该已经猜到了：</p>
-
-<blockquote><p>A typeclass is a sort of interface that defines some behavior. If a type is a part of a typeclass, that means that it supports and implements the behavior the typeclass describes. A lot of people coming from OOP get confused by typeclasses because they think they are like classes in object oriented languages. Well, they&rsquo;re not. You can think of them kind of as Java interfaces, only better.</p></blockquote>
-
-<p>是的，<code>typeclass</code> 就类似于 <code>Java</code> 中的接口，或者 <code>Objective-C</code> 中的协议。在 <code>typeclass</code> 中定义了一些函数，实现一个 <code>typeclass</code> 就是要实现这些函数，而所有实现了这个 <code>typeclass</code> 的数据类型都会拥有这些共同的行为。</p>
-
-<p>那 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 三者之间有什么联系吗，为什么它们老是结队出现呢？其实，<code>Applicative</code> 是增强型的 <code>Functor</code> ，一种数据类型要成为 <code>Applicative</code> 的前提条件是它必须是 <code>Functor</code> ；同样的，<code>Monad</code> 是增强型的 <code>Applicative</code> ，一种数据类型要成为 <code>Monad</code> 的前提条件是它必须是 <code>Applicative</code> 。<strong>注</strong>：这个联系，在我们看到 <code>Applicative typeclass</code> 和 <code>Monad typeclass</code> 的定义时，自然就会明了。</p>
-
-<h2>Maybe</h2>
-
-<p>在正式开始介绍 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 的定义前，我想先介绍一种非常有意思的数据类型，<a href="https://downloads.haskell.org/~ghc/latest/docs/html/libraries/base-4.8.1.0/Data-Maybe.html">Maybe</a> 类型（可类比 <code>Swift</code> 中的 <code>Optional</code>）：</p>
-
-<blockquote><p>The Maybe type encapsulates an optional value. A value of type Maybe a either contains a value of type a (represented as Just a), or it is empty (represented as Nothing). Using Maybe is a good way to deal with errors or exceptional cases without resorting to drastic measures such as error.</p></blockquote>
-
-<p><code>Maybe</code> 类型封装了一个可选值。一个 <code>Maybe a</code> 类型的值要么包含一个 <code>a</code> 类型的值（用 <code>Just a</code> 表示）；要么为空（用 <code>Nothing</code> 表示）。我们可以把 <code>Maybe</code> 看作一个盒子，这个盒子里面可能装着一个 <code>a</code> 类型的值，即 <code>Just a</code> ；也可能是一个空盒子，即 <code>Nothing</code> 。或者，你也可以把它理解成泛型，比如 <code>Objective-C</code> 中的 <code>NSArray&lt;ObjectType&gt;</code> 。不过，最正确的理解应该是把 <code>Maybe</code> 看作一个上下文，这个上下文表示某次计算可能成功也可能失败，成功时用 <code>Just a</code> 表示，<code>a</code> 为计算结果；失败时用 <code>Nothing</code> 表示，这就是 <code>Maybe</code> 类型存在的意义：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/maybe.png" alt="maybe" /></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">data</span> <span class="n">Maybe</span> <span class="n">a</span> <span class="o">=</span> <span class="n">Nothing</span> <span class="o">|</span> <span class="n">Just</span> <span class="n">a</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>下面，我们来直观地感受一下 <code>Maybe</code> 类型：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">Nothing</span>
-</span><span class='line'><span class="n">Nothing</span>
-</span><span class='line'><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">Just</span> <span class="mi">2</span>
-</span><span class='line'><span class="n">Just</span> <span class="mi">2</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>我们可以用盒子模型来理解一下，<code>Nothing</code> 就是一个空盒子；而 <code>Just 2</code> 则是一个装着 <code>2</code> 这个值的盒子：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/just2.png" alt="just2" /></p>
-
-<p><strong>提前剧透</strong>：<code>Maybe</code> 类型实现了 <code>Functor typeclass</code>、<code>Applicative typeclass</code> 和 <code>Monad typeclass</code> ，所以它同时是 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> ，具体实现细节将在下面的章节进行介绍。</p>
-
-<h2>Functor</h2>
-
-<p>在正式开始介绍 <code>Functor</code> 前，我们先思考一个这样的问题，假如我们有一个值 <code>2</code> ：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/normal2.png" alt="normal2" /></p>
-
-<p>我们如何将函数 <code>(+3)</code> 应用到这个值上呢？我想上过小学的朋友应该都知道，这就是一个简单的加法运算：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/value_apply.png" alt="value_apply" /></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">ghci</span><span class="o">&gt;</span> <span class="p">(</span><span class="o">+</span><span class="mi">3</span><span class="p">)</span> <span class="mi">2</span>
-</span><span class='line'><span class="mi">5</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>分分钟搞定。那么问题来了，如果这个值 <code>2</code> 是在一个上下文中呢？比如 <code>Maybe</code> ，此时，这个值 <code>2</code> 就变成了 <code>Just 2</code> ：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/just2.png" alt="just2" /></p>
-
-<p>这个时候，我们就不能直接将函数 <code>(+3)</code> 应用到 <code>Just 2</code> 了。那么，我们如何将一个函数应用到一个在上下文中的值呢？</p>
-
-<p><img src="http://blog.leichunfeng.com/images/fmap.png" alt="fmap" /></p>
-
-<p>是的，我想你应该已经猜到了，<code>Functor</code> 就是干这事的，欲知后事如何，请看下节分解。</p>
-
-<h3>Functor typeclass</h3>
-
-<p>首先，我们来看一下 <code>Functor typeclass</code> 的定义：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">class</span> <span class="n">Functor</span> <span class="n">f</span> <span class="n">where</span>
-</span><span class='line'>    <span class="n">fmap</span> <span class="o">::</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">b</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>在 <code>Functor typeclass</code> 中定义了一个函数 <code>fmap</code> ，它将一个函数 <code>(a -&gt; b)</code> 应用到一个在上下文中的值 <code>f a</code> ，并返回另一个在相同上下文中的值 <code>f b</code> ，这里的 <code>f</code> 是一个类型占位符，表示任意类型的 <code>Functor</code> 。</p>
-
-<p><strong>注</strong>：<code>fmap</code> 函数可类比 <code>Swift</code> 中的 <code>map</code> 方法。</p>
-
-<h3>Maybe Functor</h3>
-
-<p>我们知道 <code>Maybe</code> 类型就是一个 <code>Functor</code> ，它实现了 <code>Functor typeclass</code> 。我们将类型占位符 <code>f</code> 用具体类型 <code>Maybe</code> 代入可得：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">class</span> <span class="n">Functor</span> <span class="n">Maybe</span> <span class="n">where</span>
-</span><span class='line'>    <span class="n">fmap</span> <span class="o">::</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">b</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>因此，对于 <code>Maybe</code> 类型来说，它要实现的函数 <code>fmap</code> 的功能就是将一个函数 <code>(a -&gt; b)</code> 应用到一个在 <code>Maybe</code> 上下文中的值 <code>Maybe a</code> ，并返回另一个在 <code>Maybe</code> 上下文中的值 <code>Maybe b</code> 。接下来，我们一起来看一下 <code>Maybe</code> 类型实现 <code>Functor typeclass</code> 的具体细节：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">instance</span> <span class="n">Functor</span> <span class="n">Maybe</span> <span class="n">where</span>
-</span><span class='line'>    <span class="n">fmap</span> <span class="n">func</span> <span class="p">(</span><span class="n">Just</span> <span class="n">x</span><span class="p">)</span> <span class="o">=</span> <span class="n">Just</span> <span class="p">(</span><span class="n">func</span> <span class="n">x</span><span class="p">)</span>
-</span><span class='line'>    <span class="n">fmap</span> <span class="n">func</span> <span class="n">Nothing</span>  <span class="o">=</span> <span class="n">Nothing</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>这里针对 <code>Maybe</code> 上下文的两种情况分别进行了处理：如果盒子中有值，即 <code>Just x</code> ，那么就将 <code>x</code> 从盒子中取出，然后将函数 <code>func</code> 应用到 <code>x</code> ，最后将结果放入一个相同类型的新盒子中；如果盒子为空，那么直接返回一个新的空盒子。</p>
-
-<p>看到这里，我想你应该已经知道如何将一个函数应用到一个在上下文中的值了。比如前面提到的将函数 <code>(+3)</code> 应用到 <code>Just 2</code> ：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/fmap_just.png" alt="fmap_just" /></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">fmap</span> <span class="p">(</span><span class="o">+</span><span class="mi">3</span><span class="p">)</span> <span class="p">(</span><span class="n">Just</span> <span class="mi">2</span><span class="p">)</span>
-</span><span class='line'><span class="n">Just</span> <span class="mi">5</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>另外，值得一提的是，当我们将函数 <code>(+3)</code> 应用到一个空盒子，即 <code>Nothing</code> 时，我们将会得到一个新的空盒子：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/fmap_nothing.png" alt="fmap_nothing" /></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">fmap</span> <span class="p">(</span><span class="o">+</span><span class="mi">3</span><span class="p">)</span> <span class="n">Nothing</span>
-</span><span class='line'><span class="n">Nothing</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h2>Applicative</h2>
-
-<p>现在，我们已经知道如何将函数 <code>(+3)</code> 应用到 <code>Just 2</code> 了。那么问题又来了，如果函数 <code>(+3)</code> 也在上下文中呢，比如 <code>Maybe</code> ，此时，函数 <code>(+3)</code> 就变成了 <code>Just (+3)</code> ：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/justadd3.png" alt="justadd3" /></p>
-
-<p>那么，我们如何将一个在上下文中的函数应用到一个在上下文中的值呢？</p>
-
-<p><img src="http://blog.leichunfeng.com/images/apply_justadd3_just2.png" alt="apply_justadd3_just2" /></p>
-
-<p>这就是 <code>Applicative</code> 要干的事，详情请看下节内容。</p>
-
-<h3>Applicative typeclass</h3>
-
-<p>同样的，我们先来看一下 <code>Applicative typeclass</code> 的定义：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">class</span> <span class="n">Functor</span> <span class="n">f</span> <span class="o">=&gt;</span> <span class="n">Applicative</span> <span class="n">f</span> <span class="n">where</span>
-</span><span class='line'>    <span class="n">pure</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span>
-</span><span class='line'>    <span class="p">(</span><span class="o">&lt;*&gt;</span><span class="p">)</span> <span class="o">::</span> <span class="n">f</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">f</span> <span class="n">b</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>我们注意到，与 <code>Functor typeclass</code> 的定义不同的是，在 <code>Applicative typeclass</code> 的定义中多了一个类约束 <code>Functor f</code> ，表示的意思是数据类型 <code>f</code> 要实现 <code>Applicative typeclass</code> 的前提条件是它必须要实现 <code>Functor typeclass</code> ，也就是说它必须是一个 <code>Functor</code> 。</p>
-
-<p>在 <code>Applicative typeclass</code> 中定义了两个函数：</p>
+<p>关于 <code>ReactiveCocoa</code> 的版本演进历程，简单介绍如下：</p>
 
 <ul>
-<li><code>pure</code> ：将一个值 <code>a</code> 放入上下文中；</li>
-<li><code>(&lt;*&gt;)</code> ：将一个在上下文中的函数 <code>f (a -&gt; b)</code> 应用到一个在上下文中的值 <code>f a</code> ，并返回另一个在上下文中的值 <code>f b</code> 。</li>
+<li><code>&lt;= v2.5</code> ：<code>Objective-C</code> ；</li>
+<li><code>v3.x</code> ：<code>Swift 1.2</code> ；</li>
+<li><code>v4.x</code> ：<code>Swift 2.x</code> 。</li>
 </ul>
 
 
-<p><strong>注</strong>：<code>&lt;*&gt;</code> 函数的发音我也不知道，如果有同学知道的话还请告之，谢谢。</p>
+<p><strong>注</strong>：本文所介绍的均为 <code>ReactiveCocoa v2.5</code> 版本中的内容，这是 <code>Objective-C</code> 最新的稳定版本。另外，本文的目录结构如下：</p>
 
-<h3>Maybe Applicative</h3>
+<ul>
+<li>简介</li>
+<li>信号源
 
-<p>同样的，我们将类型占位符 <code>f</code> 用具体类型 <code>Maybe</code> 代入，可得：</p>
+<ul>
+<li>RACStream</li>
+<li>RACSignal</li>
+<li>RACSubject</li>
+<li>RACSequence</li>
+</ul>
+</li>
+<li>订阅者
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">class</span> <span class="n">Functor</span> <span class="n">Maybe</span> <span class="o">=&gt;</span> <span class="n">Applicative</span> <span class="n">Maybe</span> <span class="n">where</span>
-</span><span class='line'>    <span class="n">pure</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">a</span>
-</span><span class='line'>    <span class="p">(</span><span class="o">&lt;*&gt;</span><span class="p">)</span> <span class="o">::</span> <span class="n">Maybe</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">b</span>
-</span></code></pre></td></tr></table></div></figure>
+<ul>
+<li>RACSubscriber</li>
+<li>RACMulticastConnection</li>
+</ul>
+</li>
+<li>调度器
 
+<ul>
+<li>RACScheduler</li>
+</ul>
+</li>
+<li>清洁工
 
-<p>因此，对于 <code>Maybe</code> 类型来说，它要实现的 <code>pure</code> 函数的功能就是将一个值 <code>a</code> 放入 <code>Maybe</code> 上下文中。而 <code>(&lt;*&gt;)</code> 函数的功能则是将一个在 <code>Maybe</code> 上下文中的函数 <code>Maybe (a -&gt; b)</code> 应用到一个在 <code>Maybe</code> 上下文中的值 <code>Maybe a</code> ，并返回另一个在 <code>Maybe</code> 上下文中的值 <code>Maybe b</code> 。接下来，我们一起来看一下 <code>Maybe</code> 类型实现 <code>Applicative typeclass</code> 的具体细节：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">instance</span> <span class="n">Applicative</span> <span class="n">Maybe</span> <span class="n">where</span>
-</span><span class='line'>    <span class="n">pure</span> <span class="o">=</span> <span class="n">Just</span>
-</span><span class='line'>    <span class="n">Nothing</span> <span class="o">&lt;*&gt;</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Nothing</span>
-</span><span class='line'>    <span class="p">(</span><span class="n">Just</span> <span class="n">func</span><span class="p">)</span> <span class="o">&lt;*&gt;</span> <span class="n">something</span> <span class="o">=</span> <span class="n">fmap</span> <span class="n">func</span> <span class="n">something</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p><code>pure</code> 函数的实现非常简单，直接等于 <code>Just</code> 即可。而对于 <code>(&lt;*&gt;)</code> 函数的实现，我们同样需要针对 <code>Maybe</code> 上下文的两种情况分别进行处理：当装函数的盒子为空时，直接返回一个新的空盒子；当装函数的盒子不为空时，即 <code>Just func</code> ，则取出 <code>func</code> ，使用 <code>fmap</code> 函数直接将 <code>func</code> 应用到那个在上下文中的值，这个正是我们前面说的 <code>Functor</code> 的功能。</p>
-
-<p>好了，我们接下来看一下将 <code>Just (+3)</code> 应用到 <code>Just 2</code> 的具体过程：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/applicative_just.png" alt="applicative_just" /></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">Just</span> <span class="p">(</span><span class="o">+</span><span class="mi">3</span><span class="p">)</span> <span class="o">&lt;*&gt;</span> <span class="n">Just</span> <span class="mi">2</span>
-</span><span class='line'><span class="n">Just</span> <span class="mi">5</span>
-</span></code></pre></td></tr></table></div></figure>
+<ul>
+<li>RACDisposable</li>
+</ul>
+</li>
+<li>总结</li>
+<li>参考链接</li>
+</ul>
 
 
-<p>同样的，当我们将一个空盒子，即 <code>Nothing</code> 应用到 <code>Just 2</code> 的时候，我们将得到一个新的空盒子：</p>
+<h2>简介</h2>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">Nothing</span> <span class="o">&lt;*&gt;</span> <span class="n">Just</span> <span class="mi">2</span>
-</span><span class='line'><span class="n">Nothing</span>
-</span></code></pre></td></tr></table></div></figure>
+<p><code>ReactiveCocoa</code> 是一个非常复杂的框架，在正式开始介绍它的核心组件前，我们先来看看它的类图，以便从宏观上了解它的层次结构：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/ReactiveCocoa%20v2.5.png" alt="ReactiveCocoa v2.5" /></p>
+
+<p>从上面的类图中，我们可以看出，<code>ReactiveCocoa</code> 主要由以下四大核心组件构成：</p>
+
+<ul>
+<li>信号源：<code>RACStream</code> 及其子类；</li>
+<li>订阅者：<code>RACSubscriber</code> 的实现类及其子类；</li>
+<li>调度器：<code>RACScheduler</code> 及其子类；</li>
+<li>清洁工：<code>RACDisposable</code> 及其子类。</li>
+</ul>
 
 
-<h2>Monad</h2>
+<p>其中，信号源又是最核心的部分，其他组件都是围绕它运作的。</p>
 
-<p>截至目前，我们已经知道了 <code>Functor</code> 的作用就是应用一个函数到一个上下文中的值：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/fmap.png" alt="fmap" /></p>
-
-<p>而 <code>Applicative</code> 的作用则是应用一个上下文中的函数到一个上下文中的值：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/apply_justadd3_just2.png" alt="apply_justadd3_just2" /></p>
-
-<p>那么 <code>Monad</code> 又会是什么呢？其实，<code>Monad</code> 的作用跟 <code>Functor</code> 类似，也是应用一个函数到一个上下文中的值。不同之处在于，<code>Functor</code> 应用的是一个接收一个普通值并且返回一个普通值的函数，而 <code>Monad</code> 应用的是一个接收一个普通值但是返回一个在上下文中的值的函数：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/bind.png" alt="bind" /></p>
-
-<h3>Monad typeclass</h3>
-
-<p>同样的，我们先来看一下 <code>Monad typeclass</code> 的定义：</p>
+<p>对于一个应用来说，绝大部分的时间都是在等待某些事件的发生或响应某些状态的变化，比如用户的触摸事件、应用进入后台、网络请求成功刷新界面等等，而维护这些状态的变化，常常会使代码变得非常复杂，难以扩展。而 <code>ReactiveCocoa</code> 给出了一种非常好的解决方案，它使用信号来代表这些异步事件，提供了一种统一的方式来处理所有异步的行为，包括代理方法、<code>block</code> 回调、<code>target-action</code> 机制、通知、<code>KVO</code> 等：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -347,76 +173,52 @@
 <span class='line-number'>8</span>
 <span class='line-number'>9</span>
 <span class='line-number'>10</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">class</span> <span class="n">Applicative</span> <span class="n">m</span> <span class="o">=&gt;</span> <span class="n">Monad</span> <span class="n">m</span> <span class="n">where</span>
-</span><span class='line'>    <span class="k">return</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">a</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="c1">// 代理方法</span>
+</span><span class='line'><span class="p">[[</span><span class="nb">self</span>
+</span><span class='line'>    <span class="nl">rac_signalForSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">webViewDidStartLoad</span><span class="p">:)</span>
+</span><span class='line'>    <span class="nl">fromProtocol</span><span class="p">:@</span><span class="n">protocol</span><span class="p">(</span><span class="bp">UIWebViewDelegate</span><span class="p">)]</span>
+</span><span class='line'>    <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="kt">id</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="c1">// 实现 webViewDidStartLoad: 代理方法</span>
+</span><span class='line'>    <span class="p">}];</span>
 </span><span class='line'>
-</span><span class='line'>    <span class="p">(</span><span class="o">&gt;&gt;=</span><span class="p">)</span> <span class="o">::</span> <span class="n">m</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span>
+</span><span class='line'><span class="c1">// target-action</span>
+</span><span class='line'><span class="p">[[</span><span class="nb">self</span><span class="p">.</span><span class="n">avatarButton</span>
+</span><span class='line'>    <span class="nl">rac_signalForControlEvents</span><span class="p">:</span><span class="n">UIControlEventTouchUpInside</span><span class="p">]</span>
+</span><span class='line'>    <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="bp">UIButton</span> <span class="o">*</span><span class="n">avatarButton</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="c1">// avatarButton 被点击了</span>
+</span><span class='line'>    <span class="p">}];</span>
 </span><span class='line'>
-</span><span class='line'>    <span class="p">(</span><span class="o">&gt;&gt;</span><span class="p">)</span> <span class="o">::</span> <span class="n">m</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span>
-</span><span class='line'>    <span class="n">x</span> <span class="o">&gt;&gt;</span> <span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">&gt;&gt;=</span> <span class="err">\</span><span class="n">_</span> <span class="o">-&gt;</span> <span class="n">y</span>
+</span><span class='line'><span class="c1">// 通知</span>
+</span><span class='line'><span class="p">[[[</span><span class="bp">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span>
+</span><span class='line'>    <span class="nl">rac_addObserverForName</span><span class="p">:</span><span class="n">kReachabilityChangedNotification</span> <span class="nl">object</span><span class="p">:</span><span class="nb">nil</span><span class="p">]</span>
+</span><span class='line'>    <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="bp">NSNotification</span> <span class="o">*</span><span class="n">notification</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="c1">// 收到 kReachabilityChangedNotification 通知</span>
+</span><span class='line'>    <span class="p">}];</span>
 </span><span class='line'>
-</span><span class='line'>    <span class="n">fail</span> <span class="o">::</span> <span class="n">String</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">a</span>
-</span><span class='line'>    <span class="n">fail</span> <span class="n">msg</span> <span class="o">=</span> <span class="n">error</span> <span class="n">msg</span>
+</span><span class='line'><span class="c1">// KVO</span>
+</span><span class='line'><span class="p">[</span><span class="n">RACObserve</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">username</span><span class="p">)</span> <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="n">username</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="c1">// 用户名发生了变化</span>
+</span><span class='line'><span class="p">}];</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>哇，这什么鬼，完全看不懂啊，太复杂了。兄台莫急，且听我细说。在 <code>Monad typeclass</code> 中定义了四个函数，分别是 <code>return</code>、<code>(&gt;&gt;=)</code>、<code>(&gt;&gt;)</code> 和 <code>fail</code> ，且后两个函数 <code>(&gt;&gt;)</code> 和 <code>fail</code> 给出了默认实现，而在绝大多数情况下，我们都不需要去重写它们。因此，去掉这两个函数后，<code>Monad typeclass</code> 的定义可简化为：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">class</span> <span class="n">Applicative</span> <span class="n">m</span> <span class="o">=&gt;</span> <span class="n">Monad</span> <span class="n">m</span> <span class="n">where</span>
-</span><span class='line'>    <span class="k">return</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">a</span>
-</span><span class='line'>    <span class="p">(</span><span class="o">&gt;&gt;=</span><span class="p">)</span> <span class="o">::</span> <span class="n">m</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>怎么样？现在看上去就好多了吧。跟 <code>Applicative typeclass</code> 的定义一样，在 <code>Monad typeclass</code> 的定义中也有一个类约束 <code>Applicative m</code> ，表示的意思是一种数据类型 <code>m</code> 要成为 <code>Monad</code> 的前提条件是它必须是 <code>Applicative</code> 。另外，其实 <code>return</code> 函数的功能与 <code>Applicative</code> 中的 <code>pure</code> 函数的功能是一样的，只不过换了一个名字而已，它们的作用都是将一个值 <code>a</code> 放入上下文中。而 <code>(&gt;&gt;=)</code> 函数的功能则是应用一个（接收一个普通值 <code>a</code> 但是返回一个在上下文中的值 <code>m b</code> 的）函数 <code>(a -&gt; m b)</code> 到一个上下文中的值 <code>m a</code> ，并返回另一个在相同上下文中的值 <code>m b</code> 。</p>
-
-<p><strong>注</strong>：<code>&gt;&gt;=</code> 函数的发音为 <code>bind</code> ，学习 <code>ReactiveCocoa</code> 的同学要注意啦。另外，<code>&gt;&gt;=</code> 函数可类比 <code>Swift</code> 中的 <code>flatMap</code> 方法。</p>
-
-<h3>Maybe Monad</h3>
-
-<p>同样的，我们将类型占位符 <code>m</code> 用具体类型 <code>Maybe</code> 代入，可得：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">class</span> <span class="n">Applicative</span> <span class="n">Maybe</span> <span class="o">=&gt;</span> <span class="n">Monad</span> <span class="n">Maybe</span> <span class="n">where</span>
-</span><span class='line'>    <span class="k">return</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">a</span>
-</span><span class='line'>    <span class="p">(</span><span class="o">&gt;&gt;=</span><span class="p">)</span> <span class="o">::</span> <span class="n">Maybe</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Maybe</span> <span class="n">b</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>相信你用盒子模型已经能够轻松地理解上面两个函数了，因此不再赘述。接下来，我们一起来看一下 <code>Maybe</code> 类型实现 <code>Monad typeclass</code> 的具体细节：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">instance</span> <span class="n">Monad</span> <span class="n">Maybe</span> <span class="n">where</span>
-</span><span class='line'>    <span class="k">return</span> <span class="n">x</span> <span class="o">=</span> <span class="n">Just</span> <span class="n">x</span>
-</span><span class='line'>    <span class="n">Nothing</span> <span class="o">&gt;&gt;=</span> <span class="n">func</span> <span class="o">=</span> <span class="n">Nothing</span>
-</span><span class='line'>    <span class="n">Just</span> <span class="n">x</span> <span class="o">&gt;&gt;=</span> <span class="n">func</span>  <span class="o">=</span> <span class="n">func</span> <span class="n">x</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>正如前面所说，<code>return</code> 函数的实现跟 <code>pure</code> 函数一样，直接等于 <code>Just</code> 函数即可，功能就是将一个值 <code>x</code> 放入 <code>Maybe</code> 盒子中，变成 <code>Just x</code> 。同样的，对于 <code>(&gt;&gt;=)</code> 函数的实现，我们需要针对 <code>Maybe</code> 上下文的两种情况分别进行处理，当盒子为空时，直接返回一个新的空盒子；当盒子不为空时，即 <code>Just x</code> ，则取出 <code>x</code> ，直接将 <code>func</code> 函数应用到 <code>x</code> ，而我们知道 <code>func x</code> 的结果就是一个在上下文中的值。</p>
-
-<p>下面，我们一起来看一个具体的例子。我们先定义一个 <code>half</code> 函数，这个函数接收一个数字 <code>x</code> 作为参数，如果 <code>x</code> 是偶数，则将 <code>x</code> 除以 <code>2</code> ，并将结果放入 <code>Maybe</code> 盒子中；如果 <code>x</code> 不是偶数，则返回一个空盒子：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/half.png" alt="half" /></p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">half</span> <span class="n">x</span> <span class="o">=</span> <span class="k">if</span> <span class="n">even</span> <span class="n">x</span>
-</span><span class='line'>    <span class="n">then</span> <span class="n">Just</span> <span class="p">(</span><span class="n">x</span> <span class="err">`</span><span class="n">div</span><span class="err">`</span> <span class="mi">2</span><span class="p">)</span>
-</span><span class='line'>    <span class="k">else</span> <span class="n">Nothing</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>接下来，我们使用 <code>(&gt;&gt;=)</code> 函数将 <code>half</code> 函数应用到 <code>Just 20</code> ，假设得到结果 <code>y</code> ；然后继续使用 <code>(&gt;&gt;=)</code> 函数将 <code>half</code> 函数应用到上一步的结果 <code>y</code> ，以此类推，看看会得到什么样的结果：</p>
+<p>然而，这些还只是 <code>ReactiveCocoa</code> 的冰山一角，它真正强大的地方在于我们可以对这些不同的信号进行任意地组合和链式操作，从最原始的输入 <code>input</code> 开始直至得到最终的输出 <code>output</code> 为止：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -424,35 +226,48 @@
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">Just</span> <span class="mi">20</span> <span class="o">&gt;&gt;=</span> <span class="n">half</span>
-</span><span class='line'><span class="n">Just</span> <span class="mi">10</span>
-</span><span class='line'><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">Just</span> <span class="mi">10</span> <span class="o">&gt;&gt;=</span> <span class="n">half</span>
-</span><span class='line'><span class="n">Just</span> <span class="mi">5</span>
-</span><span class='line'><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">Just</span> <span class="mi">5</span> <span class="o">&gt;&gt;=</span> <span class="n">half</span>
-</span><span class='line'><span class="n">Nothing</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">[[[</span><span class="n">RACSignal</span>
+</span><span class='line'>    <span class="nl">combineLatest</span><span class="p">:</span><span class="l">@[</span> <span class="n">RACObserve</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">username</span><span class="p">),</span> <span class="n">RACObserve</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span> <span class="l">]</span>
+</span><span class='line'>    <span class="nl">reduce</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="n">username</span><span class="p">,</span> <span class="bp">NSString</span> <span class="o">*</span><span class="n">password</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="k">return</span> <span class="l">@(</span><span class="n">username</span><span class="p">.</span><span class="n">length</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">password</span><span class="p">.</span><span class="n">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="l">)</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}]</span>
+</span><span class='line'>    <span class="n">distinctUntilChanged</span><span class="p">]</span>
+</span><span class='line'>    <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="bp">NSNumber</span> <span class="o">*</span><span class="n">valid</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">valid</span><span class="p">.</span><span class="n">boolValue</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="c1">// 用户名和密码合法，登录按钮可用</span>
+</span><span class='line'>        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>            <span class="c1">// 用户名或密码不合法，登录按钮不可用</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>    <span class="p">}];</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>看到上面的运算过程，不知道你有没有看出点什么端倪呢？上一步的输出作为下一步的输入，并且只要你愿意的话，这个过程可以无限地进行下去。我想你可能已经想到了，是的，就是链式操作。所有的操作链接起来就像是一条生产线，每一步的操作都是对输入进行加工，然后产生输出，整个操作过程可以看作是对最初的原材料 <code>Just 20</code> 进行加工并最终生产出成品 <code>Nothing</code> 的过程：</p>
+<p>因此，对于 <code>ReactiveCocoa</code> 来说，我们可以毫不夸张地说，阻碍它发挥的瓶颈就只剩下你的想象力了。</p>
 
-<p><img src="http://blog.leichunfeng.com/images/monad_chain.png" alt="monad_chain" /></p>
+<h2>信号源</h2>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">ghci</span><span class="o">&gt;</span> <span class="n">Just</span> <span class="mi">20</span> <span class="o">&gt;&gt;=</span> <span class="n">half</span> <span class="o">&gt;&gt;=</span> <span class="n">half</span> <span class="o">&gt;&gt;=</span> <span class="n">half</span>
-</span><span class='line'><span class="n">Nothing</span>
-</span></code></pre></td></tr></table></div></figure>
+<p>在 <code>ReactiveCocoa</code> 中，信号源代表的是随着时间而改变的值流，这是对 <code>ReactiveCocoa</code> 最精准的概括，订阅者可以通过订阅信号源来获取这些值：</p>
 
+<blockquote><p>Streams of values over time.</p></blockquote>
 
-<p><strong>注</strong>：链式操作只是 <code>Monad</code> 为我们带来的主要好处之一；另一个本文并未涉及到的主要好处是，<code>Monad</code> 可以为我们自动处理上下文，而我们只需要关心真正的值就可以了。</p>
+<p>你可以把它想象成水龙头中的水，当你打开水龙头时，水源源不断地流出来；你也可以把它想象成电，当你插上插头时，电静静地充到你的手机上；你还可以把它想象成运送玻璃珠的管道，当你打开阀门时，珠子一个接一个地到达。这里的水、电、玻璃珠就是我们所需要的值，而打开水龙头、插上插头、打开阀门就是订阅它们的过程。</p>
 
-<h3>ReactiveCocoa</h3>
+<h3>RACStream</h3>
 
-<p>现在，我们已经知道 <code>Monad</code> 是什么了，它就是一种实现了 <code>Monad typeclass</code> 的数据类型。那么它有什么具体的应用呢？你总不能让我们都来做理论研究吧。既然如此，那我们就只好祭出 <code>Objective-C</code> 中的神器，<code>ReactiveCocoa</code> ，它就是根据 <code>Monad</code> 的概念搭建起来的。下面是 <code>RACStream</code> 的继承结构图：</p>
+<p><code>RACStream</code> 是 <code>ReactiveCocoa</code> 中最核心的类，代表的是任意的值流，它是整个 <code>ReactiveCocoa</code> 得以建立的基石，下面是它的继承结构图：</p>
 
 <p><img src="http://blog.leichunfeng.com/images/RACStream.png" alt="RACStream" /></p>
 
-<p><code>RACStream</code> 是 <code>ReactiveCocoa</code> 中最核心的类，它就是一个 <code>Monad</code> ：</p>
+<p>事实上，<code>RACStream</code> 是一个抽象类，通常情况下，我们并不会去实例化它，而是直接使用它的两个子类 <code>RACSignal</code> 和 <code>RACSequence</code> 。那么，问题来了，为什么 <code>RACStream</code> 会被设计成一个抽象类？或者说它的抽象过程是以什么作为依据的呢？</p>
+
+<p>是的，没错，看过我上一篇文章 <a href="http://blog.leichunfeng.com/blog/2015/11/08/functor-applicative-and-monad/">《Functor、Applicative 和 Monad》</a> 的同学，应该已经知道了，<code>RACStream</code> 就是以 <code>Monad</code> 的概念为依据进行设计的，它代表的就是一个 <code>Monad</code> ：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -513,15 +328,65 @@
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>我们可以看到，在 <code>RACStream</code> 中定义了两个看上去非常眼熟的方法：</p>
+<p>有了 <code>Monad</code> 作为基石后，许多基于流的操作就可以被建立起来了，比如 <code>map</code> 、<code>filter</code> 、<code>zip</code> 等。</p>
 
-<ol>
-<li><code>+ (instancetype)return:(id)value;</code> ；</li>
-<li><code>- (instancetype)bind:(RACStreamBindBlock (^)(void))block;</code> 。</li>
-</ol>
+<h3>RACSignal</h3>
+
+<p><code>RACSignal</code> 代表的是未来将会被传送的值，它是一种 <code>push-driven</code> 的流。<code>RACSignal</code> 可以向订阅者发送三种不同类型的事件：</p>
+
+<ul>
+<li><code>next</code> ：<code>RACSignal</code> 通过 <code>next</code> 事件向订阅者传送新的值，并且这个值可以为 <code>nil</code> ；</li>
+<li><code>error</code> ：<code>RACSignal</code> 通过 <code>error</code> 事件向订阅者表明信号在正常结束前发生了错误；</li>
+<li><code>completed</code> ：<code>RACSignal</code> 通过 <code>completed</code> 事件向订阅者表明信号已经正常结束，不会再有后续的值传送给订阅者。</li>
+</ul>
 
 
-<p>其中，<code>return:</code> 方法的功能就是将一个值 <code>value</code> 放入 <code>RACStream</code> 上下文中；而 <code>bind:</code> 方法的功能则是将一个 <code>RACStreamBindBlock</code> 类型的 <code>block</code> 应用到一个在 <code>RACStream</code> 上下文中的值（<code>receiver</code>），并返回另一个在 <code>RACStream</code> 上下文中的值。<strong>注</strong>，<code>RACStreamBindBlock</code> 类型的 <code>block</code> 就是一个接收一个普通值 <code>value</code> 但是返回一个在 <code>RACStream</code> 上下文中的值的“函数”：</p>
+<p><strong>注意</strong>，<code>ReactiveCocoa</code> 中的值流只包含正常的值，即通过 <code>next</code> 事件传送的值，并不包括 <code>error</code> 和 <code>completed</code> 事件，它们需要被特殊处理。通常情况下，一个信号的生命周期是由任意个 <code>next</code> 事件和一个 <code>error</code> 事件或一个 <code>completed</code> 事件组成的。</p>
+
+<p>从前面的类图中，我们可以看出，<code>RACSignal</code> 并非只有一个类，事实上，它的一系列功能是通过类簇来实现的。除去我们将在下节介绍的 <code>RACSubject</code> 及其子类外，<code>RACSignal</code> 还有五个用来实现不同功能的私有子类：</p>
+
+<ul>
+<li><code>RACEmptySignal</code> ：空信号，用来实现 <code>RACSignal</code> 的 <code>+empty</code> 方法；</li>
+<li><code>RACReturnSignal</code> ：一元信号，用来实现 <code>RACSignal</code> 的 <code>+return:</code> 方法；</li>
+<li><code>RACDynamicSignal</code> ：动态信号，使用一个 <code>block</code> 来实现订阅行为，我们在使用 <code>RACSignal</code> 的 <code>+createSignal:</code> 方法时创建的就是该类的实例；</li>
+<li><code>RACErrorSignal</code> ：错误信号，用来实现 <code>RACSignal</code> 的 <code>+error:</code> 方法；</li>
+<li><code>RACChannelTerminal</code> ：通道终端，代表 <code>RACChannel</code> 的一个终端，用来实现双向绑定。</li>
+</ul>
+
+
+<p>对于 <code>RACSignal</code> 类簇来说，最核心的方法莫过于 <code>-subscribe:</code> 了，这个方法封装了订阅者对信号源的一次订阅过程，它是订阅者与信号源产生联系的唯一入口。因此，对于 <code>RACSignal</code> 的所有子类来说，这个方法的实现逻辑就代表了该子类的具体订阅行为，是区分不同子类的关键所在。同时，这也是为什么 <code>RACSignal</code> 中的 <code>-subscribe:</code> 方法是一个抽象方法，并且必须要让子类实现的原因：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="n">RACDisposable</span> <span class="o">*</span><span class="p">)</span><span class="nf">subscribe:</span><span class="p">(</span><span class="kt">id</span><span class="o">&lt;</span><span class="n">RACSubscriber</span><span class="o">&gt;</span><span class="p">)</span><span class="nv">subscriber</span> <span class="p">{</span>
+</span><span class='line'>  <span class="n">NSCAssert</span><span class="p">(</span><span class="nb">NO</span><span class="p">,</span> <span class="s">@&quot;This method must be overridden by subclasses&quot;</span><span class="p">);</span>
+</span><span class='line'>  <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>RACSubject</h3>
+
+<p><code>RACSubject</code> 代表的是可以手动控制的信号，我们可以把它看作是 <code>RACSignal</code> 的可变版本，就好比 <code>NSMutableArray</code> 是 <code>NSArray</code> 的可变版本一样。<code>RACSubject</code> 继承自 <code>RACSignal</code> ，所以它可以作为信号源被订阅者订阅，同时，它又实现了 <code>RACSubscriber</code> 协议，所以它也可以作为订阅者订阅其他信号源，这个就是 <code>RACSubject</code> 为什么可以手动控制的原因：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/RACSubject.png" width="650" /></p>
+
+<p>根据官方的 <a href="https://github.com/ReactiveCocoa/ReactiveCocoa/blob/v2.5/Documentation/DesignGuidelines.md#avoid-using-subjects-when-possible">Design Guidelines</a> 中的说法，我们应该尽可能少地使用它。因为它太过灵活，我们可以在任何时候任何地方操作它，所以一旦过度使用，就会使代码变得非常复杂，难以理解。</p>
+
+<p>根据我的实际使用经验，在 <code>MVVM</code> 中使用 <code>RACSubject</code> 可以非常方便地实现统一的错误处理逻辑。比如，我们可以在 <code>viewModel</code> 的基类中声明一个 <code>RACSubject</code> 类型的属性 <code>errors</code> ，然后在 <code>viewController</code> 的基类中编写统一的错误处理逻辑：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">viewModel</span><span class="p">.</span><span class="n">errors</span> <span class="nl">subscribeNext</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="bp">NSError</span> <span class="o">*</span><span class="n">error</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="c1">// 错误处理逻辑</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>此时，假设在某个界面的 <code>viewModel</code> 中有三个用来请求远程数据的命令，分别是 <code>requestReadmeMarkdownCommand</code> 、<code>requestBlobCommand</code> 和 <code>requestReadmeHTMLCommand</code> ，那么这个界面的错误处理逻辑就可以这么写：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -529,93 +394,385 @@
 <span class='line-number'>4</span>
 <span class='line-number'>5</span>
 <span class='line-number'>6</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="c1">/// A block which accepts a value from a RACStream and returns a new instance</span>
-</span><span class='line'><span class="c1">/// of the same stream class.</span>
-</span><span class='line'><span class="c1">///</span>
-</span><span class='line'><span class="c1">/// Setting `stop` to `YES` will cause the bind to terminate after the returned</span>
-</span><span class='line'><span class="c1">/// value. Returning `nil` will result in immediate termination.</span>
-</span><span class='line'><span class="k">typedef</span> <span class="n">RACStream</span> <span class="o">*</span> <span class="p">(</span><span class="o">^</span><span class="n">RACStreamBindBlock</span><span class="p">)(</span><span class="kt">id</span> <span class="n">value</span><span class="p">,</span> <span class="kt">BOOL</span> <span class="o">*</span><span class="n">stop</span><span class="p">);</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">[[</span><span class="n">RACSignal</span>
+</span><span class='line'>    <span class="nl">merge</span><span class="p">:</span><span class="l">@[</span>
+</span><span class='line'>        <span class="nb">self</span><span class="p">.</span><span class="n">requestReadmeMarkdownCommand</span><span class="p">.</span><span class="n">errors</span><span class="p">,</span>
+</span><span class='line'>        <span class="nb">self</span><span class="p">.</span><span class="n">requestBlobCommand</span><span class="p">.</span><span class="n">errors</span><span class="p">,</span>
+</span><span class='line'>        <span class="nb">self</span><span class="p">.</span><span class="n">requestReadmeHTMLCommand</span><span class="p">.</span><span class="n">errors</span>
+</span><span class='line'>    <span class="l">]</span><span class="p">]</span>
+</span><span class='line'>    <span class="nl">subscribe</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">errors</span><span class="p">];</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>接下来，为了加深理解，我们一起来对比一下 <code>Monad typeclass</code> 的定义：</p>
+<p>另外，<code>RACSubject</code> 也有三个用来实现不同功能的子类：</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">class</span> <span class="n">Applicative</span> <span class="n">m</span> <span class="o">=&gt;</span> <span class="n">Monad</span> <span class="n">m</span> <span class="n">where</span>
-</span><span class='line'>    <span class="k">return</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">a</span>
-</span><span class='line'>    <span class="p">(</span><span class="o">&gt;&gt;=</span><span class="p">)</span> <span class="o">::</span> <span class="n">m</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">m</span> <span class="n">b</span>
-</span></code></pre></td></tr></table></div></figure>
+<ul>
+<li><code>RACGroupedSignal</code> ：分组信号，用来实现 <code>RACSignal</code> 的分组功能；</li>
+<li><code>RACBehaviorSubject</code> ：重演最后值的信号，当被订阅时，会向订阅者发送它最后接收到的值；</li>
+<li><code>RACReplaySubject</code> ：重演信号，保存发送过的值，当被订阅时，会向订阅者重新发送这些值。</li>
+</ul>
 
 
-<p>同样的，我们将类型占位符 <code>m</code> 用 <code>RACStream</code> 代入，可得：</p>
+<p><code>RACSubject</code> 的功能非常强大，但是太过灵活，也正是因为如此，我们只有在迫不得已的情况下才会使用它。</p>
 
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">class</span> <span class="n">Applicative</span> <span class="n">RACStream</span> <span class="o">=&gt;</span> <span class="n">Monad</span> <span class="n">RACStream</span> <span class="n">where</span>
-</span><span class='line'>    <span class="k">return</span> <span class="o">::</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">RACStream</span> <span class="n">a</span>
-</span><span class='line'>    <span class="p">(</span><span class="o">&gt;&gt;=</span><span class="p">)</span> <span class="o">::</span> <span class="n">RACStream</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">a</span> <span class="o">-&gt;</span> <span class="n">RACStream</span> <span class="n">b</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RACStream</span> <span class="n">b</span>
-</span></code></pre></td></tr></table></div></figure>
+<h3>RACSequence</h3>
+
+<p><code>RACSequence</code> 代表的是一个不可变的值的序列，与 <code>RACSignal</code> 不同，它是 <code>pull-driven</code> 类型的流。从严格意义上讲，<code>RACSequence</code> 并不能算作是信号源，因为它并不能像 <code>RACSignal</code> 那样，可以被订阅者订阅，但是它与 <code>RACSignal</code> 之间可以非常方便地进行转换。</p>
+
+<p>从理论上说，一个 <code>RACSequence</code> 由两部分组成：</p>
+
+<ul>
+<li><code>head</code> ：指的是序列中的第一个对象，如果序列为空，则为 <code>nil</code> ；</li>
+<li><code>tail</code> ：指的是序列中除第一个对象外的其它所有对象，同样的，如果序列为空，则为 <code>nil</code> 。</li>
+</ul>
 
 
-<p>其中，<code>return :: a -&gt; RACStream a</code> 就对应 <code>+ (instancetype)return:(id)value;</code> ，而 <code>(&gt;&gt;=) :: RACStream a -&gt; (a -&gt; RACStream b) -&gt; RACStream b</code> 则对应 <code>- (instancetype)bind:(RACStreamBindBlock (^)(void))block;</code> 。<strong>注</strong>：我们前面已经提到过了，<code>&gt;&gt;=</code> 函数的发音就是 <code>bind</code> 。因此，<code>ReactiveCocoa</code> 便有了下面的玩法：</p>
+<p>事实上，一个序列的 <code>tail</code> 仍然是一个序列，如果我们将序列看作是一条毛毛虫，那么 <code>head</code> 和 <code>tail</code> 可表示如下：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/listmonster.png" alt="listmonster" /></p>
+
+<p>同样的，一个序列的 <code>tail</code> 也可以看作是由 <code>head</code> 和 <code>tail</code> 组成，而这个新的 <code>tail</code> 又可以继续看作是由 <code>head</code> 和 <code>tail</code> 组成，这个过程可以一直进行下去。而这个就是 <code>RACSequence</code> 得以建立的理论基础，所以一个 <code>RACSequence</code> 子类的最小实现就是 <code>head</code> 和 <code>tail</code> ：</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
-</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">RACSignal</span> <span class="o">*</span><span class="n">signal2</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">signal1</span>
-</span><span class='line'>    <span class="nl">bind</span><span class="p">:</span><span class="n">block1</span><span class="p">]</span>
-</span><span class='line'>    <span class="nl">bind</span><span class="p">:</span><span class="n">block2</span><span class="p">]</span>
-</span><span class='line'>    <span class="nl">bind</span><span class="p">:</span><span class="n">block3</span><span class="p">];</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="c1">/// Represents an immutable sequence of values. Unless otherwise specified, the</span>
+</span><span class='line'><span class="c1">/// sequences&#39; values are evaluated lazily on demand. Like Cocoa collections,</span>
+</span><span class='line'><span class="c1">/// sequences cannot contain nil.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// Most inherited RACStream methods that accept a block will execute the block</span>
+</span><span class='line'><span class="c1">/// _at most_ once for each value that is evaluated in the returned sequence.</span>
+</span><span class='line'><span class="c1">/// Side effects are subject to the behavior described in</span>
+</span><span class='line'><span class="c1">/// +sequenceWithHeadBlock:tailBlock:.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// Implemented as a class cluster. A minimal implementation for a subclass</span>
+</span><span class='line'><span class="c1">/// consists simply of -head and -tail.</span>
+</span><span class='line'><span class="k">@interface</span> <span class="nc">RACSequence</span> : <span class="nc">RACStream</span> <span class="o">&lt;</span><span class="bp">NSCoding</span><span class="p">,</span> <span class="bp">NSCopying</span><span class="p">,</span> <span class="bp">NSFastEnumeration</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">/// The first object in the sequence, or nil if the sequence is empty.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// Subclasses must provide an implementation of this method.</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">strong</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="kt">id</span> <span class="n">head</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">/// All but the first object in the sequence, or nil if the sequence is empty.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// Subclasses must provide an implementation of this method.</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">strong</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">RACSequence</span> <span class="o">*</span><span class="n">tail</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p><code>Monad</code> 就像是 <code>ReactiveCocoa</code> 中的太极，太极生两仪，两仪生四象，四象生八卦。至此，我们已经知道了 <code>ReactiveCocoa</code> 中最核心的原理，而更多关于 <code>ReactiveCocoa</code> 的内容我们将在后续的源码解析中再进行介绍，敬请期待。</p>
+<p>总的来说，<code>RACSequence</code> 存在的最大意义就是为了简化 <code>Objective-C</code> 中的集合操作：</p>
+
+<blockquote><p><strong>Simplifying Collection Transformations</strong>: Higher-order functions like map, filter, fold/reduce are sorely missing from Foundation.</p></blockquote>
+
+<p>比如下面的代码：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="bp">NSMutableArray</span> <span class="o">*</span><span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSMutableArray</span> <span class="n">array</span><span class="p">];</span>
+</span><span class='line'><span class="k">for</span> <span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="n">str</span> <span class="k">in</span> <span class="n">strings</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">str</span><span class="p">.</span><span class="n">length</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">continue</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="bp">NSString</span> <span class="o">*</span><span class="n">newString</span> <span class="o">=</span> <span class="p">[</span><span class="n">str</span> <span class="nl">stringByAppendingString</span><span class="p">:</span><span class="s">@&quot;foobar&quot;</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">[</span><span class="n">results</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">newString</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>可以用 <code>RACSequence</code> 来优雅地实现：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">RACSequence</span> <span class="o">*</span><span class="n">results</span> <span class="o">=</span> <span class="p">[[</span><span class="n">strings</span><span class="p">.</span><span class="n">rac_sequence</span>
+</span><span class='line'>    <span class="nl">filter</span><span class="p">:</span><span class="o">^</span> <span class="kt">BOOL</span> <span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="n">str</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">return</span> <span class="n">str</span><span class="p">.</span><span class="n">length</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}]</span>
+</span><span class='line'>    <span class="nl">map</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="bp">NSString</span> <span class="o">*</span><span class="n">str</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">return</span> <span class="p">[</span><span class="n">str</span> <span class="nl">stringByAppendingString</span><span class="p">:</span><span class="s">@&quot;foobar&quot;</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">}];</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>因此，我们可以非常方便地使用 <code>RACSequence</code> 来实现集合的链式操作，直到得到你想要的最终结果为止。除此之外，使用 <code>RACSequence</code> 的另外一个主要好处是，<code>RACSequence</code> 中包含的值在默认情况下是懒计算的，即只有在真正用到的时候才会被计算，并且只会计算一次。也就是说，如果我们只用到了一个 <code>RACSequence</code> 中的部分值的时候，它就在不知不觉中提高了我们应用的性能。</p>
+
+<p>同样的，<code>RACSequence</code> 的一系列功能也是通过类簇来实现的，它共有九个用来实现不同功能的私有子类：</p>
+
+<ul>
+<li><code>RACUnarySequence</code> ：一元序列，用来实现 <code>RACSequence</code> 的 <code>+return:</code> 方法；</li>
+<li><code>RACIndexSetSequence</code> ：用来遍历索引集；</li>
+<li><code>RACEmptySequence</code> ：空序列，用来实现 <code>RACSequence</code> 的 <code>+empty</code> 方法；</li>
+<li><code>RACDynamicSequence</code> ：动态序列，使用 <code>blocks</code> 来动态地实现一个序列；</li>
+<li><code>RACSignalSequence</code> ：用来遍历信号中的值；</li>
+<li><code>RACArraySequence</code> ：用来遍历数组中的元素；</li>
+<li><code>RACEagerSequence</code> ：非懒计算的序列，在初始化时立即计算所有的值；</li>
+<li><code>RACStringSequence</code> ：用来遍历字符串中的字符；</li>
+<li><code>RACTupleSequence</code> ：用来遍历元组中的元素。</li>
+</ul>
+
+
+<p><code>RACSequence</code> 为类簇提供了统一的对外接口，对于使用它的客户端代码来说，完全不需要知道私有子类的存在，很好地隐藏了实现细节。另外，值得一提的是，<code>RACSequence</code> 实现了快速枚举的协议 <code>NSFastEnumeration</code> ，在这个协议中只声明了一个看上去非常抽筋的方法：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="bp">NSUInteger</span><span class="p">)</span><span class="nf">countByEnumeratingWithState:</span><span class="p">(</span><span class="n">NSFastEnumerationState</span> <span class="o">*</span><span class="p">)</span><span class="nv">state</span> <span class="nf">objects:</span><span class="p">(</span><span class="kt">id</span> <span class="n">__unsafe_unretained</span> <span class="p">[])</span><span class="nv">buffer</span> <span class="nf">count:</span><span class="p">(</span><span class="bp">NSUInteger</span><span class="p">)</span><span class="nv">len</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>有兴趣的同学，可以看看 <code>RACSequence</code> 中的相关实现，我们将会在后续的文章中进行介绍。因此，我们也可以直接使用 <code>for in</code> 来遍历一个 <code>RACSequence</code> 。</p>
+
+<h2>订阅者</h2>
+
+<p>现在，我们已经知道信号源是什么了，为了获取信号源中的值，我们需要对信号源进行订阅。在 <code>ReactiveCocoa</code> 中，订阅者是一个抽象的概念，所有实现了 <code>RACSubscriber</code> 协议的类都可以作为信号源的订阅者。</p>
+
+<h3>RACSubscriber</h3>
+
+<p>在 <code>RACSubscriber</code> 协议中，声明了四个必须实现的方法：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="c1">/// Represents any object which can directly receive values from a RACSignal.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// You generally shouldn&#39;t need to implement this protocol. +[RACSignal</span>
+</span><span class='line'><span class="c1">/// createSignal:], RACSignal&#39;s subscription methods, or RACSubject should work</span>
+</span><span class='line'><span class="c1">/// for most uses.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// Implementors of this protocol may receive messages and values from multiple</span>
+</span><span class='line'><span class="c1">/// threads simultaneously, and so should be thread-safe. Subscribers will also</span>
+</span><span class='line'><span class="c1">/// be weakly referenced so implementations must allow that.</span>
+</span><span class='line'><span class="k">@protocol</span> <span class="nc">RACSubscriber</span> <span class="o">&lt;</span><span class="bp">NSObject</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@required</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">/// Sends the next value to subscribers.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// value - The value to send. This can be `nil`.</span>
+</span><span class='line'><span class="o">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nl">sendNext</span><span class="p">:(</span><span class="kt">id</span><span class="p">)</span><span class="n">value</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">/// Sends the error to subscribers.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// error - The error to send. This can be `nil`.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// This terminates the subscription, and invalidates the subscriber (such that</span>
+</span><span class='line'><span class="c1">/// it cannot subscribe to anything else in the future).</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">sendError:</span><span class="p">(</span><span class="bp">NSError</span> <span class="o">*</span><span class="p">)</span><span class="nv">error</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">/// Sends completed to subscribers.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// This terminates the subscription, and invalidates the subscriber (such that</span>
+</span><span class='line'><span class="c1">/// it cannot subscribe to anything else in the future).</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">sendCompleted</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">/// Sends the subscriber a disposable that represents one of its subscriptions.</span>
+</span><span class='line'><span class="c1">///</span>
+</span><span class='line'><span class="c1">/// A subscriber may receive multiple disposables if it gets subscribed to</span>
+</span><span class='line'><span class="c1">/// multiple signals; however, any error or completed events must terminate _all_</span>
+</span><span class='line'><span class="c1">/// subscriptions.</span>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">didSubscribeWithDisposable:</span><span class="p">(</span><span class="n">RACCompoundDisposable</span> <span class="o">*</span><span class="p">)</span><span class="nv">disposable</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>其中 <code>-sendNext:</code> 、<code>-sendError:</code> 和 <code>-sendCompleted</code> 分别用来从 <code>RACSignal</code> 接收 <code>next</code> 、<code>error</code> 和 <code>completed</code> 事件，而 <code>-didSubscribeWithDisposable:</code> 则用来接收代表某次订阅的 <code>disposable</code> 对象。</p>
+
+<p>订阅者对信号源的一次订阅过程可以抽象为：通过 <code>RACSignal</code> 的 <code>-subscribe:</code> 方法传入一个订阅者，并最终返回一个 <code>RACDisposable</code> 对象的过程：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/subscribe.png" width="480" /></p>
+
+<p><strong>注意</strong>：在 <code>ReactiveCocoa</code> 中并没有专门的类 <code>RACSubscription</code> 来代表一次订阅，而间接地使用 <code>RACDisposable</code> 来充当这一角色。因此，一个 <code>RACDisposable</code> 对象就代表着一次订阅，并且我们可以用它来取消这次订阅，详细内容将会在下面的章节中进行介绍。</p>
+
+<p>除了 <code>RACSignal</code> 的子类外，还有两个实现了 <code>RACSubscriber</code> 协议的类，如下图所示：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/RACSubscriber.png" width="450" /></p>
+
+<p>其中，<code>RACSubscriber</code> 类的名字与 <code>RACSubscriber</code> 协议的名字相同，这跟 <code>Objective-C</code> 中的 <code>NSObject</code> 类的名字与 <code>NSObject</code> 协议的名字相同是一样一样的，除了名字相同外，然并卵。通常来说，<code>RACSubscriber</code> 类充当的角色就是信号源的真正订阅者，它老老实实地实现了 <code>RACSubscriber</code> 协议。</p>
+
+<p>既然 <code>RACSubscriber</code> 类就是真正的订阅者，那么 <code>RACPassthroughSubscriber</code> 类又是干嘛用的呢？原来，在 <code>ReactiveCocoa</code> 中，一个订阅者是可以订阅多个信号源的，也就是说它会拥有多个 <code>RACDisposable</code> 对象，并且它可以随时取消其中任何一个订阅。为了实现这个功能，<code>ReactiveCocoa</code> 就引入了 <code>RACPassthroughSubscriber</code> 类，它是 <code>RACSubscriber</code> 类的一个装饰器，封装了一个真正的订阅者 <code>RACSubscriber</code> 对象，它负责转发所有事件给这个真正的订阅者，而当此次订阅被取消时，它就会停止转发：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">sendNext:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">value</span> <span class="p">{</span>
+</span><span class='line'>  <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">disposable</span><span class="p">.</span><span class="n">disposed</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">innerSubscriber</span> <span class="nl">sendNext</span><span class="p">:</span><span class="n">value</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">sendError:</span><span class="p">(</span><span class="bp">NSError</span> <span class="o">*</span><span class="p">)</span><span class="nv">error</span> <span class="p">{</span>
+</span><span class='line'>  <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">disposable</span><span class="p">.</span><span class="n">disposed</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">innerSubscriber</span> <span class="nl">sendError</span><span class="p">:</span><span class="n">error</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">sendCompleted</span> <span class="p">{</span>
+</span><span class='line'>  <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">disposable</span><span class="p">.</span><span class="n">disposed</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">innerSubscriber</span> <span class="n">sendCompleted</span><span class="p">];</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>事实上，在 <code>ReactiveCocoa</code> 中，我们倾向于隐藏订阅者，因为外界根本不需要知道订阅者的存在，这是内部的实现细节。这样做的主要目的是进一步简化信号源的订阅逻辑，客户端代码只需要关心它所需要的值就可以了，根本不需要关心内部的订阅过程。</p>
+
+<h3>RACMulticastConnection</h3>
+
+<p>通常来说，我们在订阅一个信号源的过程中可能会产生副作用或者消耗比较大的资源，比如修改全局变量、发送网络请求等。这个时候，我们往往需要让多个订阅者之间共享一次订阅，就好比我们读高中时，多个好朋友一起订阅一份英语周报，然后只要出一份钱，是一个道理。这就是 <code>ReactiveCocoa</code> 中引入 <code>RACMulticastConnection</code> 类的原因。</p>
+
+<p><code>RACMulticastConnection</code> 通过一个标志 <code>_hasConnected</code> 来保证只对 <code>sourceSignal</code> 订阅一次，然后对外暴露一个 <code>RACSubject</code> 类型的 <code>signal</code> 供外部订阅者订阅。这样一来，不管外部订阅者对 <code>signal</code> 订阅多少次，我们对 <code>sourceSignal</code> 的订阅至多只会有一次：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/RACMulticastConnection.png" alt="RACMulticastConnection" /></p>
+
+<p><strong>注</strong>：了解 <code>RACMulticastConnection</code> 的实现原理，对于我们后面理解 <code>-replay</code> 、<code>replayLast</code> 和 <code>replayLazily</code> 等方法非常有帮助。</p>
+
+<h2>调度器</h2>
+
+<p>有了信号源和订阅者，我们还需要由调度器来统一调度订阅者订阅信号源的过程中所涉及到的任务，这样才能保证所有的任务都能够合理有序地执行。</p>
+
+<h3>RACScheduler</h3>
+
+<p><code>RACScheduler</code> 在 <code>ReactiveCocoa</code> 中就是扮演着调度器的角色，本质上，它就是用 <code>GCD</code> 的串行队列来实现的，并且支持取消操作。是的，在 <code>ReactiveCocoa</code> 中，并没有使用到 <code>NSOperationQueue</code> 和 <code>NSRunloop</code> 等技术，<code>RACScheduler</code> 也只是对 <code>GCD</code> 的简单封装而已。</p>
+
+<p>同样的，<code>RACScheduler</code> 的一系列功能也是通过类簇来实现的，除了用来测试的子类外，总共还有四个私有子类：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/RACScheduler.png" width="650" /></p>
+
+<p>咋看之下，<code>RACScheduler</code> 的儿子貌似还不少，但是真正出力干活的却真心不多，主要就是 <code>RACTargetQueueScheduler</code> 子类：</p>
+
+<ul>
+<li><code>RACImmediateScheduler</code> ：立即执行调度的任务，这是唯一一个支持同步执行的调度器；</li>
+<li><code>RACQueueScheduler</code> ：一个抽象的队列调度器，在一个 <code>GCD</code> 串行列队中异步调度所有任务；</li>
+<li><code>RACTargetQueueScheduler</code> ：继承自 <code>RACQueueScheduler</code> ，在一个以一个任意的 <code>GCD</code> 队列为 <code>target</code> 的串行队列中异步调度所有任务；</li>
+<li><code>RACSubscriptionScheduler</code> ：一个只用来调度订阅的调度器。</li>
+</ul>
+
+
+<p>值得一提的是，在 <code>RACScheduler</code> 中有一个非常特殊的方法：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="n">RACDisposable</span> <span class="o">*</span><span class="p">)</span><span class="nf">scheduleRecursiveBlock:</span><span class="p">(</span><span class="n">RACSchedulerRecursiveBlock</span><span class="p">)</span><span class="nv">recursiveBlock</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>这个方法的作用非常有意思，它可以将递归调用转换成迭代调用，这样做的目的是为了解决深层次的递归调用可能会带来的堆栈溢出问题。</p>
+
+<h2>清洁工</h2>
+
+<p>正如我们前面所说的，在订阅者订阅信号源的过程中，可能会产生副作用或者消耗一定的资源，所以当我们在取消订阅或者完成订阅时，我们就需要做一些资源回收和垃圾清理的工作。</p>
+
+<h3>RACDisposable</h3>
+
+<p><code>RACDisposable</code> 在 <code>ReactiveCocoa</code> 中就充当着清洁工的角色，它封装了取消和清理一次订阅所必需的工作。它有一个核心的方法 <code>-dispose</code> ，调用这个方法就会执行相应的清理工作，这有点类似于 <code>NSObject</code> 的 <code>-dealloc</code> 方法。<code>RACDisposable</code> 总共有四个子类，它的继承结构图如下：</p>
+
+<p><img src="http://blog.leichunfeng.com/images/RACDisposable.png" width="450" /></p>
+
+<ul>
+<li><code>RACSerialDisposable</code> ：作为 <code>disposable</code> 的容器使用，可以包含一个 <code>disposable</code> 对象，并且允许将这个 <code>disposable</code> 对象通过原子操作交换出来；</li>
+<li><code>RACKVOTrampoline</code> ：代表一次 <code>KVO</code> 观察，并且可以用来停止观察；</li>
+<li><code>RACCompoundDisposable</code> ：跟 <code>RACSerialDisposable</code> 一样，<code>RACCompoundDisposable</code> 也是作为 <code>disposable</code> 的容器使用。不同的是，它可以包含多个 <code>disposable</code> 对象，并且支持手动添加和移除 <code>disposable</code> 对象，有点类似于可变数组 <code>NSMutableArray</code> 。而当一个 <code>RACCompoundDisposable</code> 对象被 <code>disposed</code> 时，它会调用其所包含的所有 <code>disposable</code> 对象的 <code>-dispose</code> 方法，有点类似于 <code>autoreleasepool</code> 的作用;</li>
+<li><code>RACScopedDisposable</code> ：当它被 <code>dealloc</code> 的时候调用本身的 <code>-dispose</code> 方法。</li>
+</ul>
+
+
+<p>咋看之下，<code>RACDisposable</code> 的逻辑似乎有些复杂，不过换汤不换药，不管它们怎么换着花样玩，最终都只是为了能够在合适的时机调用 <code>disposable</code> 对象的 <code>-dispose</code> 方法，执行清理工作而已。</p>
 
 <h2>总结</h2>
 
-<p><code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 是什么：</p>
+<p>至此，我们介绍完了 <code>ReactiveCocoa</code> 的四大核心组件，对它的架构有了宏观上的认识。它建立于 <code>Monad</code> 的概念之上，然后围绕其搭建了一系列完整的配套组件，它们共同支撑了 <code>ReactiveCocoa</code> 的强大功能。尽管，<code>ReactiveCocoa</code> 是一个重型的函数式响应式框架，但是它并不会对我们现有的代码构成侵略性，我们完全可以在一个单独的类中使用它，哪怕只是简单的一行代码，也是没有问题的。所以，如果你对 <code>ReactiveCocoa</code> 感兴趣的话，不妨就从现在开始尝试吧，Let&rsquo;s go ！</p>
 
-<ol>
-<li>一个 <code>Functor</code> 就是一种实现了 <code>Functor typeclass</code> 的数据类型；</li>
-<li>一个 <code>Applicative</code> 就是一种实现了 <code>Applicative typeclass</code> 的数据类型；</li>
-<li>一个 <code>Monad</code> 就是一种实现了 <code>Monad typeclass</code> 的数据类型。</li>
-</ol>
-
-
-<p><code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 三者之间的联系：</p>
-
-<ol>
-<li><code>Applicative</code> 是增强型的 <code>Functor</code> ，一种数据类型要成为 <code>Applicative</code> 的前提条件是它必须是 <code>Functor</code> ；</li>
-<li><code>Monad</code> 是增强型的 <code>Applicative</code> ，一种数据类型要成为 <code>Monad</code> 的前提条件是它必须是 <code>Applicative</code> 。</li>
-</ol>
-
-
-<p><code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 三者之间的区别：</p>
-
-<p><img src="http://blog.leichunfeng.com/images/recap.png" alt="recap" /></p>
-
-<ol>
-<li><code>Functor</code> ：使用 <code>fmap</code> 应用一个函数到一个上下文中的值；</li>
-<li><code>Applicative</code> ：使用 <code>&lt;*&gt;</code> 应用一个上下文中的函数到一个上下文中的值；</li>
-<li><code>Monad</code> ：使用 <code>&gt;&gt;=</code> 应用一个接收一个普通值但是返回一个在上下文中的值的函数到一个上下文中的值。</li>
-</ol>
-
-
-<p>此外，我们还介绍了一种非常有意思的数据类型 <code>Maybe</code> ，它实现了 <code>Functor typeclass</code>、<code>Applicative typeclass</code> 和 <code>Monad typeclass</code> ，所以它同时是 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> 。</p>
-
-<p>以上就是本文的全部内容，希望可以对你有所帮助，Good luck !</p>
+<p><strong>PS</strong>：<a href="https://github.com/leichunfeng/MVVMReactiveCocoa">MVVMReactiveCocoa</a> 是我用 <code>MVVM</code> + <code>RAC</code> 编写的一个开源应用，如果你有兴趣的话不妨 <code>clone</code> 下来看看 <code>ReactiveCocoa</code> 的具体实践吧。</p>
 
 <h2>参考链接</h2>
 
-<p><a href="http://learnyouahaskell.com/chapters">http://learnyouahaskell.com/chapters</a>
-<br>
-<a href="https://downloads.haskell.org/~ghc/latest/docs/html/libraries">https://downloads.haskell.org/~ghc/latest/docs/html/libraries</a>
-<br>
-<a href="http://adit.io/posts/2013-04-17-functors,_applicatives,_and_monads_in_pictures.html">http://adit.io/posts/2013-04-17-functors,<em>applicatives,</em>and_monads_in_pictures.html</a></p>
+<p><a href="https://github.com/ReactiveCocoa/ReactiveCocoa/tree/v2.5">https://github.com/ReactiveCocoa/ReactiveCocoa/tree/v2.5</a>
+<a href="https://github.com/ReactiveCocoa/ReactiveCocoa/blob/v2.5/Documentation/FrameworkOverview.md">https://github.com/ReactiveCocoa/ReactiveCocoa/blob/v2.5/Documentation/FrameworkOverview.md</a>
+<a href="https://github.com/ReactiveCocoa/ReactiveCocoa/blob/v2.5/Documentation/DesignGuidelines.md#avoid-using-subjects-when-possible">https://github.com/ReactiveCocoa/ReactiveCocoa/blob/v2.5/Documentation/DesignGuidelines.md#avoid-using-subjects-when-possible</a>
+<a href="http://nshipster.com/reactivecocoa/">http://nshipster.com/reactivecocoa/</a>
+<a href="http://nathanli.cn/2015/08/27/reactivecocoa2-%E6%BA%90%E7%A0%81%E6%B5%85%E6%9E%90/">http://nathanli.cn/2015/08/27/reactivecocoa2-%E6%BA%90%E7%A0%81%E6%B5%85%E6%9E%90/</a>
+<a href="http://blog.devtang.com/blog/2014/02/11/reactivecocoa-introduction/">http://blog.devtang.com/blog/2014/02/11/reactivecocoa-introduction/</a>
+<a href="http://m.oschina.net/blog/294178">http://m.oschina.net/blog/294178</a></p>
 
 <p><img src="http://blog.leichunfeng.com/images/wechat_pay.jpg" width="260" /></p>
 </div>
@@ -640,6 +797,10 @@
     <section>
   <h1>Recent Posts</h1>
   <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2017/02/20/talking-about-the-decompression-of-the-image-in-ios/">谈谈 iOS 中图片的解压缩</a>
+      </li>
     
       <li class="post">
         <a href="/blog/2016/06/20/objective-c-fast-enumeration-implementation-principle/">Objective-C Fast Enumeration 的实现原理</a>
@@ -675,10 +836,6 @@
     
       <li class="post">
         <a href="/blog/2015/05/18/objective-c-category-implementation-principle/">Objective-C Category 的实现原理</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/">Objective-C +load vs +initialize</a>
       </li>
     
   </ul>
