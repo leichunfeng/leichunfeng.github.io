@@ -4,6 +4,7 @@ title: "谈谈 iOS 中图片的解压缩"
 date: 2017-02-20 10:47:56 +0800
 comments: true
 categories: 
+keywords: 解压缩, 位图, PNG, JPEG, 像素数据, 二进制数据, Pixel Format, Color and Color Spaces, Color Spaces and Bitmap Layout, CGBitmapInfo, CGImageAlphaInfo
 ---
 
 对于大多数 iOS 应用来说，图片往往是最占用手机内存的资源之一，同时也是不可或缺的组成部分。将一张图片从磁盘中加载出来，并最终显示到屏幕上，中间其实经过了一系列复杂的处理过程，其中就包括了对图片的解压缩。
@@ -31,7 +32,7 @@ categories:
 
 其实，位图就是一个像素数组，数组中的每个像素就代表着图片中的一个点。我们在应用中经常用到的 JPEG 和 PNG 图片就是位图。下面，我们来看一个具体的例子，这是一张 PNG 图片，像素为 30 × 30 ，文件大小为 843B ：
 
-![位图](http://localhost:4000/images/check_green.png)
+![位图](http://blog.leichunfeng.com/images/check_green.png)
 
 我们使用[下面的代码](https://developer.apple.com/library/content/qa/qa1509/_index.html)：
 
@@ -92,7 +93,7 @@ bdff 7943 afc0 c91f bdd1 a327 28fc 29f7 d47a b337 f192 0cc9 36fa 5497 73f9 5827 
 1599 4eff 69fb 0b0d 1f7a 96cd 3eb0 7800 0000 0049 454e 44ae 4260 82
 ```
 
-事实上，不管是 JPEG 还是 PNG 图片，都是一种压缩的位图图形格式。只不过 PNG 图片是无损压缩，并且支持 Alpha 通道，而 JPEG 图片则是有损压缩，可以指定 0-100% 的压缩比。值得一提的是，在苹果的 SDK 中专门提供了两个函数用来生成 PNG 和 JPEG 图片：
+事实上，不管是 JPEG 还是 PNG 图片，都是一种压缩的位图图形格式。只不过 PNG 图片是无损压缩，并且支持 alpha 通道，而 JPEG 图片则是有损压缩，可以指定 0-100% 的压缩比。值得一提的是，在苹果的 SDK 中专门提供了两个函数用来生成 PNG 和 JPEG 图片：
 
 ``` objc
 // return image as PNG. May return nil if image has no CGImageRef or invalid bitmap format
@@ -104,7 +105,7 @@ UIKIT_EXTERN NSData * __nullable UIImageJPEGRepresentation(UIImage * __nonnull i
 
 因此，在将磁盘中的图片渲染到屏幕之前，必须先要得到图片的原始像素数据，才能执行后续的绘制操作，这就是为什么需要对图片解压缩的原因。
 
-## 强制解压缩
+## 强制解压缩的原理
 
 既然图片的解压缩不可避免，而我们也不想让它在主线程执行，影响我们应用的响应性，那么是否有比较好的解决方案呢？答案是肯定的。
 
@@ -145,7 +146,7 @@ CG_EXTERN CGContextRef __nullable CGBitmapContextCreate(void * __nullable data,
 
 有一点需要注意的是，对于位图来说，像素格式并不是随意组合的，目前只支持以下有限的 [17 种特定组合](https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_context/dq_context.html#//apple_ref/doc/uid/TP30001066-CH203-BCIBHHBB)：
 
-<img src="http://localhost:4000/images/Supported Pixel Formats.png" width="738" />
+<img src="http://blog.leichunfeng.com/images/Supported Pixel Formats.png" width="738" />
 
 从上图可知，对于 iOS 来说，只支持 8 种像素格式。其中颜色空间为 Null 的 1 种，Gray 的 2 种，RGB 的 5 种，CMYK 的 0 种。换句话说，iOS 并不支持 CMYK 的颜色空间。另外，在表格的第 2 列中，除了像素格式外，还指定了 bitmap information constant ，我们在后面会详细介绍。
 
@@ -153,11 +154,11 @@ CG_EXTERN CGContextRef __nullable CGBitmapContextCreate(void * __nullable data,
 
 在上面我们提到了[颜色空间](https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_color/dq_color.html#//apple_ref/doc/uid/TP30001066-CH205-TPXREF101)，那么什么是颜色空间呢？它跟颜色有什么关系呢？在 Quartz 中，一个颜色是由一组值来表示的，比如 0, 0, 1 。而颜色空间则是用来说明如何解析这些值的，离开了颜色空间，它们将变得毫无意义。比如，下面的值都表示蓝色：
 
-<img src="http://localhost:4000/images/blue_color.png" width="483" />
+<img src="http://blog.leichunfeng.com/images/blue_color.png" width="483" />
 
 如果不知道颜色空间，那么我们根本无法知道这些值所代表的颜色。比如 0, 0, 1 在 RGB 下代表蓝色，而在 BGR 下则代表的是红色。在 RGB 和 BGR 两种颜色空间下，绿色是相同的，而红色和蓝色则相互对调了。因此，对于同一张图片，使用 RGB 和 BGR 两种颜色空间可能会得到两种不一样的效果：
 
-![color_profiles](http://localhost:4000/images/color_profiles.png)
+![color_profiles](http://blog.leichunfeng.com/images/color_profiles.png)
 
 是不是感觉非常有意思呢？
 
@@ -250,7 +251,7 @@ typedef CF_ENUM(uint32_t, CGImageByteOrderInfo) {
 
 下面，我们来看一张图，它非常形象地展示了在使用 16 或 32 位像素格式的 CMYK 和 RGB 颜色空间下，一个像素是如何被表示的：
 
-![pixel formats](http://localhost:4000/images/pixel formats.png)
+![pixel formats](http://blog.leichunfeng.com/images/pixel formats.png)
 
 我们从图中可以看出，在 32 位像素格式下，每个颜色分量使用 8 位；而在 16 位像素格式下，每个颜色分量则使用 5 位。
 
@@ -313,18 +314,56 @@ CGImageRef YYCGImageCreateDecodedCopy(CGImageRef imageRef, BOOL decodeForDisplay
 
 事实上，SDWebImage 和 FLAnimatedImage 中对图片的解压缩过程与上述完全一致，只是传递给 `CGBitmapContextCreate` 函数的部分参数存在细微的差别，如下表所示：
 
-![CGBitmapContextCreate](http://localhost:4000/images/CGBitmapContextCreate.png)
+<img src="http://blog.leichunfeng.com/images/CGBitmapContextCreate.png" width="720" />
 
 在上表中，用浅绿色背景标记的参数即为我们在前面的分析中所推荐的参数，用这些参数解压缩后的图片渲染的速度会更快。因此，从理论上说 YYKit 中的解压缩算法是三者之中最优的。
 
 ## 性能对比
 
+口说无凭，因此我编写了一个小的测试程序，来简单地对比一下这三个开源库的解压缩性能，源码可以在 [GitHub](https://github.com/leichunfeng/Image-Decompression-Benchmark) 上找到。
+
+采用的测试样例分别为 5 张 PNG 图片和 5 张 JPEG 图片，像素依次为 128x96 、256x192 、512x384 、1024x768 和 2048x1536 ，它们其实都长一个样：
+
+![128x96](http://blog.leichunfeng.com/images/128x96.png)
+
+首先，我们来了解下测试的原理，我们可以将从磁盘加载一张图片到最终渲染到屏幕上的过程划分为三个阶段：
+
+- 初始化阶段：从磁盘初始化图片，生成一个未解压缩的 `UIImage` 对象；
+- 解压缩阶段：分别使用 YYKit 、SDWebImage 和 FLAnimatedImage 对第 1 步中得到的 `UIImage` 对象进行解压缩，得到一个新的解压缩后的 `UIImage` 对象；
+- 绘制阶段：将第 2 步中得到的 `UIImage` 对象绘制到屏幕上。
+
+这里我们以绘制阶段的耗时为依据来评测解压缩的性能，解压缩的算法越优秀，那么得到的图片就越符合系统渲染时的需求，绘制的时间也就越短。为了让测试的结果更准确，我们对每张图片都解压缩 10 次，然后取平均值。说明，本次使用的测试设备是 iPhone 5s 。
+
+首先，我们来看看解压缩 PNG 图片的测试结果：
+
+<img src="http://blog.leichunfeng.com/images/decompress_png_compare.png" width="320" />
+
+相应的柱状图如下：
+
+<img src="http://blog.leichunfeng.com/images/decompress_png.png" width="600" />
+
+从上图可以看出，就我们采用的测试样例来说，解压缩 PNG 图片的性能 SDWebImage 最好，FLAnimatedImage 次之，YYKit 最差。这与我们前面的理论结果有一定的差距，可能是测试样例太少，也可能这就是真实结果。另外，需要说明的是，我们这里使用的 PNG 图片都是不带 alpha 值，因为 SDWebImage 不支持解压缩带 alpha 值的 PNG 图片。
+
+接着，我们再来看看解压缩 JPEG 图片的测试结果：
+
+<img src="http://blog.leichunfeng.com/images/decompress_jpeg_compare.png" width="320" />
+
+相应的柱状图如下：
+
+<img src="http://blog.leichunfeng.com/images/decompress_jpeg.png" width="600" />
+
+这次 YYKit 终于翻盘了，解压缩 JPEG 图片的性能最好，SDWebImage 和 FLAnimatedImage 并列第二。
+
 ## 总结
+
+其实，要理解 iOS 中图片的解压缩并不难，重点是要理解位图的概念。而图片解压缩的过程其实就是将图片的二进制数据转换成像素数据的过程。了解这些知识，将有助于我们更好地处理图片，管理好它们所占用的内存。
 
 ## 参考链接
 
 [https://www.cocoanetics.com/2011/10/avoiding-image-decompression-sickness/](https://www.cocoanetics.com/2011/10/avoiding-image-decompression-sickness/)
+<br>
 [https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/Introduction/Introduction.html](https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/Introduction/Introduction.html)
+<br>
 [https://github.com/path/FastImageCache](https://github.com/path/FastImageCache)
+<br>
 [http://stackoverflow.com/questions/23790837/what-is-byte-alignment-cache-line-alignment-for-core-animation-why-it-matters](http://stackoverflow.com/questions/23790837/what-is-byte-alignment-cache-line-alignment-for-core-animation-why-it-matters)
-
