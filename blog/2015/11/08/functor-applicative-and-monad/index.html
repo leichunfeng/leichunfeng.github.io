@@ -117,7 +117,7 @@
 
 <p><code>Maybe</code> 类型封装了一个可选值。一个 <code>Maybe a</code> 类型的值要么包含一个 <code>a</code> 类型的值（用 <code>Just a</code> 表示）；要么为空（用 <code>Nothing</code> 表示）。我们可以把 <code>Maybe</code> 看作一个盒子，这个盒子里面可能装着一个 <code>a</code> 类型的值，即 <code>Just a</code> ；也可能是一个空盒子，即 <code>Nothing</code> 。或者，你也可以把它理解成泛型，比如 <code>Objective-C</code> 中的 <code>NSArray&lt;ObjectType&gt;</code> 。不过，最正确的理解应该是把 <code>Maybe</code> 看作一个上下文，这个上下文表示某次计算可能成功也可能失败，成功时用 <code>Just a</code> 表示，<code>a</code> 为计算结果；失败时用 <code>Nothing</code> 表示，这就是 <code>Maybe</code> 类型存在的意义：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/maybe.png" alt="maybe" /></p>
+<p><img src="/images/maybe.png" alt="maybe" /></p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 </pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="n">data</span> <span class="n">Maybe</span> <span class="n">a</span> <span class="o">=</span> <span class="n">Nothing</span> <span class="o">|</span> <span class="n">Just</span> <span class="n">a</span>
@@ -139,7 +139,7 @@
 
 <p>我们可以用盒子模型来理解一下，<code>Nothing</code> 就是一个空盒子；而 <code>Just 2</code> 则是一个装着 <code>2</code> 这个值的盒子：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/just2.png" alt="just2" /></p>
+<p><img src="/images/just2.png" alt="just2" /></p>
 
 <p><strong>提前剧透</strong>：<code>Maybe</code> 类型实现了 <code>Functor typeclass</code>、<code>Applicative typeclass</code> 和 <code>Monad typeclass</code> ，所以它同时是 <code>Functor</code>、<code>Applicative</code> 和 <code>Monad</code> ，具体实现细节将在下面的章节进行介绍。</p>
 
@@ -147,11 +147,11 @@
 
 <p>在正式开始介绍 <code>Functor</code> 前，我们先思考一个这样的问题，假如我们有一个值 <code>2</code> ：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/normal2.png" alt="normal2" /></p>
+<p><img src="/images/normal2.png" alt="normal2" /></p>
 
 <p>我们如何将函数 <code>(+3)</code> 应用到这个值上呢？我想上过小学的朋友应该都知道，这就是一个简单的加法运算：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/value_apply.png" alt="value_apply" /></p>
+<p><img src="/images/value_apply.png" alt="value_apply" /></p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -162,11 +162,11 @@
 
 <p>分分钟搞定。那么问题来了，如果这个值 <code>2</code> 是在一个上下文中呢？比如 <code>Maybe</code> ，此时，这个值 <code>2</code> 就变成了 <code>Just 2</code> ：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/just2.png" alt="just2" /></p>
+<p><img src="/images/just2.png" alt="just2" /></p>
 
 <p>这个时候，我们就不能直接将函数 <code>(+3)</code> 应用到 <code>Just 2</code> 了。那么，我们如何将一个函数应用到一个在上下文中的值呢？</p>
 
-<p><img src="http://blog.leichunfeng.com/images/fmap.png" alt="fmap" /></p>
+<p><img src="/images/fmap.png" alt="fmap" /></p>
 
 <p>是的，我想你应该已经猜到了，<code>Functor</code> 就是干这事的，欲知后事如何，请看下节分解。</p>
 
