@@ -345,7 +345,7 @@
 
 <p><img src="/images/AssociatedObjects1.jpg" title="设置观察点" alt="设置观察点" /></p>
 
-<p>点击继续运行按钮，有一个观察点将被命中。我们先查看 <code>console</code> 中的输出，通过将这一步打印的 <code>old value</code> 和上一步的 <code>new value</code> 进行对比，我们可以知道本次命中的观察点是 <code>string_weak_assign</code> ，<code>string_weak_assign</code> 的值变成了 <code>0x0000000000000000</code> ，也就是 <code>nil</code> 。换句话说 <code>self.associatedObject_assign</code> 指向的对象已经被释放了，而通过查看左侧调用栈我们可以知道，这个对象是由于其所在的 <code>autoreleasepool</code> 被 <code>drain</code> 而被释放的，这与我前面的文章<a href="http://blog.leichunfeng.com/blog/2015/05/31/objective-c-autorelease-pool-implementation-principle/">《Objective-C Autorelease Pool 的实现原理
+<p>点击继续运行按钮，有一个观察点将被命中。我们先查看 <code>console</code> 中的输出，通过将这一步打印的 <code>old value</code> 和上一步的 <code>new value</code> 进行对比，我们可以知道本次命中的观察点是 <code>string_weak_assign</code> ，<code>string_weak_assign</code> 的值变成了 <code>0x0000000000000000</code> ，也就是 <code>nil</code> 。换句话说 <code>self.associatedObject_assign</code> 指向的对象已经被释放了，而通过查看左侧调用栈我们可以知道，这个对象是由于其所在的 <code>autoreleasepool</code> 被 <code>drain</code> 而被释放的，这与我前面的文章<a href="http://leichunfeng.github.io/blog/2015/05/31/objective-c-autorelease-pool-implementation-principle/">《Objective-C Autorelease Pool 的实现原理
 》</a>中的表述是一致的。<strong>提示</strong>，待会你也可以放开 <code>touchesBegan:withEvent:</code> 中第 <code>31</code> 行的注释，在 <code>ViewController</code> 出现后，点击一下它的 <code>view</code> ，进一步验证一下这个结论。</p>
 
 <p><img src="/images/AssociatedObjects2.jpg" title="设置观察点" alt="设置观察点" /></p>
@@ -648,7 +648,7 @@
       
 
 
-      <br>原文链接：<a href="http://blog.leichunfeng.com/blog/2015/06/26/objective-c-associated-objects-implementation-principle/">http://blog.leichunfeng.com/blog/2015/06/26/objective-c-associated-objects-implementation-principle/</a> <!-- 添加原文链接需要增加这一行代码 -->
+      <br>原文链接：<a href="http://leichunfeng.github.io/blog/2015/06/26/objective-c-associated-objects-implementation-principle/">http://leichunfeng.github.io/blog/2015/06/26/objective-c-associated-objects-implementation-principle/</a> <!-- 添加原文链接需要增加这一行代码 -->
     </p>
     
       <div class="sharing">
