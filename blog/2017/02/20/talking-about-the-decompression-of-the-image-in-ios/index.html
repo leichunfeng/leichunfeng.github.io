@@ -118,7 +118,7 @@
 
 <p>其实，位图就是一个像素数组，数组中的每个像素就代表着图片中的一个点。我们在应用中经常用到的 JPEG 和 PNG 图片就是位图。下面，我们来看一个具体的例子，这是一张 PNG 图片，像素为 30 × 30 ，文件大小为 843B ：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/check_green.png" alt="位图" /></p>
+<p><img src="/images/check_green.png" alt="位图" /></p>
 
 <p>我们使用<a href="https://developer.apple.com/library/content/qa/qa1509/_index.html">下面的代码</a>：</p>
 
@@ -295,7 +295,7 @@
 
 <p>有一点需要注意的是，对于位图来说，像素格式并不是随意组合的，目前只支持以下有限的 <a href="https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_context/dq_context.html#//apple_ref/doc/uid/TP30001066-CH203-BCIBHHBB">17 种特定组合</a>：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/Supported Pixel Formats.png" width="738" /></p>
+<p><img src="/images/Supported Pixel Formats.png" width="738" /></p>
 
 <p>从上图可知，对于 iOS 来说，只支持 8 种像素格式。其中颜色空间为 Null 的 1 种，Gray 的 2 种，RGB 的 5 种，CMYK 的 0 种。换句话说，iOS 并不支持 CMYK 的颜色空间。另外，在表格的第 2 列中，除了像素格式外，还指定了 bitmap information constant ，我们在后面会详细介绍。</p>
 
@@ -303,11 +303,11 @@
 
 <p>在上面我们提到了<a href="https://developer.apple.com/library/content/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_color/dq_color.html#//apple_ref/doc/uid/TP30001066-CH205-TPXREF101">颜色空间</a>，那么什么是颜色空间呢？它跟颜色有什么关系呢？在 Quartz 中，一个颜色是由一组值来表示的，比如 0, 0, 1 。而颜色空间则是用来说明如何解析这些值的，离开了颜色空间，它们将变得毫无意义。比如，下面的值都表示蓝色：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/blue_color.png" width="483" /></p>
+<p><img src="/images/blue_color.png" width="483" /></p>
 
 <p>如果不知道颜色空间，那么我们根本无法知道这些值所代表的颜色。比如 0, 0, 1 在 RGB 下代表蓝色，而在 BGR 下则代表的是红色。在 RGB 和 BGR 两种颜色空间下，绿色是相同的，而红色和蓝色则相互对调了。因此，对于同一张图片，使用 RGB 和 BGR 两种颜色空间可能会得到两种不一样的效果：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/color_profiles.png" alt="color_profiles" /></p>
+<p><img src="/images/color_profiles.png" alt="color_profiles" /></p>
 
 <p>是不是感觉非常有意思呢？</p>
 
@@ -445,7 +445,7 @@
 
 <p>下面，我们来看一张图，它非常形象地展示了在使用 16 或 32 位像素格式的 CMYK 和 RGB 颜色空间下，一个像素是如何被表示的：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/pixel%20formats.png" alt="pixel formats" /></p>
+<p><img src="/images/pixel%20formats.png" alt="pixel formats" /></p>
 
 <p>我们从图中可以看出，在 32 位像素格式下，每个颜色分量使用 8 位；而在 16 位像素格式下，每个颜色分量则使用 5 位。</p>
 
@@ -545,7 +545,7 @@
 
 <p>事实上，SDWebImage 和 FLAnimatedImage 中对图片的解压缩过程与上述完全一致，只是传递给 <code>CGBitmapContextCreate</code> 函数的部分参数存在细微的差别，如下表所示：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/CGBitmapContextCreate.png" width="720" /></p>
+<p><img src="/images/CGBitmapContextCreate.png" width="720" /></p>
 
 <p>在上表中，用浅绿色背景标记的参数即为我们在前面的分析中所推荐的参数，用这些参数解压缩后的图片渲染的速度会更快。因此，从理论上说 YYKit 中的解压缩算法是三者之中最优的。</p>
 
@@ -555,7 +555,7 @@
 
 <p>采用的测试样例分别为 5 张 PNG 图片和 5 张 JPEG 图片，像素依次为 128x96 、256x192 、512x384 、1024x768 和 2048x1536 ，它们其实都长一个样：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/128x96.png" alt="128x96" /></p>
+<p><img src="/images/128x96.png" alt="128x96" /></p>
 
 <p>首先，我们来了解下测试的原理，我们可以将从磁盘加载一张图片到最终渲染到屏幕上的过程划分为三个阶段：</p>
 
@@ -570,21 +570,21 @@
 
 <p>首先，我们来看看解压缩 PNG 图片的测试结果：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/decompress_png_compare.png" width="320" /></p>
+<p><img src="/images/decompress_png_compare.png" width="320" /></p>
 
 <p>相应的柱状图如下：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/decompress_png.png" width="600" /></p>
+<p><img src="/images/decompress_png.png" width="600" /></p>
 
 <p>从上图可以看出，就我们采用的测试样例来说，解压缩 PNG 图片的性能 SDWebImage 最好，FLAnimatedImage 次之，YYKit 最差。这与我们前面的理论结果有一定的差距，可能是测试样例太少，也可能这就是真实结果。另外，需要说明的是，我们这里使用的 PNG 图片都是不带 alpha 值，因为 SDWebImage 不支持解压缩带 alpha 值的 PNG 图片。</p>
 
 <p>接着，我们再来看看解压缩 JPEG 图片的测试结果：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/decompress_jpeg_compare.png" width="320" /></p>
+<p><img src="/images/decompress_jpeg_compare.png" width="320" /></p>
 
 <p>相应的柱状图如下：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/decompress_jpeg.png" width="600" /></p>
+<p><img src="/images/decompress_jpeg.png" width="600" /></p>
 
 <p>这次 YYKit 终于翻盘了，解压缩 JPEG 图片的性能最好，SDWebImage 和 FLAnimatedImage 并列第二。</p>
 

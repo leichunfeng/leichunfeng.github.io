@@ -144,7 +144,7 @@
 
 <p><code>ReactiveCocoa</code> 是一个非常复杂的框架，在正式开始介绍它的核心组件前，我们先来看看它的类图，以便从宏观上了解它的层次结构：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/ReactiveCocoa%20v2.5.png" alt="ReactiveCocoa v2.5" /></p>
+<p><img src="/images/ReactiveCocoa%20v2.5.png" alt="ReactiveCocoa v2.5" /></p>
 
 <p>从上面的类图中，我们可以看出，<code>ReactiveCocoa</code> 主要由以下四大核心组件构成：</p>
 
@@ -260,7 +260,7 @@
 
 <p><code>RACStream</code> 是 <code>ReactiveCocoa</code> 中最核心的类，代表的是任意的值流，它是整个 <code>ReactiveCocoa</code> 得以建立的基石，下面是它的继承结构图：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/RACStream.png" alt="RACStream" /></p>
+<p><img src="/images/RACStream.png" alt="RACStream" /></p>
 
 <p>事实上，<code>RACStream</code> 是一个抽象类，通常情况下，我们并不会去实例化它，而是直接使用它的两个子类 <code>RACSignal</code> 和 <code>RACSequence</code> 。那么，问题来了，为什么 <code>RACStream</code> 会被设计成一个抽象类？或者说它的抽象过程是以什么作为依据的呢？</p>
 
@@ -368,7 +368,7 @@
 
 <p><code>RACSubject</code> 代表的是可以手动控制的信号，我们可以把它看作是 <code>RACSignal</code> 的可变版本，就好比 <code>NSMutableArray</code> 是 <code>NSArray</code> 的可变版本一样。<code>RACSubject</code> 继承自 <code>RACSignal</code> ，所以它可以作为信号源被订阅者订阅，同时，它又实现了 <code>RACSubscriber</code> 协议，所以它也可以作为订阅者订阅其他信号源，这个就是 <code>RACSubject</code> 为什么可以手动控制的原因：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/RACSubject.png" width="650" /></p>
+<p><img src="/images/RACSubject.png" width="650" /></p>
 
 <p>根据官方的 <a href="https://github.com/ReactiveCocoa/ReactiveCocoa/blob/v2.5/Documentation/DesignGuidelines.md#avoid-using-subjects-when-possible">Design Guidelines</a> 中的说法，我们应该尽可能少地使用它。因为它太过灵活，我们可以在任何时候任何地方操作它，所以一旦过度使用，就会使代码变得非常复杂，难以理解。</p>
 
@@ -427,7 +427,7 @@
 
 <p>事实上，一个序列的 <code>tail</code> 仍然是一个序列，如果我们将序列看作是一条毛毛虫，那么 <code>head</code> 和 <code>tail</code> 可表示如下：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/listmonster.png" alt="listmonster" /></p>
+<p><img src="/images/listmonster.png" alt="listmonster" /></p>
 
 <p>同样的，一个序列的 <code>tail</code> 也可以看作是由 <code>head</code> 和 <code>tail</code> 组成，而这个新的 <code>tail</code> 又可以继续看作是由 <code>head</code> 和 <code>tail</code> 组成，这个过程可以一直进行下去。而这个就是 <code>RACSequence</code> 得以建立的理论基础，所以一个 <code>RACSequence</code> 子类的最小实现就是 <code>head</code> 和 <code>tail</code> ：</p>
 
@@ -649,13 +649,13 @@
 
 <p>订阅者对信号源的一次订阅过程可以抽象为：通过 <code>RACSignal</code> 的 <code>-subscribe:</code> 方法传入一个订阅者，并最终返回一个 <code>RACDisposable</code> 对象的过程：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/subscribe.png" width="480" /></p>
+<p><img src="/images/subscribe.png" width="480" /></p>
 
 <p><strong>注意</strong>：在 <code>ReactiveCocoa</code> 中并没有专门的类 <code>RACSubscription</code> 来代表一次订阅，而间接地使用 <code>RACDisposable</code> 来充当这一角色。因此，一个 <code>RACDisposable</code> 对象就代表着一次订阅，并且我们可以用它来取消这次订阅，详细内容将会在下面的章节中进行介绍。</p>
 
 <p>除了 <code>RACSignal</code> 的子类外，还有两个实现了 <code>RACSubscriber</code> 协议的类，如下图所示：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/RACSubscriber.png" width="450" /></p>
+<p><img src="/images/RACSubscriber.png" width="450" /></p>
 
 <p>其中，<code>RACSubscriber</code> 类的名字与 <code>RACSubscriber</code> 协议的名字相同，这跟 <code>Objective-C</code> 中的 <code>NSObject</code> 类的名字与 <code>NSObject</code> 协议的名字相同是一样一样的，除了名字相同外，然并卵。通常来说，<code>RACSubscriber</code> 类充当的角色就是信号源的真正订阅者，它老老实实地实现了 <code>RACSubscriber</code> 协议。</p>
 
@@ -700,7 +700,7 @@
 
 <p><code>RACMulticastConnection</code> 通过一个标志 <code>_hasConnected</code> 来保证只对 <code>sourceSignal</code> 订阅一次，然后对外暴露一个 <code>RACSubject</code> 类型的 <code>signal</code> 供外部订阅者订阅。这样一来，不管外部订阅者对 <code>signal</code> 订阅多少次，我们对 <code>sourceSignal</code> 的订阅至多只会有一次：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/RACMulticastConnection.png" alt="RACMulticastConnection" /></p>
+<p><img src="/images/RACMulticastConnection.png" alt="RACMulticastConnection" /></p>
 
 <p><strong>注</strong>：了解 <code>RACMulticastConnection</code> 的实现原理，对于我们后面理解 <code>-replay</code> 、<code>replayLast</code> 和 <code>replayLazily</code> 等方法非常有帮助。</p>
 
@@ -714,7 +714,7 @@
 
 <p>同样的，<code>RACScheduler</code> 的一系列功能也是通过类簇来实现的，除了用来测试的子类外，总共还有四个私有子类：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/RACScheduler.png" width="650" /></p>
+<p><img src="/images/RACScheduler.png" width="650" /></p>
 
 <p>咋看之下，<code>RACScheduler</code> 的儿子貌似还不少，但是真正出力干活的却真心不多，主要就是 <code>RACTargetQueueScheduler</code> 子类：</p>
 
@@ -743,7 +743,7 @@
 
 <p><code>RACDisposable</code> 在 <code>ReactiveCocoa</code> 中就充当着清洁工的角色，它封装了取消和清理一次订阅所必需的工作。它有一个核心的方法 <code>-dispose</code> ，调用这个方法就会执行相应的清理工作，这有点类似于 <code>NSObject</code> 的 <code>-dealloc</code> 方法。<code>RACDisposable</code> 总共有四个子类，它的继承结构图如下：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/RACDisposable.png" width="450" /></p>
+<p><img src="/images/RACDisposable.png" width="450" /></p>
 
 <ul>
 <li><code>RACSerialDisposable</code> ：作为 <code>disposable</code> 的容器使用，可以包含一个 <code>disposable</code> 对象，并且允许将这个 <code>disposable</code> 对象通过原子操作交换出来；</li>
@@ -771,7 +771,7 @@
 <a href="http://blog.devtang.com/blog/2014/02/11/reactivecocoa-introduction/">http://blog.devtang.com/blog/2014/02/11/reactivecocoa-introduction/</a>
 <a href="http://m.oschina.net/blog/294178">http://m.oschina.net/blog/294178</a></p>
 
-<p><img src="http://blog.leichunfeng.com/images/wechat_pay.jpg" width="260" /></p>
+<p><img src="/images/wechat_pay.jpg" width="260" /></p>
 </div>
 
 

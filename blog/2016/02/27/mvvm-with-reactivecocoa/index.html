@@ -105,11 +105,11 @@
 
 <p><code>MVC</code> 是 <code>iOS</code> 开发中使用最普遍的架构模式，同时也是苹果官方推荐的架构模式。<code>MVC</code> 代表的是 <code>Model–view–controller</code> ，它们之间的关系如下：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/M-V-C.png" width="409" /></p>
+<p><img src="/images/M-V-C.png" width="409" /></p>
 
 <p>是的，<code>MVC</code> 看上去棒极了，<code>model</code> 代表数据，<code>view</code> 代表 <code>UI</code> ，而 <code>controller</code> 则负责协调它们两者之间的关系。然而，尽管从技术上看 <code>view</code> 和 <code>controller</code> 是相互独立的，但事实上它们几乎总是结对出现，一个 <code>view</code> 只能与一个 <code>controller</code> 进行匹配，反之亦然。既然如此，那我们为何不将它们看作一个整体呢：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/M-VC.png" width="409" /></p>
+<p><img src="/images/M-VC.png" width="409" /></p>
 
 <p>因此，<code>M-VC</code> 可能是对 <code>iOS</code> 中的 <code>MVC</code> 模式更为准确的解读。在一个典型的 <code>MVC</code> 应用中，<code>controller</code> 由于承载了过多的逻辑，往往会变得臃肿不堪，所以 <code>MVC</code> 也经常被人调侃成 <a href="https://twitter.com/Colin_Campbell/status/293167951132098560">Massive View Controller</a> ：</p>
 
@@ -121,7 +121,7 @@
 
 <p>因此，一种可以很好地解决 <code>Massive View Controller</code> 问题的办法就是将 <code>controller</code> 中的展示逻辑抽取出来，放置到一个专门的地方，而这个地方就是 <code>viewModel</code> 。其实，我们只要在上图中的 <code>M-VC</code> 之间放入 <code>VM</code> ，就可以得到 <code>MVVM</code> 模式的结构图：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/M-V-VM.png" width="409" /></p>
+<p><img src="/images/M-V-VM.png" width="409" /></p>
 
 <p>从上图中，我们可以非常清楚地看到 <code>MVVM</code> 中四个组件之间的关系。<strong>注</strong>：除了 <code>view</code> 、<code>viewModel</code> 和 <code>model</code> 之外，<code>MVVM</code> 中还有一个非常重要的隐含组件 <code>binder</code> ：</p>
 
@@ -361,7 +361,7 @@
 
 <p>为了方便我们从宏观上了解 <code>MVVMReactiveCocoa</code> 的整体结构，我们先来看看它的类图：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/MVVMReactiveCocoa-v2.1.1.png" alt="MVVMReactiveCocoa-v2.1.1" /></p>
+<p><img src="/images/MVVMReactiveCocoa-v2.1.1.png" alt="MVVMReactiveCocoa-v2.1.1" /></p>
 
 <p>从上图中，我们可以看到，在 <code>MVVMReactiveCocoa</code> 中主要有两大继承体系：</p>
 
@@ -379,7 +379,7 @@
 
 <p>经过前面的探讨，我们已经知道了 <code>MVVM</code> 中的 <code>viewModel</code> 的主要职责就是从 <code>model</code> 层获取 <code>view</code> 所需的数据，并且将这些数据转换成 <code>view</code> 能够展示的形式。因此，为了方便 <code>viewModel</code> 层调用 <code>model</code> 层中的所有服务，并且统一管理这些服务的创建，我使用抽象工厂模式将 <code>model</code> 层的所有服务集中管理了起来，结构图如下：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/service-bus.png" width="558" /></p>
+<p><img src="/images/service-bus.png" width="558" /></p>
 
 <p>从上图中，我们可以看出，在服务总线类 <code>MRCViewModelServices/MRCViewModelServicesImpl</code> 中，主要包括以下三个方面的内容：</p>
 
@@ -471,17 +471,17 @@
 
 <p>接下来，我们一起来看看 <code>MVVMReactiveCocoa</code> 在执行了 <code>push/pop</code> 或 <code>present/dismiss</code> 操作后视图层次结构的变化过程。首先，我们来看看用户在登录成功后进入到首页时应用的视图层次结构图：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/view-model-based1.png" width="671" /></p>
+<p><img src="/images/view-model-based1.png" width="671" /></p>
 
 <p>此时，应用展示的界面是 <code>NewsViewController</code> 。在 <code>MRCNavigationControllerStack</code> 堆栈中只有 <code>NavigationController0</code> 一个元素；而 <code>NavigationController1</code> 并没有在 <code>MRCNavigationControllerStack</code> 堆栈中，这是因为需要支持 <code>TabBarController</code> 的滑动切换而设计的视图层次结构，是首页比较特殊的一个地方。更多信息可以查看 <code>GitHub</code> 开源库 <a href="https://github.com/leichunfeng/WXTabBarController">WXTabBarController</a> ，在这里，我们不用太过于关心这个问题，只需要理解原理就好了。</p>
 
 <p>接下来，当用户在 <code>NewsViewController</code> 界面，点击了某一个 <code>cell</code> ，通过 <code>push</code> 的方式，进入到仓库详情界面时，应用的视图层次结构图如下：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/view-model-based2.png" width="184" /></p>
+<p><img src="/images/view-model-based2.png" width="184" /></p>
 
 <p>应用通过 <code>MRCNavigationControllerStack</code> 栈顶的元素 <code>NavigationController0</code> ，将仓库详情界面 <code>push</code> 到了自身的堆栈中。此时，应用展示的界面是被 <code>push</code> 进来的仓库详情界面 <code>RepoDetailViewController</code> 。最后，当用户在仓库详情界面，点击左下角的切换分支按钮，通过 <code>present</code> 的方式，弹出分支选择界面时，应用的视图层次结构图如下：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/view-model-based3.png" width="454" /></p>
+<p><img src="/images/view-model-based3.png" width="454" /></p>
 
 <p>应用通过 <code>MRCNavigationControllerStack</code> 栈顶的元素 <code>NavigationController0</code> ，将 <code>NavigationController5</code> 以 <code>present</code> 的方式弹出来。此时，应用展示的是 <code>NavigationController5</code> 的根视图 <code>SelectBranchOrTagViewController</code> 。<strong>说明</strong>，由于 <code>pop</code> 和 <code>dismiss</code> 与 <code>push</code> 和 <code>present</code> 互为逆操作，所以只要按照从下到上的顺序看上面的视图层次结构图即可，这里不再赘述。</p>
 
@@ -667,7 +667,7 @@
 
 <p>最后，我们一起来看看登录界面中 <code>viewModel</code> 和 <code>view</code> 的部分关键代码，探讨一下 <code>MVVM</code> 的具体实践过程。<strong>说明</strong>，我们将会尽可能地回避具体的业务逻辑，重点关注 <code>MVVM</code> 的实践思路。下面是登录界面的截图：</p>
 
-<p><img src="http://blog.leichunfeng.com/images/login.jpg" width="320" /></p>
+<p><img src="/images/login.jpg" width="320" /></p>
 
 <p>其中，主要的界面元素有：</p>
 
@@ -935,7 +935,7 @@
 <br>
 <a href="http://www.sprynthesis.com/2014/12/06/reactivecocoa-mvvm-introduction/">http://www.sprynthesis.com/2014/12/06/reactivecocoa-mvvm-introduction/</a></p>
 
-<p><img src="http://blog.leichunfeng.com/images/wechat_pay.jpg" width="260" /></p>
+<p><img src="/images/wechat_pay.jpg" width="260" /></p>
 </div>
 
 
